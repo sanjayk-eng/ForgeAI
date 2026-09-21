@@ -6,10 +6,12 @@ import (
 	"ai-agent/internal/modules/auth"
 	"ai-agent/internal/modules/auth/provider"
 	"ai-agent/internal/shared/logger"
+	appdatabase "ai-agent/pkg/database"
 	"context"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 )
 
 type Server struct {
@@ -56,7 +58,17 @@ func runServer() error {
 		GitHubClientSecret: settings.OAuth.GitHubClientSecret,
 		GitHubRedirectURL:  settings.OAuth.GitHubRedirectURL,
 	}, nil)
-	auth.RegisterRoutes(engine, auth.NewHandler(auth.NewService(oauthFactory, appLogger)))
+	var authRepository auth.AuthRepository
+	var db *sqlx.DB
+	if settings.DatabaseURL != "" {
+		db, err = appdatabase.NewPostgres(context.Background(), settings.DatabaseURL)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		authRepository = auth.NewRepository(db)
+	}
+	auth.RegisterRoutes(engine, auth.NewHandler(auth.NewService(oauthFactory, db, authRepository, appLogger)))
 
 	address := fmt.Sprintf("%s:%d", settings.Host, settings.Port)
 	appLogger.With("component", "agent", "environment", settings.AppEnv).Info(context.Background(), "HTTP server started", "address", address)
