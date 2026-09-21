@@ -4,13 +4,14 @@
 @theme {
   --font-sans: 'Manrope', sans-serif;
   --font-mono: 'DM Mono', monospace;
-  --color-forge-bg: #0b1110;
-  --color-forge-panel: #101918;
-  --color-forge-card: #131d1b;
-  --color-forge-soft: #a5b3ae;
-  --color-forge-muted: #7d8d88;
-  --color-forge-accent: #93d8a8;
-  --color-forge-accent-strong: #66c98a;
+  --color-forge-bg: #0e1014;
+  --color-forge-panel: #15181d;
+  --color-forge-card: #191d23;
+  --color-forge-soft: #b1b8c2;
+  --color-forge-muted: #737c88;
+  --color-forge-accent: #c6f36a;
+  --color-forge-accent-strong: #a9dc4f;
+  --color-forge-signal: #ffb86b;
 }
 
 @layer base {
@@ -20,8 +21,13 @@
     min-width: 320px;
     min-height: 100vh;
     margin: 0;
-    color: #edf2ee;
-    background: radial-gradient(circle at top, rgba(120, 171, 142, 0.12), transparent 30%), #0b1110;
+    color: #f1f3f5;
+    background:
+      linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      radial-gradient(circle at 50% -20%, rgba(198, 243, 106, 0.12), transparent 34%),
+      #0e1014;
+    background-size: 48px 48px, 48px 48px, auto, auto;
     font-family: var(--font-sans);
     font-synthesis: none;
     text-rendering: optimizeLegibility;

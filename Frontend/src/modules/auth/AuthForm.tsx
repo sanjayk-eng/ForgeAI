@@ -30,7 +30,7 @@ export function AuthForm({ children, onSubmit, submitLabel, error }: AuthFormPro
         </p>
       )}
       <button
-        className="mt-1 flex h-12 items-center justify-center gap-2 rounded-[10px] border-0 bg-gradient-to-b from-forge-accent-strong to-[#4a9d6d] font-extrabold text-[#07110c] transition hover:-translate-y-px hover:opacity-95 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0"
+        className="mt-1 flex h-12 items-center justify-center gap-2 rounded-[10px] border-0 bg-gradient-to-r from-forge-accent to-forge-signal font-extrabold text-[#111419] shadow-[0_8px_24px_rgba(198,243,106,0.14)] transition hover:-translate-y-px hover:shadow-[0_12px_30px_rgba(198,243,106,0.2)] disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0"
         type="submit"
         disabled={submitting}
       >

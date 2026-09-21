@@ -4,7 +4,7 @@ import { getCurrentUser } from "../auth/api";
 import { useAuth } from "../auth/useAuth";
 
 const cardClass =
-  "min-h-[250px] rounded-[18px] border border-white/15 bg-white/[0.02] p-[22px] shadow-[0_24px_60px_rgba(0,0,0,0.28)]";
+  "min-h-[250px] rounded-[18px] border border-white/15 bg-forge-card/75 p-[22px] shadow-[0_24px_60px_rgba(0,0,0,0.28)] transition duration-300 hover:-translate-y-1 hover:border-forge-accent/35 hover:bg-forge-card";
 const iconClass =
   "mb-[22px] grid size-[38px] place-items-center rounded-[10px] border border-white/15 bg-white/[0.02] text-forge-soft";
 const eyebrowClass =
@@ -32,17 +32,17 @@ export function WorkspacePage() {
     .toUpperCase();
 
   return (
-    <main className="min-h-screen bg-forge-bg px-6 pb-12 text-[#edf2ee] lg:px-[6vw] lg:pb-[72px]">
+    <main className="min-h-screen bg-forge-bg px-6 pb-12 text-[#f1f3f5] lg:px-[6vw] lg:pb-[72px]">
       <header className="flex flex-wrap items-center justify-between gap-5 border-b border-white/15 py-[18px] lg:h-[82px] lg:py-0">
         <div className="flex items-center gap-3 font-extrabold">
-          <span className="grid size-8 place-items-center rounded-lg border border-forge-accent/50 bg-forge-accent/5 tracking-[-0.12em] text-forge-accent">
+          <span className="grid size-8 place-items-center rounded-lg border border-forge-accent/50 bg-forge-accent/10 tracking-[-0.12em] text-forge-accent shadow-[0_0_20px_rgba(198,243,106,0.12)]">
             F/
           </span>
           <span>ForgeAI</span>
         </div>
 
-        <nav className="order-3 flex w-full items-center justify-between gap-1 rounded-full border border-white/15 bg-white/[0.02] p-1 lg:order-none lg:w-auto lg:justify-start" aria-label="Main navigation">
-          <button type="button" className="rounded-full bg-white/[0.06] px-3 py-2 text-xs font-bold text-[#edf2ee]">
+        <nav className="order-3 flex w-full items-center justify-between gap-1 rounded-full border border-white/15 bg-forge-panel/80 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.18)] lg:order-none lg:w-auto lg:justify-start" aria-label="Main navigation">
+          <button type="button" className="rounded-full bg-forge-accent px-3 py-2 text-xs font-bold text-[#111419] shadow-[0_0_16px_rgba(198,243,106,0.16)]">
             Overview
           </button>
           <button type="button" className="rounded-full px-3 py-2 text-xs font-bold text-forge-soft">
@@ -54,7 +54,7 @@ export function WorkspacePage() {
         </nav>
 
         <div className="flex items-center gap-3 text-xs text-forge-soft">
-          <div className="grid size-9 place-items-center rounded-full border border-forge-accent/45 bg-forge-accent/10 font-mono text-[11px] font-bold text-forge-accent" aria-hidden="true">
+          <div className="grid size-9 place-items-center rounded-full border border-forge-accent/45 bg-forge-accent/10 font-mono text-[11px] font-bold text-forge-accent shadow-[0_0_18px_rgba(198,243,106,0.12)]" aria-hidden="true">
             {initials}
           </div>
           <div className="flex min-w-0 flex-col items-end leading-tight">
@@ -83,7 +83,7 @@ export function WorkspacePage() {
       </section>
 
       <section className="grid gap-4 pt-5 lg:grid-cols-[1.35fr_1.1fr_1fr]">
-        <article className={`${cardClass} bg-gradient-to-b from-[#142320e6] to-[#101918e6]`}>
+        <article className={`${cardClass} bg-gradient-to-br from-[#202c25] via-[#1a2020] to-[#191d23]`}>
           <div className={`${iconClass} text-forge-accent`}>
             <Sparkles size={18} />
           </div>
