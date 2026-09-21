@@ -2,20 +2,19 @@ package factory
 
 import (
 	"fmt"
-	"os"
-	"runtime"
 
 	"ai-agent/internal/shared/executor"
 	"ai-agent/internal/shared/executor/shell"
+	"ai-agent/internal/shared/executor/spec"
 )
 
-type Shell string
+type Shell = spec.Shell
 
 const (
-	ShellPowerShell Shell = "powershell"
-	ShellCMD        Shell = "cmd"
-	ShellBash       Shell = "bash"
-	ShellZsh        Shell = "zsh"
+	ShellPowerShell = spec.ShellPowerShell
+	ShellCMD        = spec.ShellCMD
+	ShellBash       = spec.ShellBash
+	ShellZsh        = spec.ShellZsh
 )
 
 func Create(selected Shell) (executor.CommandExecutor, error) {
@@ -33,23 +32,10 @@ func Create(selected Shell) (executor.CommandExecutor, error) {
 	}
 }
 
-func DetectShell() Shell {
-	if runtime.GOOS == "windows" {
-		if os.Getenv("COMSPEC") != "" {
-			return ShellCMD
-		}
-		return ShellPowerShell
-	}
-
-	if os.Getenv("SHELL") == "/bin/zsh" {
-		return ShellZsh
-	}
-	return ShellBash
-}
 
 func Resolve(selected Shell) (executor.CommandExecutor, Shell, error) {
 	if selected == "" {
-		selected = DetectShell()
+		selected = executor.DetectShell()
 	}
 
 	created, err := Create(selected)
