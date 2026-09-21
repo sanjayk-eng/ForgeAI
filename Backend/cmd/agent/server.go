@@ -3,9 +3,11 @@ package main
 import (
 	"ai-agent/internal/config"
 	"ai-agent/internal/shared/executor"
+	"ai-agent/internal/shared/executor/factory"
 	"ai-agent/internal/shared/logger"
 	"context"
 	"fmt"
+	"log"
 )
 
 type Server struct {
@@ -34,7 +36,14 @@ func runServer() error {
 
 	fmt.Println("==========", shell)
 
-	// executor, _ := factory.Create(shell)
-	// executor.Execute(context.Background() , )
+	executor, _ := factory.Create(shell)
+	command := "New-Item -Path test.txt -ItemType File -Force"
+	if shell == factory.ShellBash {
+		command = "set -euo pipefail; touch test.txt"
+	}
+	_, err = executor.Execute(context.Background(), command)
+	if err != nil {
+		log.Fatalf("error %v", err)
+	}
 	return nil
 }

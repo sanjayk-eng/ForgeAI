@@ -1,5 +1,4 @@
 package executor
-package executor
 
 import (
 	"os"
