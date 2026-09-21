@@ -1,44 +1,74 @@
 package validate
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 
+	"github.com/gin-gonic/gin"
 	validator "github.com/go-playground/validator/v10"
 )
 
 var engine = validator.New()
 
-func Validate(value any) error {
-	if value == nil {
-		return errors.New("value is required")
+func BindAndValidate(c *gin.Context, data any, overrides ...func()) error {
+	// 1. Bind JSON body
+	if err := c.ShouldBindJSON(data); err != nil {
+		var validationErrs validator.ValidationErrors
+
+		if errors.As(err, &validationErrs) {
+			return FormatValidationErrors(validationErrs)
+		}
+
+		return err
 	}
-	if err := engine.Struct(value); err != nil {
-		return formatError(err)
+	for _, override := range overrides {
+		override()
 	}
+	if err := engine.Struct(data); err != nil {
+		var validationErrs validator.ValidationErrors
+
+		if errors.As(err, &validationErrs) {
+			return FormatValidationErrors(validationErrs)
+		}
+
+		return err
+	}
+
 	return nil
 }
 
-func BindAndValidate[T any](body io.Reader) (T, error) {
-	var value T
-	decoder := json.NewDecoder(body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&value); err != nil {
-		return value, fmt.Errorf("decode request: %w", err)
-	}
-	if err := Validate(value); err != nil {
-		return value, err
-	}
-	return value, nil
-}
+func FormatValidationErrors(errs validator.ValidationErrors) error {
+	errors := make(map[string]string)
 
-func formatError(err error) error {
-	validationErrors, ok := err.(validator.ValidationErrors)
-	if !ok {
-		return fmt.Errorf("validate request: %w", err)
+	for _, err := range errs {
+		field := err.Field()
+		switch err.Tag() {
+		case "required":
+			errors[field] = "is required"
+		case "email":
+			errors[field] = "must be a valid email"
+		case "min":
+			errors[field] = fmt.Sprintf(
+				"must be at least %s",
+				err.Param(),
+			)
+		case "max":
+			errors[field] = fmt.Sprintf(
+				"must be at most %s",
+				err.Param(),
+			)
+		case "len":
+			errors[field] = fmt.Sprintf(
+				"must be %s characters",
+				err.Param(),
+			)
+		case "uuid":
+			errors[field] = "must be a valid UUID"
+
+		default:
+			errors[field] = "is invalid"
+		}
 	}
-	first := validationErrors[0]
-	return fmt.Errorf("%s failed validation: %s", first.Field(), first.Tag())
+
+	return fmt.Errorf("validation failed: %v", errors)
 }
