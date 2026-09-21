@@ -35,7 +35,7 @@ export function LoginPage() {
 
   return (
     <div className="mx-auto w-full max-w-[420px]">
-      <div className="mb-7">
+      <div className="mb-7 lg:mb-5">
         <p className="m-0 font-mono text-[11px] uppercase tracking-[0.08em] text-forge-accent">
           Welcome back
         </p>
@@ -62,7 +62,7 @@ export function LoginPage() {
         <PasswordField value={password} onChange={setPassword} />
       </AuthForm>
 
-      <div className="my-6 flex items-center gap-3 font-mono text-[10px] uppercase text-forge-muted before:h-px before:flex-1 before:bg-white/15 after:h-px after:flex-1 after:bg-white/15">
+      <div className="my-6 flex items-center gap-3 font-mono text-[10px] uppercase text-forge-muted before:h-px before:flex-1 before:bg-white/15 after:h-px after:flex-1 after:bg-white/15 lg:my-4">
         <span>or continue with</span>
       </div>
 

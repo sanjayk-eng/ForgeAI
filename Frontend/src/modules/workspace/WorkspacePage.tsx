@@ -4,7 +4,7 @@ import { getCurrentUser } from "../auth/api";
 import { useAuth } from "../auth/useAuth";
 
 const cardClass =
-  "min-h-[250px] rounded-[18px] border border-white/15 bg-forge-card/75 p-[22px] shadow-[0_24px_60px_rgba(0,0,0,0.28)] transition duration-300 hover:-translate-y-1 hover:border-forge-accent/35 hover:bg-forge-card";
+  "min-h-[250px] rounded-[18px] border border-white/15 bg-forge-card/75 p-[22px] shadow-[0_24px_60px_rgba(0,0,0,0.28)] transition duration-300 hover:-translate-y-1 hover:border-forge-accent/35 hover:bg-forge-card lg:min-h-0";
 const iconClass =
   "mb-[22px] grid size-[38px] place-items-center rounded-[10px] border border-white/15 bg-white/[0.02] text-forge-soft";
 const eyebrowClass =
@@ -32,7 +32,7 @@ export function WorkspacePage() {
     .toUpperCase();
 
   return (
-    <main className="min-h-screen bg-forge-bg px-6 pb-12 text-[#f1f3f5] lg:px-[6vw] lg:pb-[72px]">
+    <main className="animate-page-enter min-h-screen bg-forge-bg px-6 pb-12 text-[#f1f3f5] lg:h-screen lg:min-h-0 lg:overflow-hidden lg:px-[6vw] lg:pb-6">
       <header className="flex flex-wrap items-center justify-between gap-5 border-b border-white/15 py-[18px] lg:h-[82px] lg:py-0">
         <div className="flex items-center gap-3 font-extrabold">
           <span className="grid size-8 place-items-center rounded-lg border border-forge-accent/50 bg-forge-accent/10 tracking-[-0.12em] text-forge-accent shadow-[0_0_20px_rgba(198,243,106,0.12)]">
@@ -72,7 +72,7 @@ export function WorkspacePage() {
         </div>
       </header>
 
-      <section className="border-b border-white/15 py-[60px] lg:py-[76px]">
+      <section className="border-b border-white/15 py-10 lg:py-11">
         <p className={eyebrowClass}>Workspace overview</p>
         <h1 className="my-3 max-w-[720px] text-[clamp(42px,5.3vw,72px)] font-extrabold leading-[0.96] tracking-[-0.07em]">
           Good to see you, {firstName}.
@@ -82,7 +82,7 @@ export function WorkspacePage() {
         </p>
       </section>
 
-      <section className="grid gap-4 pt-5 lg:grid-cols-[1.35fr_1.1fr_1fr]">
+      <section className="grid gap-4 pt-5 lg:grid-cols-[1.35fr_1.1fr_1fr] lg:grid-rows-[minmax(0,1fr)]">
         <article className={`${cardClass} bg-gradient-to-br from-[#202c25] via-[#1a2020] to-[#191d23]`}>
           <div className={`${iconClass} text-forge-accent`}>
             <Sparkles size={18} />
