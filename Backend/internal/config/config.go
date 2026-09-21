@@ -16,9 +16,19 @@ type Config struct {
 	Port        int
 	DatabaseURL string
 	CORSOrigins string
+	OAuth       OAuthConfig
 	LogLevel    zapcore.Level
 	LogFormat   string
 	LogSource   bool
+}
+
+type OAuthConfig struct {
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string
+	GitHubClientID     string
+	GitHubClientSecret string
+	GitHubRedirectURL  string
 }
 
 const (

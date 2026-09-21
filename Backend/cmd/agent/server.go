@@ -3,6 +3,8 @@ package main
 import (
 	"ai-agent/internal/config"
 	"ai-agent/internal/middleware"
+	"ai-agent/internal/modules/auth"
+	"ai-agent/internal/modules/auth/provider"
 	"ai-agent/internal/shared/logger"
 	"context"
 	"fmt"
@@ -46,6 +48,15 @@ func runServer() error {
 	engine.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+	oauthFactory := provider.NewFactory(provider.Config{
+		GoogleClientID:     settings.OAuth.GoogleClientID,
+		GoogleClientSecret: settings.OAuth.GoogleClientSecret,
+		GoogleRedirectURL:  settings.OAuth.GoogleRedirectURL,
+		GitHubClientID:     settings.OAuth.GitHubClientID,
+		GitHubClientSecret: settings.OAuth.GitHubClientSecret,
+		GitHubRedirectURL:  settings.OAuth.GitHubRedirectURL,
+	}, nil)
+	auth.RegisterRoutes(engine, auth.NewHandler(auth.NewService(oauthFactory, appLogger)))
 
 	address := fmt.Sprintf("%s:%d", settings.Host, settings.Port)
 	appLogger.With("component", "agent", "environment", settings.AppEnv).Info(context.Background(), "HTTP server started", "address", address)

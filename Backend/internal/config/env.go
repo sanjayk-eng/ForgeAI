@@ -10,8 +10,16 @@ func loadFromEnv(get getenv) (Config, error) {
 		Host:        envOr(get, envHost, defaultHost),
 		DatabaseURL: get(envDatabaseURL),
 		CORSOrigins: envOr(get, envCORSOrigins, defaultCORSOrigins),
-		LogFormat:   strings.ToLower(envOr(get, envLogFormat, defaultLogFormat)),
-		LogSource:   defaultLogSource,
+		OAuth: OAuthConfig{
+			GoogleClientID:     get("GOOGLE_CLIENT_ID"),
+			GoogleClientSecret: get("GOOGLE_CLIENT_SECRET"),
+			GoogleRedirectURL:  get("GOOGLE_REDIRECT_URL"),
+			GitHubClientID:     get("GITHUB_CLIENT_ID"),
+			GitHubClientSecret: get("GITHUB_CLIENT_SECRET"),
+			GitHubRedirectURL:  get("GITHUB_REDIRECT_URL"),
+		},
+		LogFormat: strings.ToLower(envOr(get, envLogFormat, defaultLogFormat)),
+		LogSource: defaultLogSource,
 	}
 
 	port, err := parsePort(envOr(get, envPort, defaultPort))
