@@ -30,12 +30,17 @@ func (handler *Handler) OAuthCallback(c *gin.Context) {
 		return
 	}
 
-	user, err := handler.service.ExchangeCode(c.Request.Context(), ProviderType(providerType), code)
+	result, err := handler.service.AuthenticateOAuth(c.Request.Context(), ProviderType(providerType), code)
 	if err != nil {
-		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeBadRequest, err.Error(), nil)
+		code, message := apierrors.CodeOf(err)
+		status := http.StatusInternalServerError
+		if code == apierrors.ErrCodeValidation || code == apierrors.ErrCodeBadRequest {
+			status = http.StatusBadRequest
+		}
+		apierrors.Error(c, status, code, message, nil)
 		return
 	}
-	apierrors.Success(c, http.StatusOK, "OAuth code exchanged", user)
+	apierrors.Success(c, http.StatusOK, "authentication successful", result)
 }
 
 func (handler *Handler) Register(c *gin.Context) {

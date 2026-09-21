@@ -13,9 +13,11 @@ import (
 
 type AuthRepository interface {
 	CreateUser(ctx context.Context, tx *sqlx.Tx, email, name, passwordHash string) (string, error)
+	FindOAuthUserID(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, providerUserID string) (string, error)
+	FindUserIDByEmail(ctx context.Context, tx *sqlx.Tx, email string) (string, error)
 	FindCredentials(ctx context.Context, email string) (UserCredentials, error)
-	SaveUser(ctx context.Context, tx *sqlx.Tx, user OAuthUser) (string, error)
-	SaveOAuthAccount(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, userID, providerUserID string) error
+	CreateOAuthUser(ctx context.Context, tx *sqlx.Tx, email, name string) (string, error)
+	CreateOAuthAccount(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, userID, providerUserID string) error
 }
 
 type repository struct {
@@ -29,6 +31,35 @@ type UserCredentials struct {
 
 func NewRepository(db *sqlx.DB) AuthRepository {
 	return &repository{db: db}
+}
+
+func (repo *repository) FindOAuthUserID(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, providerUserID string) (string, error) {
+	var userID string
+	err := tx.GetContext(ctx, &userID, `
+		SELECT oa.user_id
+		FROM tbl_oauth_account oa
+		JOIN tbl_enum e ON e.id = oa.provider_id
+		WHERE e.category = 'AUTH_PROVIDER' AND e.code = $1 AND oa.provider_user_id = $2`,
+		strings.ToUpper(string(providerType)), providerUserID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", sql.ErrNoRows
+	}
+	if err != nil {
+		return "", fmt.Errorf("find OAuth account: %w", err)
+	}
+	return userID, nil
+}
+
+func (repo *repository) FindUserIDByEmail(ctx context.Context, tx *sqlx.Tx, email string) (string, error) {
+	var userID string
+	err := tx.GetContext(ctx, &userID, `SELECT id FROM tbl_user WHERE email = $1`, email)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", sql.ErrNoRows
+	}
+	if err != nil {
+		return "", fmt.Errorf("find user by email: %w", err)
+	}
+	return userID, nil
 }
 
 func (repo *repository) FindCredentials(ctx context.Context, email string) (UserCredentials, error) {
@@ -63,30 +94,25 @@ func (repo *repository) CreateUser(ctx context.Context, tx *sqlx.Tx, email, name
 	return userID, nil
 }
 
-func (repo *repository) SaveUser(ctx context.Context, tx *sqlx.Tx, user OAuthUser) (string, error) {
+func (repo *repository) CreateOAuthUser(ctx context.Context, tx *sqlx.Tx, email, name string) (string, error) {
 	var userID string
 	if err := tx.GetContext(ctx, &userID, `
 			INSERT INTO tbl_user (email, name)
 			VALUES ($1, $2)
-			ON CONFLICT (email) DO UPDATE SET
-				name = EXCLUDED.name,
-				updated_at = NOW()
-			RETURNING id`, user.Email, user.Name); err != nil {
-		return "", fmt.Errorf("save user: %w", err)
+			RETURNING id`, email, name); err != nil {
+		return "", fmt.Errorf("create OAuth user: %w", err)
 	}
 	return userID, nil
 }
 
-func (repo *repository) SaveOAuthAccount(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, userID, providerUserID string) error {
+func (repo *repository) CreateOAuthAccount(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, userID, providerUserID string) error {
 	providerCode := strings.ToUpper(string(providerType))
 	result, err := tx.ExecContext(ctx, `
 			INSERT INTO tbl_oauth_account (user_id, provider_id, provider_user_id)
 			SELECT $1, id, $3
 			FROM tbl_enum
 			WHERE category = 'AUTH_PROVIDER' AND code = $2
-			ON CONFLICT (provider_id, provider_user_id) DO UPDATE SET
-				user_id = EXCLUDED.user_id,
-				updated_at = NOW()`, userID, providerCode, providerUserID)
+			`, userID, providerCode, providerUserID)
 	if err != nil {
 		return fmt.Errorf("save oauth account: %w", err)
 	}

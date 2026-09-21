@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 
 	"ai-agent/internal/modules/auth/provider"
@@ -15,14 +16,18 @@ import (
 )
 
 type Service struct {
-	factory *provider.Factory
+	factory ProviderFactory
 	db      *sqlx.DB
 	repo    AuthRepository
 	jwt     *appjwt.Manager
 	log     logger.Logger
 }
 
-func NewService(factory *provider.Factory, db *sqlx.DB, repo AuthRepository, jwt *appjwt.Manager, log logger.Logger) *Service {
+type ProviderFactory interface {
+	Create(providerType string) (provider.ServiceProvider, error)
+}
+
+func NewService(factory ProviderFactory, db *sqlx.DB, repo AuthRepository, jwt *appjwt.Manager, log logger.Logger) *Service {
 	return &Service{factory: factory, db: db, repo: repo, jwt: jwt, log: log}
 }
 
@@ -73,36 +78,54 @@ func (service *Service) Login(ctx context.Context, input LoginRequest) (AuthResp
 	return AuthResponse{Token: token}, nil
 }
 
-func (service *Service) ExchangeCode(ctx context.Context, providerType ProviderType, code string) (OAuthUser, error) {
+func (service *Service) AuthenticateOAuth(ctx context.Context, providerType ProviderType, code string) (AuthResponse, error) {
+	if service.factory == nil || service.db == nil || service.repo == nil || service.jwt == nil {
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "OAuth is not configured", nil)
+	}
 	oauthProvider, err := service.factory.Create(string(providerType))
 	if err != nil {
 		if service.log != nil {
 			service.log.Warn(ctx, "OAuth provider selection failed", "provider", providerType, "error", err)
 		}
-		return OAuthUser{}, err
+		return AuthResponse{}, err
 	}
 	user, err := oauthProvider.ExchangeCode(ctx, code)
 	if err != nil && service.log != nil {
 		service.log.Error(ctx, "OAuth code exchange failed", "provider", providerType, "error", err)
 	}
 	if err != nil {
-		return OAuthUser{}, err
+		return AuthResponse{}, err
 	}
 
 	result := OAuthUser{ProviderID: user.ProviderID, Email: user.Email, Name: user.Name, AvatarURL: user.AvatarURL}
-	if service.db != nil && service.repo != nil {
-		if err := appdatabase.WithTx(ctx, service.db, func(ctx context.Context, tx *sqlx.Tx) error {
-			userID, err := service.repo.SaveUser(ctx, tx, result)
-			if err != nil {
-				return err
-			}
-			return service.repo.SaveOAuthAccount(ctx, tx, providerType, userID, result.ProviderID)
-		}); err != nil {
-			if service.log != nil {
-				service.log.Error(ctx, "OAuth user persistence failed", "provider", providerType, "error", err)
-			}
-			return OAuthUser{}, err
+	var userID string
+	if err := appdatabase.WithTx(ctx, service.db, func(ctx context.Context, tx *sqlx.Tx) error {
+		userID, err = service.repo.FindOAuthUserID(ctx, tx, providerType, result.ProviderID)
+		if err == nil {
+			return nil
 		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+
+		userID, err = service.repo.FindUserIDByEmail(ctx, tx, result.Email)
+		if errors.Is(err, sql.ErrNoRows) {
+			userID, err = service.repo.CreateOAuthUser(ctx, tx, result.Email, result.Name)
+		}
+		if err != nil {
+			return err
+		}
+		return service.repo.CreateOAuthAccount(ctx, tx, providerType, userID, result.ProviderID)
+	}); err != nil {
+		if service.log != nil {
+			service.log.Error(ctx, "OAuth authentication persistence failed", "provider", providerType, "error", err)
+		}
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "OAuth authentication failed", err)
 	}
-	return result, nil
+
+	token, err := service.jwt.Generate(userID)
+	if err != nil {
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "token generation failed", err)
+	}
+	return AuthResponse{Token: token}, nil
 }
