@@ -51,16 +51,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const acceptTokens = useCallback(async (nextTokens: AuthTokens) => {
     writeTokens(nextTokens);
     setTokens(nextTokens);
-    setUser(await getCurrentUser(nextTokens.access_token));
+    try {
+      const currentUser = await getCurrentUser(nextTokens.access_token);
+      setUser(currentUser);
+    } catch {
+      setUser(null);
+    }
   }, []);
 
-  const signIn = useCallback(async (input: Credentials) => {
-    await acceptTokens(await login(input));
-  }, [acceptTokens]);
+  const signIn = useCallback(
+    async (input: Credentials) => {
+      await acceptTokens(await login(input));
+    },
+    [acceptTokens],
+  );
 
-  const signUp = useCallback(async (input: Registration) => {
-    await acceptTokens(await register(input));
-  }, [acceptTokens]);
+  const signUp = useCallback(
+    async (input: Registration) => {
+      await acceptTokens(await register(input));
+    },
+    [acceptTokens],
+  );
 
   const signOut = useCallback(() => {
     clearTokens();
@@ -69,7 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, tokens, loading, signIn, signUp, acceptTokens, signOut }}>
+    <AuthContext.Provider
+      value={{ user, tokens, loading, signIn, signUp, acceptTokens, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );

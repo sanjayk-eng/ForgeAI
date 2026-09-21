@@ -1,7 +1,17 @@
 import { ArrowRight, BriefcaseBusiness, LogOut, Sparkles, Workflow } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "../auth/useAuth";
 import { getCurrentUser } from "../auth/api";
+import { useAuth } from "../auth/useAuth";
+
+const cardClass =
+  "min-h-[250px] rounded-[18px] border border-white/15 bg-white/[0.02] p-[22px] shadow-[0_24px_60px_rgba(0,0,0,0.28)]";
+const iconClass =
+  "mb-[22px] grid size-[38px] place-items-center rounded-[10px] border border-white/15 bg-white/[0.02] text-forge-soft";
+const eyebrowClass =
+  "m-0 font-mono text-[11px] uppercase tracking-[0.08em] text-forge-accent";
+const cardTitleClass =
+  "my-2 max-w-[300px] text-2xl font-extrabold leading-[1.12] tracking-[-0.04em]";
+const cardTextClass = "m-0 max-w-[300px] text-[13px] leading-[1.6] text-forge-soft";
 
 export function WorkspacePage() {
   const { user, tokens, signOut } = useAuth();
@@ -10,61 +20,103 @@ export function WorkspacePage() {
     queryFn: () => getCurrentUser(tokens!.access_token),
     enabled: Boolean(tokens?.access_token),
   });
-
   const currentUser = profile ?? user;
-  const firstName = currentUser?.name.split(" ")[0] ?? "there";
+  const displayName = currentUser?.name?.trim() || "Workspace user";
+  const firstName = currentUser?.name?.trim() ? displayName.split(/\s+/)[0] : "there";
+  const email = currentUser?.email?.trim() || "No email available";
+  const initials = displayName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 
   return (
-    <main className="workspace-shell">
-      <header className="workspace-nav">
-        <div className="brand-lockup">
-          <span className="brand-mark">F/</span>
+    <main className="min-h-screen bg-forge-bg px-6 pb-12 text-[#edf2ee] lg:px-[6vw] lg:pb-[72px]">
+      <header className="flex flex-wrap items-center justify-between gap-5 border-b border-white/15 py-[18px] lg:h-[82px] lg:py-0">
+        <div className="flex items-center gap-3 font-extrabold">
+          <span className="grid size-8 place-items-center rounded-lg border border-forge-accent/50 bg-forge-accent/5 tracking-[-0.12em] text-forge-accent">
+            F/
+          </span>
           <span>ForgeAI</span>
         </div>
 
-        <nav className="workspace-tabs" aria-label="Main navigation">
-          <button type="button" className="tab-button active">Overview</button>
-          <button type="button" className="tab-button">Agents</button>
-          <button type="button" className="tab-button">Projects</button>
+        <nav className="order-3 flex w-full items-center justify-between gap-1 rounded-full border border-white/15 bg-white/[0.02] p-1 lg:order-none lg:w-auto lg:justify-start" aria-label="Main navigation">
+          <button type="button" className="rounded-full bg-white/[0.06] px-3 py-2 text-xs font-bold text-[#edf2ee]">
+            Overview
+          </button>
+          <button type="button" className="rounded-full px-3 py-2 text-xs font-bold text-forge-soft">
+            Agents
+          </button>
+          <button type="button" className="rounded-full px-3 py-2 text-xs font-bold text-forge-soft">
+            Projects
+          </button>
         </nav>
 
-        <div className="user-menu">
-          <span>{currentUser?.email}</span>
-          <button className="icon-button" title="Sign out" aria-label="Sign out" onClick={signOut}>
+        <div className="flex items-center gap-3 text-xs text-forge-soft">
+          <div className="grid size-9 place-items-center rounded-full border border-forge-accent/45 bg-forge-accent/10 font-mono text-[11px] font-bold text-forge-accent" aria-hidden="true">
+            {initials}
+          </div>
+          <div className="flex min-w-0 flex-col items-end leading-tight">
+            <span className="max-w-[150px] truncate font-bold text-[#edf2ee]">{displayName}</span>
+            <span className="max-w-[220px] truncate text-[11px] text-forge-muted max-[560px]:hidden">{email}</span>
+          </div>
+          <button
+            className="grid place-items-center border-0 bg-transparent text-forge-soft transition hover:text-forge-accent"
+            title="Sign out"
+            aria-label="Sign out"
+            onClick={signOut}
+          >
             <LogOut size={18} />
           </button>
         </div>
       </header>
 
-      <section className="workspace-hero">
-        <p className="eyebrow">Workspace overview</p>
-        <h1>Good to see you, {firstName}.</h1>
-        <p>Your workspace is ready for the next task, code review, or agent run.</p>
+      <section className="border-b border-white/15 py-[60px] lg:py-[76px]">
+        <p className={eyebrowClass}>Workspace overview</p>
+        <h1 className="my-3 max-w-[720px] text-[clamp(42px,5.3vw,72px)] font-extrabold leading-[0.96] tracking-[-0.07em]">
+          Good to see you, {firstName}.
+        </h1>
+        <p className="m-0 max-w-[600px] text-base leading-[1.6] text-forge-soft">
+          Your workspace is ready for the next task, code review, or agent run.
+        </p>
       </section>
 
-      <section className="workspace-grid">
-        <article className="workspace-card primary-card">
-          <div className="card-icon"><Sparkles size={18} /></div>
-          <p className="eyebrow">Agent studio</p>
-          <h2>Turn rough work into clear execution.</h2>
-          <p>Start with a goal, keep the context tight, and move quickly with a structured workflow.</p>
-          <button type="button" className="card-action">
+      <section className="grid gap-4 pt-5 lg:grid-cols-[1.35fr_1.1fr_1fr]">
+        <article className={`${cardClass} bg-gradient-to-b from-[#142320e6] to-[#101918e6]`}>
+          <div className={`${iconClass} text-forge-accent`}>
+            <Sparkles size={18} />
+          </div>
+          <p className={eyebrowClass}>Agent studio</p>
+          <h2 className={cardTitleClass}>Turn rough work into clear execution.</h2>
+          <p className={cardTextClass}>
+            Start with a goal, keep the context tight, and move quickly with a structured workflow.
+          </p>
+          <button type="button" className="mt-5 inline-flex items-center gap-2 border-0 bg-transparent p-0 font-bold text-forge-accent">
             Open studio <ArrowRight size={16} />
           </button>
         </article>
 
-        <article className="workspace-card">
-          <div className="card-icon muted"><Workflow size={18} /></div>
-          <p className="eyebrow">Flow</p>
-          <h2>Simple, focused, and reliable.</h2>
-          <p>Keep the work visible and your decisions connected to the actual project context.</p>
+        <article className={cardClass}>
+          <div className={iconClass}>
+            <Workflow size={18} />
+          </div>
+          <p className={eyebrowClass}>Flow</p>
+          <h2 className={cardTitleClass}>Simple, focused, and reliable.</h2>
+          <p className={cardTextClass}>
+            Keep the work visible and your decisions connected to the actual project context.
+          </p>
         </article>
 
-        <article className="workspace-card">
-          <div className="card-icon muted"><BriefcaseBusiness size={18} /></div>
-          <p className="eyebrow">Projects</p>
-          <h2>One place for active work.</h2>
-          <p>Connect a repo, track the next move, and keep the work moving without extra friction.</p>
+        <article className={cardClass}>
+          <div className={iconClass}>
+            <BriefcaseBusiness size={18} />
+          </div>
+          <p className={eyebrowClass}>Projects</p>
+          <h2 className={cardTitleClass}>One place for active work.</h2>
+          <p className={cardTextClass}>
+            Connect a repo, track the next move, and keep the work moving without extra friction.
+          </p>
         </article>
       </section>
     </main>

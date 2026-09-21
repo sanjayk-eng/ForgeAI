@@ -17,6 +17,11 @@ export class ApiError extends Error {
   }
 }
 
+type ApiResponse<T> = {
+  data?: T;
+  error?: Partial<ApiErrorPayload>;
+};
+
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -26,13 +31,14 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     },
   });
 
-  const payload = (await response.json().catch(() => null)) as {
-    data?: T;
-    error?: Partial<ApiErrorPayload>;
-  } | null;
+  const payload = (await response.json().catch(() => null)) as ApiResponse<T> | null;
 
   if (!response.ok) {
-    throw new ApiError(payload?.error?.message ?? "Something went wrong", response.status, payload?.error?.code);
+    throw new ApiError(
+      payload?.error?.message ?? "Something went wrong",
+      response.status,
+      payload?.error?.code,
+    );
   }
 
   return payload?.data as T;

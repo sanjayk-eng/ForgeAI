@@ -1,7 +1,14 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 
-export function AuthForm({ children, onSubmit, submitLabel, error }: { children: ReactNode; onSubmit: () => Promise<void>; submitLabel: string; error: string }) {
+type AuthFormProps = {
+  children: ReactNode;
+  onSubmit: () => Promise<void>;
+  submitLabel: string;
+  error: string;
+};
+
+export function AuthForm({ children, onSubmit, submitLabel, error }: AuthFormProps) {
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
@@ -14,25 +21,55 @@ export function AuthForm({ children, onSubmit, submitLabel, error }: { children:
     }
   }
 
-  return <form className="auth-form" onSubmit={handleSubmit}>
-    {children}
-    {error && <p className="form-error" role="alert">{error}</p>}
-    <button className="primary-button" type="submit" disabled={submitting}>
-      {submitting ? <LoaderCircle className="spin" size={17} /> : null}
-      {submitting ? "Working..." : submitLabel}
-    </button>
-  </form>;
+  return (
+    <form className="grid gap-4" onSubmit={handleSubmit}>
+      {children}
+      {error && (
+        <p className="m-0 text-xs leading-[1.4] text-red-300" role="alert">
+          {error}
+        </p>
+      )}
+      <button
+        className="mt-1 flex h-12 items-center justify-center gap-2 rounded-[10px] border-0 bg-gradient-to-b from-forge-accent-strong to-[#4a9d6d] font-extrabold text-[#07110c] transition hover:-translate-y-px hover:opacity-95 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0"
+        type="submit"
+        disabled={submitting}
+      >
+        {submitting && <LoaderCircle className="animate-spin" size={17} />}
+        {submitting ? "Working..." : submitLabel}
+      </button>
+    </form>
+  );
 }
 
-export function PasswordField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+type PasswordFieldProps = {
+  value: string;
+  onChange: (value: string) => void;
+};
+
+export function PasswordField({ value, onChange }: PasswordFieldProps) {
   const [visible, setVisible] = useState(false);
-  return <label className="field">
-    <span>Password</span>
-    <span className="password-input">
-      <input required minLength={8} type={visible ? "text" : "password"} value={value} onChange={(event) => onChange(event.target.value)} />
-      <button type="button" className="icon-button" aria-label={visible ? "Hide password" : "Show password"} onClick={() => setVisible(!visible)}>
-        {visible ? <EyeOff size={17} /> : <Eye size={17} />}
-      </button>
-    </span>
-  </label>;
+
+  return (
+    <label className="grid gap-2 text-xs font-bold text-forge-soft">
+      <span>Password</span>
+      <span className="relative">
+        <input
+          className="h-12 w-full rounded-[10px] border border-white/15 bg-white/[0.02] px-3.5 pr-12 text-sm text-[#edf2ee] outline-none transition focus:border-forge-accent/70 focus:ring-4 focus:ring-forge-accent/10"
+          required
+          minLength={8}
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <button
+          type="button"
+          className="absolute right-2 top-0 grid h-12 place-items-center border-0 bg-transparent text-forge-soft"
+          aria-label={visible ? "Hide password" : "Show password"}
+          onClick={() => setVisible(!visible)}
+        >
+          {visible ? <EyeOff size={17} /> : <Eye size={17} />}
+        </button>
+      </span>
+    </label>
+  );
 }
