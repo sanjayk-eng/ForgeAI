@@ -4,23 +4,29 @@ import { Link, Outlet } from "react-router-dom";
 export function AuthLayout() {
   return (
     <main className="auth-shell">
-      <section className="auth-poster" aria-label="ForgeAI workspace">
+      <aside className="auth-poster" aria-label="ForgeAI workspace">
         <div className="poster-topline">
           <span className="brand-mark">F/</span>
-          <span>ForgeAI access</span>
+          <span>ForgeAI</span>
         </div>
+
         <div className="poster-copy">
-          <p className="eyebrow">Agent workspace / 01</p>
-          <h1>Build with a clear line of sight.</h1>
-          <p className="poster-note">One secure home for your agents, code, and conversations.</p>
+          <p className="eyebrow">Agent workspace</p>
+          <h1>Build with focus.</h1>
+          <p className="poster-note">A clear workspace for agents, code, and execution.</p>
         </div>
+
         <div className="poster-foot">
-          <span><ShieldCheck size={16} /> Protected by your workspace identity</span>
+          <span><ShieldCheck size={16} /> Secure access</span>
           <span>2026</span>
         </div>
-      </section>
+      </aside>
+
       <section className="auth-panel">
-        <div className="mobile-brand"><span className="brand-mark">F/</span><span>ForgeAI</span></div>
+        <div className="mobile-brand">
+          <span className="brand-mark">F/</span>
+          <span>ForgeAI</span>
+        </div>
         <Outlet />
         <p className="auth-legal">By continuing, you agree to use ForgeAI responsibly and keep your credentials private.</p>
       </section>
