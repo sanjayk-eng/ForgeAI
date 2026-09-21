@@ -2,12 +2,12 @@ package main
 
 import (
 	"ai-agent/internal/config"
-	"ai-agent/internal/shared/executor"
-	"ai-agent/internal/shared/executor/factory"
+	"ai-agent/internal/middleware"
 	"ai-agent/internal/shared/logger"
 	"context"
 	"fmt"
-	"log"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Server struct {
@@ -17,6 +17,7 @@ type Server struct {
 func NewServer(log logger.Logger) *Server {
 	return &Server{log: log}
 }
+
 func runServer() error {
 	settings, err := config.Load()
 	if err != nil {
@@ -31,19 +32,22 @@ func runServer() error {
 
 	appLogger := logger.NewZap(zapLog)
 
-	appLogger.With("component", "agent", "environment", settings.AppEnv).Info(context.Background(), "agent started", "host", settings.Host, "port", settings.Port)
-	shell := executor.DetectShell()
-
-	fmt.Println("==========", shell)
-
-	executor, _ := factory.Create(shell)
-	command := "New-Item -Path test.txt -ItemType File -Force"
-	if shell == factory.ShellBash {
-		command = "set -euo pipefail; touch test.txt"
+	if settings.AppEnv != "production" {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
 	}
-	_, err = executor.Execute(context.Background(), command)
-	if err != nil {
-		log.Fatalf("error %v", err)
+
+	engine := gin.New()
+	if err := engine.SetTrustedProxies(nil); err != nil {
+		return fmt.Errorf("configure trusted proxies: %w", err)
 	}
-	return nil
+	middleware.Setup(engine, settings.CORSOrigins)
+	engine.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
+
+	address := fmt.Sprintf("%s:%d", settings.Host, settings.Port)
+	appLogger.With("component", "agent", "environment", settings.AppEnv).Info(context.Background(), "HTTP server started", "address", address)
+	return engine.Run(address)
 }

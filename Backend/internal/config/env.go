@@ -9,6 +9,7 @@ func loadFromEnv(get getenv) (Config, error) {
 		AppEnv:      envOr(get, envAppEnv, defaultAppEnv),
 		Host:        envOr(get, envHost, defaultHost),
 		DatabaseURL: get(envDatabaseURL),
+		CORSOrigins: envOr(get, envCORSOrigins, defaultCORSOrigins),
 		LogFormat:   strings.ToLower(envOr(get, envLogFormat, defaultLogFormat)),
 		LogSource:   defaultLogSource,
 	}

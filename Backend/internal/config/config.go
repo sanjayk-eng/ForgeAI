@@ -1,9 +1,12 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 
+	"github.com/joho/godotenv"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -12,6 +15,7 @@ type Config struct {
 	Host        string
 	Port        int
 	DatabaseURL string
+	CORSOrigins string
 	LogLevel    zapcore.Level
 	LogFormat   string
 	LogSource   bool
@@ -22,16 +26,18 @@ const (
 	envHost        = "HOST"
 	envPort        = "PORT"
 	envDatabaseURL = "DATABASE_URL"
+	envCORSOrigins = "CORS_ALLOWED_ORIGINS"
 	envLogLevel    = "LOG_LEVEL"
 	envLogFormat   = "LOG_FORMAT"
 	envLogSource   = "LOG_SOURCE"
 
-	defaultAppEnv    = "development"
-	defaultHost      = "127.0.0.1"
-	defaultPort      = "8080"
-	defaultLogLevel  = "info"
-	defaultLogFormat = "json"
-	defaultLogSource = true
+	defaultAppEnv      = "development"
+	defaultHost        = "127.0.0.1"
+	defaultPort        = "8080"
+	defaultCORSOrigins = "*"
+	defaultLogLevel    = "info"
+	defaultLogFormat   = "json"
+	defaultLogSource   = true
 )
 
 var (
@@ -40,10 +46,33 @@ var (
 	loadErr  error
 )
 
-
 func Load() (Config, error) {
 	loadOnce.Do(func() {
+		loadErr = loadDotEnv()
+		if loadErr != nil {
+			return
+		}
 		loaded, loadErr = loadFromEnv(os.Getenv)
 	})
 	return loaded, loadErr
+}
+
+func loadDotEnv() error {
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+
+	directory := workingDirectory
+	for range 4 {
+		path := filepath.Join(directory, ".env")
+		if _, err := os.Stat(path); err == nil {
+			if err := godotenv.Load(path); err != nil {
+				return fmt.Errorf("load %s: %w", path, err)
+			}
+			return nil
+		}
+		directory = filepath.Dir(directory)
+	}
+	return nil
 }
