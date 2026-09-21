@@ -50,11 +50,7 @@ func (service *Service) Register(ctx context.Context, input RegisterRequest) (Au
 		}
 		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "registration failed", err)
 	}
-	token, err := service.jwt.Generate(userID)
-	if err != nil {
-		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "token generation failed", err)
-	}
-	return AuthResponse{Token: token}, nil
+	return service.issueTokens(userID)
 }
 
 func (service *Service) Login(ctx context.Context, input LoginRequest) (AuthResponse, error) {
@@ -71,11 +67,40 @@ func (service *Service) Login(ctx context.Context, input LoginRequest) (AuthResp
 	if err := appbcrypt.Compare(credentials.PasswordHash, input.Password); err != nil {
 		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeUnauthorized, "invalid email or password", ErrInvalidCredentials)
 	}
-	token, err := service.jwt.Generate(credentials.ID)
+	return service.issueTokens(credentials.ID)
+}
+
+func (service *Service) Refresh(ctx context.Context, input RefreshTokenRequest) (AuthResponse, error) {
+	if service.jwt == nil {
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "refresh token is not configured", nil)
+	}
+	claims, err := service.jwt.Parse(input.RefreshToken, appjwt.RefreshToken)
+	if err != nil {
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeUnauthorized, "invalid refresh token", err)
+	}
+	return service.issueTokens(claims.Subject)
+}
+
+func (service *Service) GetUser(ctx context.Context, userID string) (UserProfile, error) {
+	if service.repo == nil {
+		return UserProfile{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "user lookup is not configured", nil)
+	}
+	user, err := service.repo.FindUserByID(ctx, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return UserProfile{}, apperrors.NewCodedError(apperrors.ErrCodeNotFound, "user not found", err)
+	}
+	if err != nil {
+		return UserProfile{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "user lookup failed", err)
+	}
+	return user, nil
+}
+
+func (service *Service) issueTokens(userID string) (AuthResponse, error) {
+	pair, err := service.jwt.GeneratePair(userID)
 	if err != nil {
 		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "token generation failed", err)
 	}
-	return AuthResponse{Token: token}, nil
+	return AuthResponse{AccessToken: pair.AccessToken, RefreshToken: pair.RefreshToken}, nil
 }
 
 func (service *Service) AuthenticateOAuth(ctx context.Context, providerType ProviderType, code string) (AuthResponse, error) {
@@ -123,9 +148,5 @@ func (service *Service) AuthenticateOAuth(ctx context.Context, providerType Prov
 		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "OAuth authentication failed", err)
 	}
 
-	token, err := service.jwt.Generate(userID)
-	if err != nil {
-		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "token generation failed", err)
-	}
-	return AuthResponse{Token: token}, nil
+	return service.issueTokens(userID)
 }

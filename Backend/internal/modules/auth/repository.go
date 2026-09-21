@@ -15,6 +15,7 @@ type AuthRepository interface {
 	CreateUser(ctx context.Context, tx *sqlx.Tx, email, name, passwordHash string) (string, error)
 	FindOAuthUserID(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, providerUserID string) (string, error)
 	FindUserIDByEmail(ctx context.Context, tx *sqlx.Tx, email string) (string, error)
+	FindUserByID(ctx context.Context, userID string) (UserProfile, error)
 	FindCredentials(ctx context.Context, email string) (UserCredentials, error)
 	CreateOAuthUser(ctx context.Context, tx *sqlx.Tx, email, name string) (string, error)
 	CreateOAuthAccount(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, userID, providerUserID string) error
@@ -60,6 +61,21 @@ func (repo *repository) FindUserIDByEmail(ctx context.Context, tx *sqlx.Tx, emai
 		return "", fmt.Errorf("find user by email: %w", err)
 	}
 	return userID, nil
+}
+
+func (repo *repository) FindUserByID(ctx context.Context, userID string) (UserProfile, error) {
+	var user UserProfile
+	err := repo.db.GetContext(ctx, &user, `
+		SELECT id, email, name
+		FROM tbl_user
+		WHERE id = $1`, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return UserProfile{}, sql.ErrNoRows
+	}
+	if err != nil {
+		return UserProfile{}, fmt.Errorf("find user by ID: %w", err)
+	}
+	return user, nil
 }
 
 func (repo *repository) FindCredentials(ctx context.Context, email string) (UserCredentials, error) {

@@ -32,9 +32,13 @@ func loadFromEnv(get getenv) (Config, error) {
 		return Config{}, err
 	}
 	config.Port = port
-	config.JWTTTL, err = time.ParseDuration(envOr(get, envJWTTTL, defaultJWTTTL))
-	if err != nil || config.JWTTTL <= 0 {
-		return Config{}, fmt.Errorf("JWT_TTL must be a positive duration")
+	config.JWTAccessTTL, err = time.ParseDuration(envOr(get, envJWTAccessTTL, defaultJWTAccessTTL))
+	if err != nil || config.JWTAccessTTL <= 0 {
+		return Config{}, fmt.Errorf("JWT_ACCESS_TTL must be a positive duration")
+	}
+	config.JWTRefreshTTL, err = time.ParseDuration(envOr(get, envJWTRefreshTTL, defaultJWTRefreshTTL))
+	if err != nil || config.JWTRefreshTTL <= 0 {
+		return Config{}, fmt.Errorf("JWT_REFRESH_TTL must be a positive duration")
 	}
 
 	config.LogLevel, err = parseLevel(envOr(get, envLogLevel, defaultLogLevel))

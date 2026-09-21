@@ -59,11 +59,10 @@ func runServer() error {
 		GitHubClientSecret: settings.OAuth.GitHubClientSecret,
 		GitHubRedirectURL:  settings.OAuth.GitHubRedirectURL,
 	}, nil)
-	var authRepository auth.AuthRepository
 	var db *sqlx.DB
 	var jwtManager *appjwt.Manager
 	if settings.JWTSecret != "" {
-		jwtManager, err = appjwt.NewManager(settings.JWTSecret, settings.JWTTTL)
+		jwtManager, err = appjwt.NewManager(settings.JWTSecret, settings.JWTAccessTTL, settings.JWTRefreshTTL)
 		if err != nil {
 			return err
 		}
@@ -74,9 +73,14 @@ func runServer() error {
 			return err
 		}
 		defer db.Close()
-		authRepository = auth.NewRepository(db)
 	}
-	auth.RegisterRoutes(engine, auth.NewHandler(auth.NewService(oauthFactory, db, authRepository, jwtManager, appLogger)))
+	auth.LoadModule(auth.ModuleConfig{
+		Router:   engine,
+		Database: db,
+		Provider: oauthFactory,
+		JWT:      jwtManager,
+		Logger:   appLogger,
+	})
 
 	address := fmt.Sprintf("%s:%d", settings.Host, settings.Port)
 	appLogger.With("component", "agent", "environment", settings.AppEnv).Info(context.Background(), "HTTP server started", "address", address)

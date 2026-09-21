@@ -3,6 +3,7 @@ package auth
 import (
 	"net/http"
 
+	"ai-agent/internal/middleware"
 	apierrors "ai-agent/internal/shared/errors"
 	"ai-agent/pkg/validate"
 
@@ -81,4 +82,44 @@ func (handler *Handler) Login(c *gin.Context) {
 		return
 	}
 	apierrors.Success(c, http.StatusOK, "login successful", result)
+}
+
+func (handler *Handler) Refresh(c *gin.Context) {
+	var input RefreshTokenRequest
+	if err := validate.BindAndValidate(c, &input); err != nil {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
+		return
+	}
+
+	result, err := handler.service.Refresh(c.Request.Context(), input)
+	if err != nil {
+		code, message := apierrors.CodeOf(err)
+		status := http.StatusInternalServerError
+		if code == apierrors.ErrCodeUnauthorized {
+			status = http.StatusUnauthorized
+		}
+		apierrors.Error(c, status, code, message, nil)
+		return
+	}
+	apierrors.Success(c, http.StatusOK, "token refreshed", result)
+}
+
+func (handler *Handler) Me(c *gin.Context) {
+	userID, ok := middleware.UserID(c)
+	if !ok {
+		apierrors.Error(c, http.StatusUnauthorized, apierrors.ErrCodeUnauthorized, "authenticated user is required", nil)
+		return
+	}
+
+	result, err := handler.service.GetUser(c.Request.Context(), userID)
+	if err != nil {
+		code, message := apierrors.CodeOf(err)
+		status := http.StatusInternalServerError
+		if code == apierrors.ErrCodeNotFound {
+			status = http.StatusNotFound
+		}
+		apierrors.Error(c, status, code, message, nil)
+		return
+	}
+	apierrors.Success(c, http.StatusOK, "user fetched", result)
 }
