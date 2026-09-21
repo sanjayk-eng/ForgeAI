@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	apierrors "ai-agent/internal/shared/errors"
+	"ai-agent/pkg/validate"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,4 +36,44 @@ func (handler *Handler) OAuthCallback(c *gin.Context) {
 		return
 	}
 	apierrors.Success(c, http.StatusOK, "OAuth code exchanged", user)
+}
+
+func (handler *Handler) Register(c *gin.Context) {
+	var input RegisterRequest
+	if err := validate.BindAndValidate(c, &input); err != nil {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
+		return
+	}
+
+	result, err := handler.service.Register(c.Request.Context(), input)
+	if err != nil {
+		code, message := apierrors.CodeOf(err)
+		status := http.StatusInternalServerError
+		if code == apierrors.ErrCodeConflict {
+			status = http.StatusConflict
+		}
+		apierrors.Error(c, status, code, message, nil)
+		return
+	}
+	apierrors.Success(c, http.StatusCreated, "registration successful", result)
+}
+
+func (handler *Handler) Login(c *gin.Context) {
+	var input LoginRequest
+	if err := validate.BindAndValidate(c, &input); err != nil {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
+		return
+	}
+
+	result, err := handler.service.Login(c.Request.Context(), input)
+	if err != nil {
+		code, message := apierrors.CodeOf(err)
+		status := http.StatusInternalServerError
+		if code == apierrors.ErrCodeUnauthorized {
+			status = http.StatusUnauthorized
+		}
+		apierrors.Error(c, status, code, message, nil)
+		return
+	}
+	apierrors.Success(c, http.StatusOK, "login successful", result)
 }

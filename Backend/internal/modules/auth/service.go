@@ -2,10 +2,14 @@ package auth
 
 import (
 	"context"
+	"errors"
 
 	"ai-agent/internal/modules/auth/provider"
+	apperrors "ai-agent/internal/shared/errors"
 	"ai-agent/internal/shared/logger"
+	appbcrypt "ai-agent/pkg/bcrypt"
 	appdatabase "ai-agent/pkg/database"
+	appjwt "ai-agent/pkg/jwt"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -14,11 +18,59 @@ type Service struct {
 	factory *provider.Factory
 	db      *sqlx.DB
 	repo    AuthRepository
+	jwt     *appjwt.Manager
 	log     logger.Logger
 }
 
-func NewService(factory *provider.Factory, db *sqlx.DB, repo AuthRepository, log logger.Logger) *Service {
-	return &Service{factory: factory, db: db, repo: repo, log: log}
+func NewService(factory *provider.Factory, db *sqlx.DB, repo AuthRepository, jwt *appjwt.Manager, log logger.Logger) *Service {
+	return &Service{factory: factory, db: db, repo: repo, jwt: jwt, log: log}
+}
+
+func (service *Service) Register(ctx context.Context, input RegisterRequest) (AuthResponse, error) {
+	if service.db == nil || service.repo == nil || service.jwt == nil {
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "registration is not configured", nil)
+	}
+	passwordHash, err := appbcrypt.Hash(input.Password)
+	if err != nil {
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "password hashing failed", err)
+	}
+	var userID string
+	if err := appdatabase.WithTx(ctx, service.db, func(ctx context.Context, tx *sqlx.Tx) error {
+		var err error
+		userID, err = service.repo.CreateUser(ctx, tx, input.Email, input.Name, passwordHash)
+		return err
+	}); err != nil {
+		if errors.Is(err, ErrEmailAlreadyExists) {
+			return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeConflict, "email is already registered", err)
+		}
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "registration failed", err)
+	}
+	token, err := service.jwt.Generate(userID)
+	if err != nil {
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "token generation failed", err)
+	}
+	return AuthResponse{Token: token}, nil
+}
+
+func (service *Service) Login(ctx context.Context, input LoginRequest) (AuthResponse, error) {
+	if service.repo == nil || service.jwt == nil {
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "login is not configured", nil)
+	}
+	credentials, err := service.repo.FindCredentials(ctx, input.Email)
+	if err != nil {
+		if errors.Is(err, ErrInvalidCredentials) {
+			return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeUnauthorized, "invalid email or password", err)
+		}
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "login failed", err)
+	}
+	if err := appbcrypt.Compare(credentials.PasswordHash, input.Password); err != nil {
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeUnauthorized, "invalid email or password", ErrInvalidCredentials)
+	}
+	token, err := service.jwt.Generate(credentials.ID)
+	if err != nil {
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "token generation failed", err)
+	}
+	return AuthResponse{Token: token}, nil
 }
 
 func (service *Service) ExchangeCode(ctx context.Context, providerType ProviderType, code string) (OAuthUser, error) {

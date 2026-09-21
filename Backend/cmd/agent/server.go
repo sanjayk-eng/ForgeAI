@@ -7,6 +7,7 @@ import (
 	"ai-agent/internal/modules/auth/provider"
 	"ai-agent/internal/shared/logger"
 	appdatabase "ai-agent/pkg/database"
+	appjwt "ai-agent/pkg/jwt"
 	"context"
 	"fmt"
 
@@ -60,6 +61,13 @@ func runServer() error {
 	}, nil)
 	var authRepository auth.AuthRepository
 	var db *sqlx.DB
+	var jwtManager *appjwt.Manager
+	if settings.JWTSecret != "" {
+		jwtManager, err = appjwt.NewManager(settings.JWTSecret, settings.JWTTTL)
+		if err != nil {
+			return err
+		}
+	}
 	if settings.DatabaseURL != "" {
 		db, err = appdatabase.NewPostgres(context.Background(), settings.DatabaseURL)
 		if err != nil {
@@ -68,7 +76,7 @@ func runServer() error {
 		defer db.Close()
 		authRepository = auth.NewRepository(db)
 	}
-	auth.RegisterRoutes(engine, auth.NewHandler(auth.NewService(oauthFactory, db, authRepository, appLogger)))
+	auth.RegisterRoutes(engine, auth.NewHandler(auth.NewService(oauthFactory, db, authRepository, jwtManager, appLogger)))
 
 	address := fmt.Sprintf("%s:%d", settings.Host, settings.Port)
 	appLogger.With("component", "agent", "environment", settings.AppEnv).Info(context.Background(), "HTTP server started", "address", address)

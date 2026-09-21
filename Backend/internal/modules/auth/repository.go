@@ -2,13 +2,18 @@ package auth
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type AuthRepository interface {
+	CreateUser(ctx context.Context, tx *sqlx.Tx, email, name, passwordHash string) (string, error)
+	FindCredentials(ctx context.Context, email string) (UserCredentials, error)
 	SaveUser(ctx context.Context, tx *sqlx.Tx, user OAuthUser) (string, error)
 	SaveOAuthAccount(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, userID, providerUserID string) error
 }
@@ -17,8 +22,45 @@ type repository struct {
 	db *sqlx.DB
 }
 
+type UserCredentials struct {
+	ID           string `db:"id"`
+	PasswordHash string `db:"password_hash"`
+}
+
 func NewRepository(db *sqlx.DB) AuthRepository {
 	return &repository{db: db}
+}
+
+func (repo *repository) FindCredentials(ctx context.Context, email string) (UserCredentials, error) {
+	var credentials UserCredentials
+	if err := repo.db.GetContext(ctx, &credentials, `
+		SELECT id, password_hash
+		FROM tbl_user
+		WHERE email = $1`, email); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return UserCredentials{}, ErrInvalidCredentials
+		}
+		return UserCredentials{}, fmt.Errorf("find user credentials: %w", err)
+	}
+	if credentials.PasswordHash == "" {
+		return UserCredentials{}, ErrInvalidCredentials
+	}
+	return credentials, nil
+}
+
+func (repo *repository) CreateUser(ctx context.Context, tx *sqlx.Tx, email, name, passwordHash string) (string, error) {
+	var userID string
+	if err := tx.GetContext(ctx, &userID, `
+		INSERT INTO tbl_user (email, name, password_hash)
+		VALUES ($1, $2, $3)
+		RETURNING id`, email, name, passwordHash); err != nil {
+		var postgresErr *pq.Error
+		if errors.As(err, &postgresErr) && postgresErr.Code == "23505" {
+			return "", ErrEmailAlreadyExists
+		}
+		return "", fmt.Errorf("create user: %w", err)
+	}
+	return userID, nil
 }
 
 func (repo *repository) SaveUser(ctx context.Context, tx *sqlx.Tx, user OAuthUser) (string, error) {

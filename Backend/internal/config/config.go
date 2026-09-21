@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/joho/godotenv"
 	"go.uber.org/zap/zapcore"
@@ -15,6 +16,8 @@ type Config struct {
 	Host        string
 	Port        int
 	DatabaseURL string
+	JWTSecret   string
+	JWTTTL      time.Duration
 	CORSOrigins string
 	OAuth       OAuthConfig
 	LogLevel    zapcore.Level
@@ -36,6 +39,8 @@ const (
 	envHost        = "HOST"
 	envPort        = "PORT"
 	envDatabaseURL = "DATABASE_URL"
+	envJWTSecret   = "JWT_SECRET"
+	envJWTTTL      = "JWT_TTL"
 	envCORSOrigins = "CORS_ALLOWED_ORIGINS"
 	envLogLevel    = "LOG_LEVEL"
 	envLogFormat   = "LOG_FORMAT"
@@ -45,6 +50,7 @@ const (
 	defaultHost        = "127.0.0.1"
 	defaultPort        = "8080"
 	defaultCORSOrigins = "*"
+	defaultJWTTTL      = "24h"
 	defaultLogLevel    = "info"
 	defaultLogFormat   = "json"
 	defaultLogSource   = true

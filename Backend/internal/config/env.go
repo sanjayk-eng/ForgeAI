@@ -1,6 +1,10 @@
 package config
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+	"time"
+)
 
 type getenv func(string) string
 
@@ -9,6 +13,7 @@ func loadFromEnv(get getenv) (Config, error) {
 		AppEnv:      envOr(get, envAppEnv, defaultAppEnv),
 		Host:        envOr(get, envHost, defaultHost),
 		DatabaseURL: get(envDatabaseURL),
+		JWTSecret:   get(envJWTSecret),
 		CORSOrigins: envOr(get, envCORSOrigins, defaultCORSOrigins),
 		OAuth: OAuthConfig{
 			GoogleClientID:     get("GOOGLE_CLIENT_ID"),
@@ -27,6 +32,10 @@ func loadFromEnv(get getenv) (Config, error) {
 		return Config{}, err
 	}
 	config.Port = port
+	config.JWTTTL, err = time.ParseDuration(envOr(get, envJWTTTL, defaultJWTTTL))
+	if err != nil || config.JWTTTL <= 0 {
+		return Config{}, fmt.Errorf("JWT_TTL must be a positive duration")
+	}
 
 	config.LogLevel, err = parseLevel(envOr(get, envLogLevel, defaultLogLevel))
 	if err != nil {

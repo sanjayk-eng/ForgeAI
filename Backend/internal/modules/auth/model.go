@@ -1,5 +1,7 @@
 package auth
 
+import "errors"
+
 type ProviderType string
 
 const (
@@ -13,3 +15,22 @@ type OAuthUser struct {
 	Name       string `json:"name"`
 	AvatarURL  string `json:"avatar_url"`
 }
+
+type RegisterRequest struct {
+	Email    string `json:"email" binding:"required,email,max=255"`
+	Name     string `json:"name" binding:"required,max=150"`
+	Password string `json:"password" binding:"required,min=8,max=72"`
+}
+
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required,email,max=255"`
+	Password string `json:"password" binding:"required,min=8,max=72"`
+}
+
+type AuthResponse struct {
+	Token string `json:"token"`
+}
+
+var ErrEmailAlreadyExists = errors.New("email already exists")
+
+var ErrInvalidCredentials = errors.New("invalid credentials")
