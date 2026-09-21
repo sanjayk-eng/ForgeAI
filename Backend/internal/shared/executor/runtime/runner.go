@@ -17,6 +17,7 @@ func Run(ctx context.Context, program string, args []string, command string) (ex
 	result := executor.Result{
 		Output:   string(output),
 		ExitCode: -1,
+		Command:  command,
 	}
 	if cmd.ProcessState != nil {
 		result.ExitCode = cmd.ProcessState.ExitCode()
