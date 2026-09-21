@@ -19,6 +19,10 @@ func NewPostgres(ctx context.Context, databaseURL string) (*sqlx.DB, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("ping postgres database: %w", err)
 	}
+	if err := RunMigrations(ctx, db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 	return db, nil
 }
 
