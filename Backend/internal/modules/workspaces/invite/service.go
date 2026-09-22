@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"ai-agent/internal/shared/email"
 	"ai-agent/internal/shared/logger"
 	appdatabase "ai-agent/pkg/database"
 
@@ -19,15 +18,20 @@ import (
 var ErrInvalidInviteInput = errors.New("invalid invite input")
 var ErrInviteNotFound = errors.New("invite not found")
 
+// EmailService interface for sending emails (decoupled from concrete implementation)
+type EmailService interface {
+	SendWorkspaceInvite(ctx context.Context, to, workspaceName, inviterName, inviteLink, role string) error
+}
+
 type Service struct {
 	db          *sqlx.DB
 	repo        Repository
-	email       *email.Service
+	email       EmailService
 	frontendURL string
 	logger      logger.Logger
 }
 
-func NewService(db *sqlx.DB, emailService *email.Service, frontendURL string, appLogger logger.Logger) *Service {
+func NewService(db *sqlx.DB, emailService EmailService, frontendURL string, appLogger logger.Logger) *Service {
 	return &Service{db: db, repo: NewRepository(db), email: emailService, frontendURL: strings.TrimRight(frontendURL, "/"), logger: appLogger}
 }
 
