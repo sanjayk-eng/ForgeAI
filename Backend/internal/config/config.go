@@ -19,6 +19,7 @@ type Config struct {
 	JWTSecret       string
 	ResendAPIKey    string
 	ResendFromEmail string
+	FrontendURL     string
 	JWTAccessTTL    time.Duration
 	JWTRefreshTTL   time.Duration
 	CORSOrigins     string
@@ -45,6 +46,7 @@ const (
 	envJWTSecret       = "JWT_SECRET"
 	envResendAPIKey    = "RESEND_API_KEY"
 	envResendFromEmail = "RESEND_FROM_EMAIL"
+	envFrontendURL     = "FRONTEND_URL"
 	envJWTAccessTTL    = "JWT_ACCESS_TTL"
 	envJWTRefreshTTL   = "JWT_REFRESH_TTL"
 	envCORSOrigins     = "CORS_ALLOWED_ORIGINS"
@@ -61,6 +63,7 @@ const (
 	defaultLogLevel      = "info"
 	defaultLogFormat     = "json"
 	defaultLogSource     = true
+	defaultFrontendURL   = "http://localhost:5173"
 )
 
 var (

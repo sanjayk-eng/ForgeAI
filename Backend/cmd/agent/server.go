@@ -104,11 +104,12 @@ func runServer() error {
 	defer stopWorkers()
 	jobQueue.Consume(workerContext, 4)
 	workspaceinvite.LoadModule(workspaceinvite.ModuleConfig{
-		Router:   protectedRouter,
-		Database: db,
-		Logger:   appLogger,
-		Sender:   mailSender,
-		Queue:    jobQueue,
+		Router:      protectedRouter,
+		Database:    db,
+		Logger:      appLogger,
+		Sender:      mailSender,
+		Queue:       jobQueue,
+		FrontendURL: settings.FrontendURL,
 	})
 
 	address := fmt.Sprintf("%s:%d", settings.Host, settings.Port)

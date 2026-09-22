@@ -16,6 +16,7 @@ func loadFromEnv(get getenv) (Config, error) {
 		JWTSecret:       get(envJWTSecret),
 		ResendAPIKey:    get(envResendAPIKey),
 		ResendFromEmail: get(envResendFromEmail),
+		FrontendURL:     envOr(get, envFrontendURL, defaultFrontendURL),
 		CORSOrigins:     envOr(get, envCORSOrigins, defaultCORSOrigins),
 		OAuth: OAuthConfig{
 			GoogleClientID:     get("GOOGLE_CLIENT_ID"),

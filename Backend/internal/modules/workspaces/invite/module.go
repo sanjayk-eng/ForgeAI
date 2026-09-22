@@ -10,11 +10,12 @@ import (
 )
 
 type ModuleConfig struct {
-	Router   gin.IRouter
-	Database *sqlx.DB
-	Logger   logger.Logger
-	Sender   email.Sender
-	Queue    worker.Worker
+	Router      gin.IRouter
+	Database    *sqlx.DB
+	Logger      logger.Logger
+	Sender      email.Sender
+	Queue       worker.Worker
+	FrontendURL string
 }
 
 type Module struct {
@@ -23,7 +24,7 @@ type Module struct {
 }
 
 func LoadModule(config ModuleConfig) *Module {
-	service := NewService(config.Database, config.Sender, config.Queue)
+	service := NewService(config.Database, config.Sender, config.Queue, config.FrontendURL, config.Logger)
 	handler := NewHandler(service)
 	RegisterRoutes(config.Router, handler)
 
