@@ -97,7 +97,11 @@ func runServer() error {
 		Logger:   appLogger,
 	})
 	mailSender := email.NewService(&email.NoopProvider{})
-	jobQueue := worker.NewInMemoryWorker(25)
+	jobQueue := worker.NewInMemoryPubSub(25)
+	workerContext, stopWorkers := context.WithCancel(context.Background())
+	defer jobQueue.Stop()
+	defer stopWorkers()
+	jobQueue.Consume(workerContext, 4)
 	workspaceinvite.LoadModule(workspaceinvite.ModuleConfig{
 		Router:   engine,
 		Database: db,

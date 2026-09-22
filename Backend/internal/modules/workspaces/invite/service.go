@@ -54,7 +54,7 @@ func (service *Service) CreateInvite(ctx context.Context, workspaceID, inviterID
 	if service.email != nil && service.queue != nil {
 		subject, text, html := templates.WorkspaceInviteTemplate(templates.WorkspaceInviteTemplateData{
 			WorkspaceName: "Workspace",
-			InviteLink:    fmt.Sprintf("/workspaces/%s/invites/%s/accept", workspaceID, invite.TokenHash),
+			InviteLink:    fmt.Sprintf("/workspaces/%s/invites/%s/status", workspaceID, invite.TokenHash),
 			InviterName:   inviterID,
 			Role:          invite.Role,
 		})
@@ -66,7 +66,7 @@ func (service *Service) CreateInvite(ctx context.Context, workspaceID, inviterID
 				HTML:    html,
 			})
 		}
-		if err := service.queue.Enqueue(ctx, job); err != nil {
+		if err := service.queue.Publish(ctx, job); err != nil {
 			return Invite{}, err
 		}
 	}

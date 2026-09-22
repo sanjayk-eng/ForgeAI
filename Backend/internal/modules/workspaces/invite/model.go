@@ -31,5 +31,5 @@ type CreateInviteRequest struct {
 }
 
 type UpdateInviteStatusRequest struct {
-	Status string `json:"status" binding:"required"`
+	Status string `json:"status" binding:"required,oneof=ACCEPTED REJECTED"`
 }
