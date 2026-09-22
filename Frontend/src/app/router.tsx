@@ -3,6 +3,11 @@ import { AuthLayout } from "../modules/auth/AuthLayout";
 import { LoginPage } from "../modules/auth/LoginPage";
 import { OAuthCallbackPage } from "../modules/auth/OAuthCallbackPage";
 import { RegisterPage } from "../modules/auth/RegisterPage";
+import { ProtectedRoute } from "../modules/auth/ProtectedRoute";
+import { WorkspaceLayout } from "../modules/workspace/WorkspaceLayout";
+import { WorkspaceOverview } from "../modules/workspace/pages/WorkspaceOverview";
+import { WorkspaceMembers } from "../modules/workspace/pages/WorkspaceMembers";
+import { WorkspaceSettings } from "../modules/workspace/pages/WorkspaceSettings";
 
 export const router = createBrowserRouter([
   {
@@ -13,7 +18,20 @@ export const router = createBrowserRouter([
       { path: "/auth/callback", element: <OAuthCallbackPage /> },
     ],
   },
+  {
+    element: <ProtectedRoute />,
+    children: [
+      {
+        path: "/workspace",
+        element: <WorkspaceLayout />,
+        children: [
+          { index: true, element: <WorkspaceOverview /> },
+          { path: "members", element: <WorkspaceMembers /> },
+          { path: "settings", element: <WorkspaceSettings /> },
+        ],
+      },
+    ],
+  },
   { path: "/", element: <Navigate to="/login" replace /> },
-  { path: "/workspace", element: <Navigate to="/login" replace /> },
   { path: "*", element: <Navigate to="/" replace /> },
 ]);
