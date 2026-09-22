@@ -5,8 +5,12 @@ import (
 	"ai-agent/internal/middleware"
 	"ai-agent/internal/modules/auth"
 	"ai-agent/internal/modules/auth/provider"
-	"ai-agent/internal/modules/workspace"
+	workspaceinvite "ai-agent/internal/modules/workspaces/invite"
+	member "ai-agent/internal/modules/workspaces/member"
+	workspacecore "ai-agent/internal/modules/workspaces/workspace"
+	"ai-agent/internal/shared/email"
 	"ai-agent/internal/shared/logger"
+	"ai-agent/internal/shared/worker"
 	appdatabase "ai-agent/pkg/database"
 	appjwt "ai-agent/pkg/jwt"
 	"context"
@@ -82,10 +86,24 @@ func runServer() error {
 		JWT:      jwtManager,
 		Logger:   appLogger,
 	})
-	workspace.LoadModule(workspace.ModuleConfig{
+	workspacecore.LoadModule(workspacecore.ModuleConfig{
 		Router:   engine,
 		Database: db,
 		Logger:   appLogger,
+	})
+	member.LoadModule(member.ModuleConfig{
+		Router:   engine,
+		Database: db,
+		Logger:   appLogger,
+	})
+	mailSender := email.NewService(&email.NoopProvider{})
+	jobQueue := worker.NewInMemoryWorker(25)
+	workspaceinvite.LoadModule(workspaceinvite.ModuleConfig{
+		Router:   engine,
+		Database: db,
+		Logger:   appLogger,
+		Sender:   mailSender,
+		Queue:    jobQueue,
 	})
 
 	address := fmt.Sprintf("%s:%d", settings.Host, settings.Port)

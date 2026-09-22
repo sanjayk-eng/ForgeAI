@@ -1,7 +1,9 @@
-package workspace
+package invite
 
 import (
+	"ai-agent/internal/shared/email"
 	"ai-agent/internal/shared/logger"
+	"ai-agent/internal/shared/worker"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -11,23 +13,22 @@ type ModuleConfig struct {
 	Router   gin.IRouter
 	Database *sqlx.DB
 	Logger   logger.Logger
+	Sender   email.Sender
+	Queue    worker.Worker
 }
 
 type Module struct {
-	Repository WorkspaceRepository
-	Service    *Service
-	Handler    *Handler
+	Service *Service
+	Handler *Handler
 }
 
 func LoadModule(config ModuleConfig) *Module {
-	repository := NewRepository(config.Database)
-	service := NewService(config.Database, repository)
+	service := NewService(config.Database, config.Sender, config.Queue)
 	handler := NewHandler(service)
 	RegisterRoutes(config.Router, handler)
 
 	return &Module{
-		Repository: repository,
-		Service:    service,
-		Handler:    handler,
+		Service: service,
+		Handler: handler,
 	}
 }

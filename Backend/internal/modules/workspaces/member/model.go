@@ -1,4 +1,4 @@
-package workspace
+package member
 
 import (
 	"errors"
@@ -14,30 +14,13 @@ const (
 	RoleMember WorkspaceRole = "MEMBER"
 )
 
-type Workspace struct {
-	ID        string    `json:"id" db:"id"`
-	Name      string    `json:"name" db:"name"`
-	Slug      string    `json:"slug" db:"slug"`
-	OwnerID   string    `json:"owner_id" db:"owner_id"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
-}
-
-type WorkspaceMember struct {
+type Member struct {
 	ID          string        `json:"id" db:"id"`
 	WorkspaceID string        `json:"workspace_id" db:"workspace_id"`
 	UserID      string        `json:"user_id" db:"user_id"`
 	Role        WorkspaceRole `json:"role" db:"role"`
 	CreatedAt   time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time     `json:"updated_at" db:"updated_at"`
-}
-
-type CreateWorkspaceRequest struct {
-	Name string `json:"name" binding:"required,min=2,max=150"`
-}
-
-type UpdateWorkspaceRequest struct {
-	Name string `json:"name" binding:"required,min=2,max=150"`
 }
 
 type AddMemberRequest struct {
@@ -50,10 +33,9 @@ type UpdateMemberRoleRequest struct {
 }
 
 var (
-	ErrInvalidWorkspaceInput   = errors.New("invalid workspace input")
-	ErrWorkspaceNotFound       = errors.New("workspace not found")
-	ErrWorkspaceMemberExists   = errors.New("user is already a member of this workspace")
-	ErrWorkspaceMemberNotFound = errors.New("workspace member not found")
+	ErrInvalidMemberInput  = errors.New("invalid member input")
+	ErrMemberNotFound      = errors.New("workspace member not found")
+	ErrMemberAlreadyExists = errors.New("user is already a member of this workspace")
 )
 
 func NormalizeRole(role string) WorkspaceRole {
