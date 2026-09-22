@@ -86,13 +86,14 @@ func runServer() error {
 		JWT:      jwtManager,
 		Logger:   appLogger,
 	})
+	protectedRouter := middleware.ProtectedGroup(engine, jwtManager, appLogger)
 	workspacecore.LoadModule(workspacecore.ModuleConfig{
-		Router:   engine,
+		Router:   protectedRouter,
 		Database: db,
 		Logger:   appLogger,
 	})
 	member.LoadModule(member.ModuleConfig{
-		Router:   engine,
+		Router:   protectedRouter,
 		Database: db,
 		Logger:   appLogger,
 	})
@@ -103,7 +104,7 @@ func runServer() error {
 	defer stopWorkers()
 	jobQueue.Consume(workerContext, 4)
 	workspaceinvite.LoadModule(workspaceinvite.ModuleConfig{
-		Router:   engine,
+		Router:   protectedRouter,
 		Database: db,
 		Logger:   appLogger,
 		Sender:   mailSender,
