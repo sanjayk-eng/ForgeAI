@@ -10,7 +10,6 @@ import (
 	workspacecore "ai-agent/internal/modules/workspaces/workspace"
 	"ai-agent/internal/shared/email"
 	"ai-agent/internal/shared/logger"
-	"ai-agent/internal/shared/worker"
 	appdatabase "ai-agent/pkg/database"
 	appjwt "ai-agent/pkg/jwt"
 	"context"
@@ -97,19 +96,33 @@ func runServer() error {
 		Database: db,
 		Logger:   appLogger,
 	})
-	mailSender := email.NewResendProvider(settings.ResendAPIKey, settings.ResendFromEmail, nil)
-	jobQueue := worker.NewInMemoryPubSub(25)
-	workerContext, stopWorkers := context.WithCancel(context.Background())
-	defer jobQueue.Stop()
-	defer stopWorkers()
-	jobQueue.Consume(workerContext, 4)
-	workspaceinvite.LoadModule(workspaceinvite.ModuleConfig{
-		Router:      protectedRouter,
-		Database:    db,
+	// Initialize email module
+	emailModule, err := email.NewModule(email.Config{
+		Provider:    "resend",
+		APIKey:      settings.ResendAPIKey,
+		FromEmail:   settings.ResendFromEmail,
+		QueueSize:   100,
+		WorkerCount: 3,
 		Logger:      appLogger,
-		Sender:      mailSender,
-		Queue:       jobQueue,
-		FrontendURL: settings.FrontendURL,
+	})
+	if err != nil {
+		return fmt.Errorf("initialize email module: %w", err)
+	}
+
+	// Start email workers in background
+	emailContext, stopEmail := context.WithCancel(context.Background())
+	defer stopEmail()
+	defer emailModule.Stop()
+	emailModule.Start(emailContext)
+
+	appLogger.Info(context.Background(), "email service initialized", "queue_size", 100, "workers", 3)
+
+	workspaceinvite.LoadModule(workspaceinvite.ModuleConfig{
+		Router:       protectedRouter,
+		Database:     db,
+		Logger:       appLogger,
+		EmailService: emailModule.Service,
+		FrontendURL:  settings.FrontendURL,
 	})
 
 	address := fmt.Sprintf("%s:%d", settings.Host, settings.Port)

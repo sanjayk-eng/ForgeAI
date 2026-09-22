@@ -11,8 +11,6 @@ import (
 
 	"ai-agent/internal/shared/email"
 	"ai-agent/internal/shared/logger"
-	"ai-agent/internal/shared/templates"
-	"ai-agent/internal/shared/worker"
 	appdatabase "ai-agent/pkg/database"
 
 	"github.com/jmoiron/sqlx"
@@ -24,14 +22,13 @@ var ErrInviteNotFound = errors.New("invite not found")
 type Service struct {
 	db          *sqlx.DB
 	repo        Repository
-	email       email.Sender
-	queue       worker.Worker
+	email       *email.Service
 	frontendURL string
 	logger      logger.Logger
 }
 
-func NewService(db *sqlx.DB, sender email.Sender, queue worker.Worker, frontendURL string, appLogger logger.Logger) *Service {
-	return &Service{db: db, repo: NewRepository(db), email: sender, queue: queue, frontendURL: strings.TrimRight(frontendURL, "/"), logger: appLogger}
+func NewService(db *sqlx.DB, emailService *email.Service, frontendURL string, appLogger logger.Logger) *Service {
+	return &Service{db: db, repo: NewRepository(db), email: emailService, frontendURL: strings.TrimRight(frontendURL, "/"), logger: appLogger}
 }
 
 func (service *Service) CreateInvite(ctx context.Context, workspaceID, inviterID, emailAddress, role string) (Invite, error) {
@@ -71,27 +68,11 @@ func (service *Service) CreateInvite(ctx context.Context, workspaceID, inviterID
 	}
 	invite = created
 
-	if service.email != nil && service.queue != nil {
-		subject, text, html := templates.WorkspaceInviteTemplate(templates.WorkspaceInviteTemplateData{
-			WorkspaceName: "Workspace",
-			InviteLink:    fmt.Sprintf("%s/workspace/members?workspace=%s&invite=%s", service.frontendURL, workspaceID, invite.ID),
-			InviterName:   inviterID,
-			Role:          invite.Role,
-		})
-		job := func(jobCtx context.Context) error {
-			err := service.email.Send(jobCtx, email.Message{
-				To:      invite.Email,
-				Subject: subject,
-				Text:    text,
-				HTML:    html,
-			})
-			if err != nil && service.logger != nil {
-				service.logger.Error(jobCtx, "workspace invite email delivery failed", "invite_id", invite.ID, "recipient", invite.Email, "error", err)
-			}
-			return err
-		}
-		if err := service.queue.Publish(ctx, job); err != nil {
-			return Invite{}, err
+	// Send workspace invite email asynchronously
+	if service.email != nil {
+		inviteLink := fmt.Sprintf("%s/workspace/members?workspace=%s&invite=%s", service.frontendURL, workspaceID, invite.ID)
+		if err := service.email.SendWorkspaceInvite(ctx, invite.Email, "Workspace", inviterID, inviteLink, invite.Role); err != nil && service.logger != nil {
+			service.logger.Warn(ctx, "failed to queue workspace invite email", "invite_id", invite.ID, "error", err)
 		}
 	}
 
