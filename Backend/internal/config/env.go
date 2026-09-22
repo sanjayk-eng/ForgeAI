@@ -10,11 +10,13 @@ type getenv func(string) string
 
 func loadFromEnv(get getenv) (Config, error) {
 	config := Config{
-		AppEnv:      envOr(get, envAppEnv, defaultAppEnv),
-		Host:        envOr(get, envHost, defaultHost),
-		DatabaseURL: get(envDatabaseURL),
-		JWTSecret:   get(envJWTSecret),
-		CORSOrigins: envOr(get, envCORSOrigins, defaultCORSOrigins),
+		AppEnv:          envOr(get, envAppEnv, defaultAppEnv),
+		Host:            envOr(get, envHost, defaultHost),
+		DatabaseURL:     get(envDatabaseURL),
+		JWTSecret:       get(envJWTSecret),
+		ResendAPIKey:    get(envResendAPIKey),
+		ResendFromEmail: get(envResendFromEmail),
+		CORSOrigins:     envOr(get, envCORSOrigins, defaultCORSOrigins),
 		OAuth: OAuthConfig{
 			GoogleClientID:     get("GOOGLE_CLIENT_ID"),
 			GoogleClientSecret: get("GOOGLE_CLIENT_SECRET"),

@@ -96,7 +96,7 @@ func runServer() error {
 		Database: db,
 		Logger:   appLogger,
 	})
-	mailSender := email.NewService(&email.NoopProvider{})
+	mailSender := email.NewResendProvider(settings.ResendAPIKey, settings.ResendFromEmail, nil)
 	jobQueue := worker.NewInMemoryPubSub(25)
 	workerContext, stopWorkers := context.WithCancel(context.Background())
 	defer jobQueue.Stop()

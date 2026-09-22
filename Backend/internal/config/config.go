@@ -12,18 +12,20 @@ import (
 )
 
 type Config struct {
-	AppEnv        string
-	Host          string
-	Port          int
-	DatabaseURL   string
-	JWTSecret     string
-	JWTAccessTTL  time.Duration
-	JWTRefreshTTL time.Duration
-	CORSOrigins   string
-	OAuth         OAuthConfig
-	LogLevel      zapcore.Level
-	LogFormat     string
-	LogSource     bool
+	AppEnv          string
+	Host            string
+	Port            int
+	DatabaseURL     string
+	JWTSecret       string
+	ResendAPIKey    string
+	ResendFromEmail string
+	JWTAccessTTL    time.Duration
+	JWTRefreshTTL   time.Duration
+	CORSOrigins     string
+	OAuth           OAuthConfig
+	LogLevel        zapcore.Level
+	LogFormat       string
+	LogSource       bool
 }
 
 type OAuthConfig struct {
@@ -36,17 +38,19 @@ type OAuthConfig struct {
 }
 
 const (
-	envAppEnv        = "APP_ENV"
-	envHost          = "HOST"
-	envPort          = "PORT"
-	envDatabaseURL   = "DATABASE_URL"
-	envJWTSecret     = "JWT_SECRET"
-	envJWTAccessTTL  = "JWT_ACCESS_TTL"
-	envJWTRefreshTTL = "JWT_REFRESH_TTL"
-	envCORSOrigins   = "CORS_ALLOWED_ORIGINS"
-	envLogLevel      = "LOG_LEVEL"
-	envLogFormat     = "LOG_FORMAT"
-	envLogSource     = "LOG_SOURCE"
+	envAppEnv          = "APP_ENV"
+	envHost            = "HOST"
+	envPort            = "PORT"
+	envDatabaseURL     = "DATABASE_URL"
+	envJWTSecret       = "JWT_SECRET"
+	envResendAPIKey    = "RESEND_API_KEY"
+	envResendFromEmail = "RESEND_FROM_EMAIL"
+	envJWTAccessTTL    = "JWT_ACCESS_TTL"
+	envJWTRefreshTTL   = "JWT_REFRESH_TTL"
+	envCORSOrigins     = "CORS_ALLOWED_ORIGINS"
+	envLogLevel        = "LOG_LEVEL"
+	envLogFormat       = "LOG_FORMAT"
+	envLogSource       = "LOG_SOURCE"
 
 	defaultAppEnv        = "development"
 	defaultHost          = "127.0.0.1"
