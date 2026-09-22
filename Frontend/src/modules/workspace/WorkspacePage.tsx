@@ -53,7 +53,7 @@ export function WorkspacePage() {
     <main className="flex h-screen min-h-0 flex-col overflow-hidden bg-forge-bg text-[#f1f3f5]">
       <TopBar name={name} email={email} initials={initials} onSignOut={signOut} onMenu={() => setSidebarOpen(!sidebarOpen)} onAssistant={() => setAssistantOpen(!assistantOpen)} />
       <div className="workspace-layout grid min-h-0 flex-1" style={{ "--workspace-columns": workspaceColumns } as CSSProperties}>
-        {sidebarOpen && <WorkspaceSidebar active={activeNav} onChange={setActiveNav} onCollapse={() => setSidebarOpen(false)} />}
+        {sidebarOpen && <WorkspaceSidebar active={activeNav} onChange={(label) => { setActiveNav(label); setSidebarOpen(false); }} onCollapse={() => setSidebarOpen(false)} />}
         <section className="flex min-w-0 flex-col bg-[#111419]">
           <WorkspaceHeader activeNav={activeNav} onSearch={() => setActiveNav("Files")} />
           <WorkspaceTabs active={activeTab} onChange={setActiveTab} />
@@ -66,7 +66,7 @@ export function WorkspacePage() {
         </section>
         {assistantOpen && <AssistantPanel chat={messages} prompt={prompt} setPrompt={setPrompt} onSend={sendPrompt} onClose={() => setAssistantOpen(false)} />}
       </div>
-      <MobileNav onFiles={() => setActiveNav("Files")} onAgent={() => setAssistantOpen(true)} />
+      <MobileNav active={activeNav} onHome={() => setActiveNav("Overview")} onFiles={() => { setActiveNav("Files"); setSidebarOpen(true); }} onAgent={() => setAssistantOpen(true)} />
     </main>
   );
 }

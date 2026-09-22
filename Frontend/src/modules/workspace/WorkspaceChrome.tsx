@@ -37,7 +37,7 @@ export function TopBar({ name, email, initials, onSignOut, onMenu, onAssistant }
 
 export function WorkspaceSidebar({ active, onChange, onCollapse }: { active: string; onChange: (label: string) => void; onCollapse: () => void }) {
   return (
-    <aside className="hidden w-56 shrink-0 flex-col border-r border-white/10 bg-forge-panel md:flex">
+    <aside className="fixed inset-x-0 bottom-12 top-14 z-40 flex w-64 shrink-0 flex-col border-r border-white/10 bg-forge-panel shadow-2xl md:static md:flex md:w-56 md:shadow-none">
       <div className="flex h-11 items-center justify-between border-b border-white/10 px-3"><span className="font-mono text-[10px] uppercase tracking-[0.08em] text-forge-muted">Workspace</span><button className={iconButtonClass} title="Collapse sidebar" aria-label="Collapse sidebar" onClick={onCollapse}><ChevronLeft size={15} /></button></div>
       <nav className="min-h-0 flex-1 overflow-y-auto p-2">{workspaceSections.map((section) => <div key={section.title} className="mb-5"><p className="px-2 py-2 font-mono text-[10px] uppercase tracking-[0.08em] text-forge-muted">{section.title}</p>{section.items.map(({ label, icon: Icon }) => <button key={label} className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs transition ${active === label ? "bg-forge-accent/10 font-semibold text-forge-accent" : "text-forge-soft hover:bg-white/[0.05]"}`} onClick={() => onChange(label)}><Icon size={15} />{label}</button>)}</div>)}</nav>
       <div className="border-t border-white/10 p-3"><button className="flex items-center gap-2 text-xs text-forge-muted hover:text-forge-soft"><LifeBuoy size={15} /> Help center</button></div>
@@ -50,11 +50,11 @@ export function WorkspaceHeader({ activeNav, onSearch }: { activeNav: string; on
 }
 
 export function WorkspaceTabs({ active, onChange }: { active: WorkspaceTab; onChange: (tab: WorkspaceTab) => void }) {
-  return <div className="flex h-11 shrink-0 items-center gap-1 border-b border-white/10 px-4">{(["preview", "code", "components", "console"] as WorkspaceTab[]).map((tab) => <button key={tab} className={`px-3 py-2 text-xs font-semibold capitalize ${active === tab ? "border-b-2 border-forge-accent text-forge-accent" : "text-forge-muted hover:text-forge-soft"}`} onClick={() => onChange(tab)}>{tab}</button>)}</div>;
+  return <div className="flex h-11 shrink-0 gap-1 overflow-x-auto border-b border-white/10 px-4">{(["preview", "code", "components", "console"] as WorkspaceTab[]).map((tab) => <button key={tab} className={`shrink-0 px-3 py-2 text-xs font-semibold capitalize ${active === tab ? "border-b-2 border-forge-accent text-forge-accent" : "text-forge-muted hover:text-forge-soft"}`} onClick={() => onChange(tab)}>{tab}</button>)}</div>;
 }
 
-export function MobileNav({ onFiles, onAgent }: { onFiles: () => void; onAgent: () => void }) {
-  return <div className="flex shrink-0 items-center justify-around border-t border-white/10 bg-forge-panel p-2 md:hidden"><button className="flex flex-col items-center gap-1 text-[10px] text-forge-accent"><PanelLeft size={16} />Home</button><button className="flex flex-col items-center gap-1 text-[10px] text-forge-muted" onClick={onFiles}><Folder size={16} />Files</button><button className="flex flex-col items-center gap-1 text-[10px] text-forge-muted" onClick={onAgent}><PanelRight size={16} />Agent</button></div>;
+export function MobileNav({ active, onHome, onFiles, onAgent }: { active: string; onHome: () => void; onFiles: () => void; onAgent: () => void }) {
+  return <div className="flex shrink-0 items-center justify-around border-t border-white/10 bg-forge-panel p-2 md:hidden"><button className={`flex flex-col items-center gap-1 text-[10px] ${active === "Overview" ? "text-forge-accent" : "text-forge-muted"}`} onClick={onHome}><PanelLeft size={16} />Home</button><button className={`flex flex-col items-center gap-1 text-[10px] ${active === "Files" ? "text-forge-accent" : "text-forge-muted"}`} onClick={onFiles}><Folder size={16} />Files</button><button className="flex flex-col items-center gap-1 text-[10px] text-forge-muted" onClick={onAgent}><PanelRight size={16} />Agent</button></div>;
 }
 
 export type { LucideIcon };
