@@ -13,6 +13,11 @@ export type WorkspaceMember = {
   id: string;
   workspace_id: string;
   user_id: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  };
   role: "OWNER" | "ADMIN" | "MEMBER";
   created_at: string;
   updated_at: string;
@@ -25,6 +30,11 @@ export type WorkspaceInvite = {
   role: string;
   status: string;
   invited_by: string;
+  invited_by_user: {
+    id: string;
+    email: string;
+    name: string;
+  };
   token_hash: string;
   expires_at: string;
   created_at: string;
@@ -121,5 +131,12 @@ export function createInvite(
       method: "POST",
       body: JSON.stringify({ email, role }),
     },
+  );
+}
+
+export function listInvites(accessToken: string, workspaceId: string) {
+  return authenticatedRequest<WorkspaceInvite[]>(
+    `/workspaces/${workspaceId}/invites`,
+    { accessToken },
   );
 }

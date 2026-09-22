@@ -39,14 +39,26 @@ func (repo *repository) AddMember(ctx context.Context, tx *sqlx.Tx, workspaceID,
 }
 
 func (repo *repository) ListMembers(ctx context.Context, workspaceID string) ([]Member, error) {
-	var members []Member
-	if err := repo.db.SelectContext(ctx, &members, `
-		SELECT wm.id, wm.workspace_id, wm.user_id, e.code AS role, wm.created_at, wm.updated_at
+	type memberRow struct {
+		Member
+		UserEmail string `db:"user_email"`
+		UserName  string `db:"user_name"`
+	}
+	var rows []memberRow
+	if err := repo.db.SelectContext(ctx, &rows, `
+		SELECT wm.id, wm.workspace_id, wm.user_id, e.code AS role, wm.created_at, wm.updated_at,
+		       u.email AS user_email, u.name AS user_name
 		FROM tbl_workspace_member wm
 		JOIN tbl_enum e ON e.id = wm.role_id
+		JOIN tbl_user u ON u.id = wm.user_id
 		WHERE wm.workspace_id = $1
 		ORDER BY wm.created_at ASC`, workspaceID); err != nil {
 		return nil, fmt.Errorf("list workspace members: %w", err)
+	}
+	members := make([]Member, 0, len(rows))
+	for _, row := range rows {
+		row.Member.User = MemberUser{ID: row.UserID, Email: row.UserEmail, Name: row.UserName}
+		members = append(members, row.Member)
 	}
 	return members, nil
 }

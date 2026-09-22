@@ -18,9 +18,16 @@ type Member struct {
 	ID          string        `json:"id" db:"id"`
 	WorkspaceID string        `json:"workspace_id" db:"workspace_id"`
 	UserID      string        `json:"user_id" db:"user_id"`
+	User        MemberUser    `json:"user" db:"-"`
 	Role        WorkspaceRole `json:"role" db:"role"`
 	CreatedAt   time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time     `json:"updated_at" db:"updated_at"`
+}
+
+type MemberUser struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
 }
 
 type AddMemberRequest struct {

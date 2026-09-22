@@ -65,9 +65,10 @@ func (handler *Handler) UpdateInviteStatus(c *gin.Context) {
 		return
 	}
 
-	if err := handler.service.UpdateInviteStatus(c.Request.Context(), workspaceID, inviteID, userID, input.Status); err != nil {
+	invite, err := handler.service.UpdateInviteStatus(c.Request.Context(), workspaceID, inviteID, userID, input.Status)
+	if err != nil {
 		apierrors.Error(c, http.StatusInternalServerError, apierrors.ErrCodeInternalServer, err.Error(), nil)
 		return
 	}
-	apierrors.Success(c, http.StatusOK, "workspace invite status updated", nil)
+	apierrors.Success(c, http.StatusOK, "workspace invite status updated", invite)
 }

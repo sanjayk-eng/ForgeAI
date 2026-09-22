@@ -7,6 +7,12 @@ const items = [
   { label: "Settings", to: "/workspace/settings", icon: Settings },
 ];
 
+const modules = [
+  { label: "Agent workspace", color: "bg-forge-accent" },
+  { label: "Repositories", color: "bg-forge-signal" },
+  { label: "Conversations", color: "bg-[#8ed4ff]" },
+];
+
 export function WorkspaceSidebar({
   open,
   hasWorkspace,
@@ -60,18 +66,15 @@ export function WorkspaceSidebar({
               Modules
             </span>
             <div className="grid gap-1 text-[13px] font-semibold text-forge-muted">
-              <span className="flex items-center gap-3 px-3 py-2">
-                <i className="size-1.5 rounded-full bg-forge-accent" />
-                Agent workspace
-              </span>
-              <span className="flex items-center gap-3 px-3 py-2">
-                <i className="size-1.5 rounded-full bg-forge-signal" />
-                Repositories
-              </span>
-              <span className="flex items-center gap-3 px-3 py-2">
-                <i className="size-1.5 rounded-full bg-[#8ed4ff]" />
-                Conversations
-              </span>
+              {modules.map((module) => (
+                <span
+                  key={module.label}
+                  className="flex items-center gap-3 px-3 py-2"
+                >
+                  <i className={`size-1.5 rounded-full ${module.color}`} />
+                  {module.label}
+                </span>
+              ))}
             </div>
           </>
         ) : (
