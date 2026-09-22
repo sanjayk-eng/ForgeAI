@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { getCurrentUser, login, refresh, register } from "./api";
+import { queryClient } from "../../app/queryClient";
+import { getCurrentUser, login, logout as logoutRequest, refresh, register } from "./api";
 import { clearTokens, readTokens, writeTokens } from "../../shared/auth/storage";
 import type { AuthTokens, Credentials, Registration, UserProfile } from "../../shared/auth/types";
 import { AuthContext } from "./authContextStore";
@@ -74,7 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(() => {
+    void logoutRequest().catch(() => undefined);
     clearTokens();
+    queryClient.clear();
     setTokens(null);
     setUser(null);
   }, []);

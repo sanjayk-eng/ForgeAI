@@ -22,6 +22,10 @@ export function refresh(refreshToken: string): Promise<AuthTokens> {
   });
 }
 
+export function logout(): Promise<void> {
+  return request<void>("/auth/logout", { method: "POST" });
+}
+
 export function getCurrentUser(accessToken: string): Promise<UserProfile> {
   return request<UserProfile>("/auth/me", {
     headers: { Authorization: `Bearer ${accessToken}` },

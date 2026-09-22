@@ -104,6 +104,10 @@ func (handler *Handler) Refresh(c *gin.Context) {
 	apierrors.Success(c, http.StatusOK, "token refreshed", result)
 }
 
+func (handler *Handler) Logout(c *gin.Context) {
+	apierrors.Success(c, http.StatusOK, "logout successful", nil)
+}
+
 func (handler *Handler) Me(c *gin.Context) {
 	userID, ok := middleware.UserID(c)
 	if !ok {
