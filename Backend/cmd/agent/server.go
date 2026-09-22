@@ -5,6 +5,7 @@ import (
 	"ai-agent/internal/middleware"
 	"ai-agent/internal/modules/auth"
 	"ai-agent/internal/modules/auth/provider"
+	"ai-agent/internal/modules/workspace"
 	"ai-agent/internal/shared/logger"
 	appdatabase "ai-agent/pkg/database"
 	appjwt "ai-agent/pkg/jwt"
@@ -79,6 +80,11 @@ func runServer() error {
 		Database: db,
 		Provider: oauthFactory,
 		JWT:      jwtManager,
+		Logger:   appLogger,
+	})
+	workspace.LoadModule(workspace.ModuleConfig{
+		Router:   engine,
+		Database: db,
 		Logger:   appLogger,
 	})
 
