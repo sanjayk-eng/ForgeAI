@@ -50,25 +50,92 @@ func (handler *Handler) ListInvites(c *gin.Context) {
 	apierrors.Success(c, http.StatusOK, "workspace invites fetched", invites)
 }
 
-func (handler *Handler) UpdateInviteStatus(c *gin.Context) {
-	workspaceID := c.Param("workspace_id")
-	inviteID := c.Param("invite_id")
+func (handler *Handler) GetInviteByToken(c *gin.Context) {
+	token := c.Param("token")
+	
+	invite, err := handler.service.GetInviteByToken(c.Request.Context(), token)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if err == ErrInviteNotFound {
+			statusCode = http.StatusNotFound
+		} else if err == ErrInvalidToken {
+			statusCode = http.StatusBadRequest
+		}
+		apierrors.Error(c, statusCode, apierrors.ErrCodeInternalServer, err.Error(), nil)
+		return
+	}
+	
+	apierrors.Success(c, http.StatusOK, "invite details fetched", invite)
+}
+
+func (handler *Handler) AcceptInviteByToken(c *gin.Context) {
+	token := c.Param("token")
+	
 	userID, ok := middleware.UserID(c)
 	if !ok {
 		apierrors.Error(c, http.StatusUnauthorized, apierrors.ErrCodeUnauthorized, "authenticated user is required", nil)
 		return
 	}
-
-	var input UpdateInviteStatusRequest
+	
+	var input AcceptInviteRequest
 	if err := validate.BindAndValidate(c, &input); err != nil {
 		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
 		return
 	}
-
-	invite, err := handler.service.UpdateInviteStatus(c.Request.Context(), workspaceID, inviteID, userID, input.Status)
+	
+	invite, err := handler.service.AcceptInviteByToken(c.Request.Context(), token, userID, input.Email)
 	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if err == ErrInviteNotFound {
+			statusCode = http.StatusNotFound
+		} else if err == ErrInviteExpired || err == ErrInviteAlreadyUsed || err == ErrEmailMismatch {
+			statusCode = http.StatusBadRequest
+		}
+		apierrors.Error(c, statusCode, apierrors.ErrCodeInternalServer, err.Error(), nil)
+		return
+	}
+	
+	apierrors.Success(c, http.StatusOK, "invite accepted successfully", invite)
+}
+
+func (handler *Handler) RejectInviteByToken(c *gin.Context) {
+	token := c.Param("token")
+	
+	var input RejectInviteRequest
+	if err := validate.BindAndValidate(c, &input); err != nil {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
+		return
+	}
+	
+	invite, err := handler.service.RejectInviteByToken(c.Request.Context(), token, input.Email)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if err == ErrInviteNotFound {
+			statusCode = http.StatusNotFound
+		} else if err == ErrEmailMismatch || err == ErrInviteAlreadyUsed {
+			statusCode = http.StatusBadRequest
+		}
+		apierrors.Error(c, statusCode, apierrors.ErrCodeInternalServer, err.Error(), nil)
+		return
+	}
+	
+	apierrors.Success(c, http.StatusOK, "invite rejected", invite)
+}
+
+func (handler *Handler) RevokeInvite(c *gin.Context) {
+	workspaceID := c.Param("workspace_id")
+	inviteID := c.Param("invite_id")
+	
+	userID, ok := middleware.UserID(c)
+	if !ok {
+		apierrors.Error(c, http.StatusUnauthorized, apierrors.ErrCodeUnauthorized, "authenticated user is required", nil)
+		return
+	}
+	
+	if err := handler.service.RevokeInvite(c.Request.Context(), workspaceID, inviteID, userID); err != nil {
 		apierrors.Error(c, http.StatusInternalServerError, apierrors.ErrCodeInternalServer, err.Error(), nil)
 		return
 	}
-	apierrors.Success(c, http.StatusOK, "workspace invite status updated", invite)
+	
+	apierrors.Success(c, http.StatusOK, "invite revoked successfully", nil)
 }

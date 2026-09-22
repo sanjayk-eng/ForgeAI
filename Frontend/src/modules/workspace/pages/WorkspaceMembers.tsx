@@ -7,6 +7,7 @@ import {
   listInvites,
   listMembers,
   removeMember,
+  revokeInvite,
   updateMemberRole,
 } from "../api";
 import { InviteDialog } from "../components/InviteDialog";
@@ -49,6 +50,17 @@ export function WorkspaceMembers() {
       queryClient.invalidateQueries({ queryKey: ["members", workspaceId] }),
     onError: () => toast.pushError("Could not remove member"),
   });
+
+  const revokeMutation = useMutation({
+    mutationFn: (inviteId: string) =>
+      revokeInvite(accessToken, workspaceId, inviteId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invites", workspaceId] });
+      toast.pushSuccess("Invitation revoked");
+    },
+    onError: () => toast.pushError("Could not revoke invitation"),
+  });
+
   const members = membersQuery.data ?? [];
 
   function closeInviteAndRefresh() {
@@ -143,6 +155,8 @@ export function WorkspaceMembers() {
             loading={invitesQuery.isLoading}
             error={invitesQuery.isError}
             onRetry={() => void invitesQuery.refetch()}
+            onRevoke={(inviteId) => revokeMutation.mutate(inviteId)}
+            revoking={revokeMutation.isPending}
           />
         </section>
       )}

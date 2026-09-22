@@ -140,3 +140,40 @@ export function listInvites(accessToken: string, workspaceId: string) {
     { accessToken },
   );
 }
+
+// Public endpoint - get invite details by token
+export function getInviteByToken(token: string) {
+  return request<WorkspaceInvite>(`/public/invites/${token}`);
+}
+
+// Accept invite (requires authentication)
+export function acceptInvite(accessToken: string, token: string, email: string) {
+  return authenticatedRequest<WorkspaceInvite>(`/invites/${token}/accept`, {
+    accessToken,
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+// Reject invite (public - no auth required)
+export function rejectInvite(token: string, email: string) {
+  return request<WorkspaceInvite>(`/public/invites/${token}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+// Revoke invite (admin action)
+export function revokeInvite(
+  accessToken: string,
+  workspaceID: string,
+  inviteID: string,
+) {
+  return authenticatedRequest<null>(
+    `/workspaces/${workspaceID}/invites/${inviteID}`,
+    {
+      accessToken,
+      method: "DELETE",
+    },
+  );
+}

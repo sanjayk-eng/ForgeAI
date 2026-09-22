@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -11,7 +12,24 @@ import (
 type Repository interface {
 	Create(ctx context.Context, tx *sqlx.Tx, invite Invite) (Invite, error)
 	ListByWorkspace(ctx context.Context, workspaceID string) ([]Invite, error)
-	UpdateStatus(ctx context.Context, tx *sqlx.Tx, workspaceID, inviteID, status string) (Invite, error)
+	FindByToken(ctx context.Context, token string) (Invite, error)
+	FindByID(ctx context.Context, workspaceID, inviteID string) (Invite, error)
+	FindByWorkspaceAndEmail(ctx context.Context, workspaceID, email string) ([]Invite, error)
+	UpdateStatusWithTimestamp(ctx context.Context, tx *sqlx.Tx, workspaceID, inviteID, status string, timestamp *time.Time) (Invite, error)
+	AddWorkspaceMember(ctx context.Context, tx *sqlx.Tx, workspaceID, userID, role string) error
+	GetWorkspaceInfo(ctx context.Context, workspaceID string) (WorkspaceInfo, error)
+	GetUserInfo(ctx context.Context, userID string) (UserInfo, error)
+}
+
+type WorkspaceInfo struct {
+	ID   string `db:"id"`
+	Name string `db:"name"`
+}
+
+type UserInfo struct {
+	ID    string `db:"id"`
+	Email string `db:"email"`
+	Name  string `db:"name"`
 }
 
 type repository struct {
@@ -81,12 +99,68 @@ func (repo *repository) ListByWorkspace(ctx context.Context, workspaceID string)
 	return invites, nil
 }
 
-func (repo *repository) UpdateStatus(ctx context.Context, tx *sqlx.Tx, workspaceID, inviteID, status string) (Invite, error) {
+func (repo *repository) FindByToken(ctx context.Context, token string) (Invite, error) {
+	query := `
+		SELECT wi.id, wi.workspace_id, wi.email, role_enum.code AS role,
+		       status_enum.code AS status, wi.invited_by, wi.token_hash,
+		       wi.expires_at, wi.created_at, wi.updated_at
+		FROM tbl_workspace_invite wi
+		JOIN tbl_enum role_enum ON role_enum.id = wi.role_id
+		JOIN tbl_enum status_enum ON status_enum.id = wi.status_id
+		WHERE wi.token_hash = $1`
+
+	var invite Invite
+	if err := repo.db.GetContext(ctx, &invite, query, token); err != nil {
+		return Invite{}, fmt.Errorf("find invite by token: %w", err)
+	}
+	return invite, nil
+}
+
+func (repo *repository) FindByID(ctx context.Context, workspaceID, inviteID string) (Invite, error) {
+	query := `
+		SELECT wi.id, wi.workspace_id, wi.email, role_enum.code AS role,
+		       status_enum.code AS status, wi.invited_by, wi.token_hash,
+		       wi.expires_at, wi.created_at, wi.updated_at
+		FROM tbl_workspace_invite wi
+		JOIN tbl_enum role_enum ON role_enum.id = wi.role_id
+		JOIN tbl_enum status_enum ON status_enum.id = wi.status_id
+		WHERE wi.id = $1 AND wi.workspace_id = $2`
+
+	var invite Invite
+	if err := repo.db.GetContext(ctx, &invite, query, inviteID, workspaceID); err != nil {
+		return Invite{}, fmt.Errorf("find invite by ID: %w", err)
+	}
+	return invite, nil
+}
+
+func (repo *repository) FindByWorkspaceAndEmail(ctx context.Context, workspaceID, email string) ([]Invite, error) {
+	query := `
+		SELECT wi.id, wi.workspace_id, wi.email, role_enum.code AS role,
+		       status_enum.code AS status, wi.invited_by, wi.token_hash,
+		       wi.expires_at, wi.created_at, wi.updated_at
+		FROM tbl_workspace_invite wi
+		JOIN tbl_enum role_enum ON role_enum.id = wi.role_id
+		JOIN tbl_enum status_enum ON status_enum.id = wi.status_id
+		WHERE wi.workspace_id = $1 AND wi.email = $2
+		ORDER BY wi.created_at DESC`
+
+	var invites []Invite
+	if err := repo.db.SelectContext(ctx, &invites, query, workspaceID, email); err != nil {
+		return nil, fmt.Errorf("find invites by workspace and email: %w", err)
+	}
+	if invites == nil {
+		invites = []Invite{}
+	}
+	return invites, nil
+}
+
+func (repo *repository) UpdateStatusWithTimestamp(ctx context.Context, tx *sqlx.Tx, workspaceID, inviteID, status string, timestamp *time.Time) (Invite, error) {
 	query := `
 		UPDATE tbl_workspace_invite wi
 		SET status_id = status_enum.id,
-		    accepted_at = CASE WHEN status_enum.code = 'ACCEPTED' THEN NOW() ELSE wi.accepted_at END,
-		    rejected_at = CASE WHEN status_enum.code = 'REJECTED' THEN NOW() ELSE wi.rejected_at END,
+		    accepted_at = CASE WHEN status_enum.code = 'ACCEPTED' THEN $4 ELSE wi.accepted_at END,
+		    rejected_at = CASE WHEN status_enum.code = 'REJECTED' THEN $4 ELSE wi.rejected_at END,
+		    revoked_at = CASE WHEN status_enum.code = 'REVOKED' THEN $4 ELSE wi.revoked_at END,
 		    updated_at = NOW()
 		FROM tbl_enum status_enum
 		WHERE wi.id = $1
@@ -98,8 +172,41 @@ func (repo *repository) UpdateStatus(ctx context.Context, tx *sqlx.Tx, workspace
 		          wi.invited_by, wi.token_hash, wi.expires_at, wi.created_at, wi.updated_at`
 
 	var updated Invite
-	if err := tx.GetContext(ctx, &updated, query, inviteID, workspaceID, strings.ToUpper(status)); err != nil {
+	if err := tx.GetContext(ctx, &updated, query, inviteID, workspaceID, strings.ToUpper(status), timestamp); err != nil {
 		return Invite{}, fmt.Errorf("update workspace invite status: %w", err)
 	}
 	return updated, nil
+}
+
+func (repo *repository) AddWorkspaceMember(ctx context.Context, tx *sqlx.Tx, workspaceID, userID, role string) error {
+	query := `
+		INSERT INTO tbl_workspace_member (workspace_id, user_id, role_id)
+		SELECT $1, $2, e.id
+		FROM tbl_enum e
+		WHERE e.category = 'WORKSPACE_ROLE'
+		  AND e.code = $3
+		ON CONFLICT (workspace_id, user_id) DO NOTHING`
+
+	if _, err := tx.ExecContext(ctx, query, workspaceID, userID, strings.ToUpper(role)); err != nil {
+		return fmt.Errorf("add workspace member: %w", err)
+	}
+	return nil
+}
+
+func (repo *repository) GetWorkspaceInfo(ctx context.Context, workspaceID string) (WorkspaceInfo, error) {
+	var info WorkspaceInfo
+	query := `SELECT id, name FROM tbl_workspace WHERE id = $1`
+	if err := repo.db.GetContext(ctx, &info, query, workspaceID); err != nil {
+		return WorkspaceInfo{}, fmt.Errorf("get workspace info: %w", err)
+	}
+	return info, nil
+}
+
+func (repo *repository) GetUserInfo(ctx context.Context, userID string) (UserInfo, error) {
+	var info UserInfo
+	query := `SELECT id, email, name FROM tbl_user WHERE id = $1`
+	if err := repo.db.GetContext(ctx, &info, query, userID); err != nil {
+		return UserInfo{}, fmt.Errorf("get user info: %w", err)
+	}
+	return info, nil
 }

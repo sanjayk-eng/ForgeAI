@@ -1,4 +1,4 @@
-import { Clock3, Mail, Send } from "lucide-react";
+import { Clock3, Mail, Send, X } from "lucide-react";
 import type { WorkspaceInvite } from "../api";
 
 type Props = {
@@ -6,6 +6,8 @@ type Props = {
   loading: boolean;
   error: boolean;
   onRetry: () => void;
+  onRevoke?: (inviteId: string) => void;
+  revoking?: boolean;
 };
 
 const statusStyles: Record<string, string> = {
@@ -21,6 +23,8 @@ export function WorkspaceInviteList({
   loading,
   error,
   onRetry,
+  onRevoke,
+  revoking = false,
 }: Props) {
   if (loading) return <InviteMessage label="Loading invitations..." />;
   if (error)
@@ -37,10 +41,11 @@ export function WorkspaceInviteList({
     <div className="divide-y divide-white/[0.06]">
       {invites.map((invite) => {
         const status = invite.status.toUpperCase();
+        const canRevoke = status === "PENDING" && onRevoke;
         return (
           <div
             key={invite.id}
-            className="grid gap-3 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_110px_150px] sm:items-center sm:px-6"
+            className="grid gap-3 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_110px_150px_auto] sm:items-center sm:px-6"
           >
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-8 shrink-0 place-items-center border border-white/[0.1] text-forge-muted">
@@ -67,6 +72,17 @@ export function WorkspaceInviteList({
                 ? `Expires ${new Date(invite.expires_at).toLocaleDateString()}`
                 : `Sent ${new Date(invite.created_at).toLocaleDateString()}`}
             </span>
+            {canRevoke && (
+              <button
+                onClick={() => onRevoke(invite.id)}
+                disabled={revoking}
+                className="flex items-center gap-1.5 text-xs font-medium text-forge-muted transition hover:text-red-400 disabled:opacity-50"
+                title="Revoke invitation"
+              >
+                <X size={14} />
+                Revoke
+              </button>
+            )}
           </div>
         );
       })}

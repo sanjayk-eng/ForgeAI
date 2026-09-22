@@ -117,12 +117,14 @@ func runServer() error {
 
 	appLogger.Info(context.Background(), "email service initialized", "queue_size", 100, "workers", 3)
 
+	// Initialize workspace invite module
 	workspaceinvite.LoadModule(workspaceinvite.ModuleConfig{
-		Router:       protectedRouter,
-		Database:     db,
-		Logger:       appLogger,
-		EmailService: emailModule.Service,
-		FrontendURL:  settings.FrontendURL,
+		ProtectedRouter: protectedRouter,
+		PublicRouter:    engine, // Public routes on main router
+		Database:        db,
+		Logger:          appLogger,
+		EmailService:    emailModule.Service, // Pass interface
+		FrontendURL:     settings.FrontendURL,
 	})
 
 	address := fmt.Sprintf("%s:%d", settings.Host, settings.Port)

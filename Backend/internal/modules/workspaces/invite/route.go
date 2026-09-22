@@ -3,7 +3,17 @@ package invite
 import "github.com/gin-gonic/gin"
 
 func RegisterRoutes(router gin.IRouter, handler *Handler) {
+	// Protected routes (require authentication)
 	router.POST("/workspaces/:workspace_id/invites", handler.CreateInvite)
 	router.GET("/workspaces/:workspace_id/invites", handler.ListInvites)
-	router.POST("/workspaces/:workspace_id/invites/:invite_id/status", handler.UpdateInviteStatus)
+	router.DELETE("/workspaces/:workspace_id/invites/:invite_id", handler.RevokeInvite)
+}
+
+func RegisterPublicRoutes(router gin.IRouter, handler *Handler) {
+	// Public routes (no authentication required)
+	router.GET("/public/invites/:token", handler.GetInviteByToken)
+	router.POST("/public/invites/:token/reject", handler.RejectInviteByToken)
+	
+	// Accept requires authentication
+	router.POST("/invites/:token/accept", handler.AcceptInviteByToken)
 }

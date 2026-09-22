@@ -8,6 +8,7 @@ import { WorkspaceLayout } from "../modules/workspace/WorkspaceLayout";
 import { WorkspaceOverview } from "../modules/workspace/pages/WorkspaceOverview";
 import { WorkspaceMembers } from "../modules/workspace/pages/WorkspaceMembers";
 import { WorkspaceSettings } from "../modules/workspace/pages/WorkspaceSettings";
+import { AcceptInvitePage } from "../modules/workspace/pages/AcceptInvitePage";
 
 export const router = createBrowserRouter([
   {
@@ -17,6 +18,10 @@ export const router = createBrowserRouter([
       { path: "/register", element: <RegisterPage /> },
       { path: "/auth/callback", element: <OAuthCallbackPage /> },
     ],
+  },
+  {
+    path: "/accept-invite/:token",
+    element: <AcceptInvitePage />,
   },
   {
     element: <ProtectedRoute />,
