@@ -1,5 +1,6 @@
 import { ArrowUpRight, ShieldCheck } from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
+import { AuthSolarSystem } from "./AuthSolarSystem";
 
 export function AuthLayout() {
   const location = useLocation();
@@ -7,6 +8,7 @@ export function AuthLayout() {
   return (
     <main className="grid min-h-screen bg-forge-bg lg:h-screen lg:min-h-0 lg:overflow-hidden lg:grid-cols-[minmax(300px,0.92fr)_minmax(460px,1.08fr)]">
       <aside className="relative hidden min-h-screen flex-col justify-between overflow-hidden border-r border-white/15 bg-gradient-to-br from-[#191d23] via-[#111419] to-[#0e1014] p-9 text-[#f1f3f5] lg:flex lg:px-12" aria-label="ForgeAI workspace">
+        <AuthSolarSystem />
         <div className="relative z-10 flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.08em] text-forge-soft">
           <span className="grid size-8 place-items-center rounded-lg border border-forge-accent/50 bg-forge-accent/5 font-sans font-extrabold tracking-[-0.12em] text-forge-accent">F/</span>
           <span>ForgeAI</span>

@@ -44,6 +44,109 @@
   to { width: 0%; }
 }
 
+@keyframes auth-orbit-spin {
+  to { transform: translate(-50%, -50%) rotateX(62deg) rotateZ(360deg); }
+}
+
+@keyframes auth-dust-float {
+  0%, 100% { opacity: 0.32; transform: translate3d(0, 8px, 0) scale(0.86); }
+  50% { opacity: 0.9; transform: translate3d(10px, -12px, 0) scale(1.12); }
+}
+
+@keyframes auth-sun-pulse {
+  50% {
+    box-shadow: 0 0 18px rgba(255, 184, 107, 0.6), 0 0 60px rgba(198, 243, 106, 0.2);
+    transform: scale(1.06);
+  }
+}
+
+.auth-motion {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.auth-solar-system {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(92%, 620px);
+  aspect-ratio: 1;
+  perspective: 900px;
+  transform-style: preserve-3d;
+  transform: translate(-50%, -50%);
+  opacity: 0.68;
+}
+
+.auth-dust {
+  position: absolute;
+  z-index: 2;
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(226, 255, 157, 0.9);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.9), rgba(198, 243, 106, 0.5) 45%, transparent 72%);
+  box-shadow: 0 0 8px rgba(198, 243, 106, 0.55), 0 0 18px rgba(198, 243, 106, 0.24);
+  animation: auth-dust-float 4.8s ease-in-out infinite;
+}
+
+.auth-dust-one { top: 18%; left: 14%; animation-delay: -1s; }
+.auth-dust-two { top: 24%; right: 8%; width: 6px; height: 6px; animation-delay: -2.8s; }
+.auth-dust-three { bottom: 16%; left: 24%; width: 7px; height: 7px; animation-delay: -3.6s; }
+.auth-dust-four { right: 18%; bottom: 22%; width: 10px; height: 10px; animation-delay: -1.9s; }
+
+.auth-sun {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 34px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff3c4, #ffb86b 45%, #c6f36a 100%);
+  box-shadow: 0 0 18px rgba(255, 184, 107, 0.5), 0 0 46px rgba(198, 243, 106, 0.18);
+  animation: auth-sun-pulse 5.5s ease-in-out infinite;
+  transform: translate(-50%, -50%);
+}
+
+.auth-orbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 1px solid rgba(198, 243, 106, 0.18);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotateX(62deg) rotateZ(0deg);
+  transform-origin: center;
+  transform-style: preserve-3d;
+  animation: auth-orbit-spin linear infinite;
+}
+
+.auth-orbit-one { width: 24%; height: 15%; animation-duration: 12s; animation-delay: -2.5s; }
+.auth-orbit-two { width: 42%; height: 27%; animation-duration: 18s; animation-delay: -8s; animation-direction: reverse; }
+.auth-orbit-three { width: 64%; height: 40%; animation-duration: 26s; animation-delay: -15s; }
+.auth-orbit-four { width: 88%; height: 55%; animation-duration: 38s; animation-delay: -27s; animation-direction: reverse; }
+
+.auth-planet {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  display: block;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotateX(-62deg);
+  transform-style: preserve-3d;
+}
+
+.auth-planet-one { width: 7px; height: 7px; background: #ffb86b; box-shadow: 0 0 10px rgba(255, 184, 107, 0.65); }
+.auth-planet-two { width: 11px; height: 11px; background: #c6f36a; box-shadow: 0 0 12px rgba(198, 243, 106, 0.55); }
+.auth-planet-three { width: 8px; height: 8px; background: #8ed4ff; box-shadow: 0 0 10px rgba(142, 212, 255, 0.55); }
+.auth-planet-four { width: 14px; height: 14px; border: 2px solid #ffb86b; background: #15181d; box-shadow: 0 0 12px rgba(255, 184, 107, 0.42); }
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-dust,
+  .auth-orbit,
+  .auth-sun { animation: none; }
+}
+
 @layer base {
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
