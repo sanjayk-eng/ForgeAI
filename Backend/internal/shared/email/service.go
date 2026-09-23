@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
+
+	"ai-agent/internal/shared/templates"
 )
 
 var (
@@ -50,15 +53,20 @@ func (s *Service) SendPasswordReset(ctx context.Context, to, resetLink string) e
 	return s.send(ctx, JobTypePasswordReset, to, subject, text, html)
 }
 
-// SendWorkspaceInvite sends a workspace invitation
+// SendWorkspaceInvite sends a workspace invitation with professional template
 func (s *Service) SendWorkspaceInvite(ctx context.Context, to, workspaceName, inviterName, inviteLink, role string) error {
-	subject := fmt.Sprintf("You've been invited to join %s", workspaceName)
-	text := fmt.Sprintf("%s invited you to join %s as %s. Accept: %s", inviterName, workspaceName, role, inviteLink)
-	html := fmt.Sprintf(
-		"<h2>Workspace Invitation</h2><p><strong>%s</strong> invited you to join <strong>%s</strong> as <strong>%s</strong>.</p><p><a href='%s'>Accept Invitation</a></p>",
-		inviterName, workspaceName, role, inviteLink,
-	)
-
+	// Build template data
+	data := templates.WorkspaceInviteTemplateData{
+		WorkspaceName: workspaceName,
+		InviterName:   inviterName,
+		InviteLink:    inviteLink,
+		Role:          role,
+		ExpiresAt:     time.Now().Add(7 * 24 * time.Hour), // 7 days expiration
+	}
+	
+	// Generate email from template
+	subject, text, html := templates.WorkspaceInviteTemplate(data)
+	
 	return s.send(ctx, JobTypeWorkspaceInvite, to, subject, text, html)
 }
 
