@@ -1,0 +1,39 @@
+import type { ReactNode } from "react";
+
+type DropdownProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  className?: string;
+  align?: "left" | "right";
+};
+
+export function Dropdown({ 
+  isOpen, 
+  onClose, 
+  children, 
+  className = "",
+  align = "right" 
+}: DropdownProps) {
+  if (!isOpen) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      
+      {/* Dropdown content */}
+      <div
+        className={`absolute ${align === "right" ? "right-0" : "left-0"} top-full z-50 mt-2 rounded-lg border border-white/20 bg-[#1a1d24] shadow-[0_8px_30px_rgba(0,0,0,0.7)] ${className}`}
+        role="dialog"
+        aria-modal="true"
+      >
+        {children}
+      </div>
+    </>
+  );
+}

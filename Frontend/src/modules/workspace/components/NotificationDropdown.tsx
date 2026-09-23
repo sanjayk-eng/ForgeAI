@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Clock, X } from "lucide-react";
+import { Bell, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getMyPendingInvites } from "../api/invites.api";
+import { Dropdown } from "../../../shared/ui/Dropdown";
+import { EmptyState } from "../../../shared/ui/EmptyState";
+import { NotificationBadge } from "./NotificationBadge";
+import { InviteNotificationCard } from "./InviteNotificationCard";
 
 type NotificationDropdownProps = {
   accessToken: string;
@@ -16,101 +20,84 @@ export function NotificationDropdown({ accessToken }: NotificationDropdownProps)
     queryKey: ["my-pending-invites"],
     queryFn: () => getMyPendingInvites(accessToken),
     enabled: Boolean(accessToken),
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 30000,
   });
 
   const pendingCount = invites.length;
 
+  const handleInviteClick = (token: string) => {
+    setIsOpen(false);
+    navigate(`/accept-invite/${token}`);
+  };
+
   return (
     <div className="relative">
+      {/* Bell Button */}
       <button
         className="relative grid size-9 place-items-center rounded-md border border-transparent text-forge-muted transition hover:border-white/10 hover:bg-white/[0.06] hover:text-forge-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
-        aria-label="Notifications"
+        aria-label={`Notifications${pendingCount > 0 ? ` (${pendingCount} pending)` : ""}`}
         onClick={() => setIsOpen(!isOpen)}
       >
         <Bell size={17} />
-        {pendingCount > 0 && (
-          <span className="absolute right-0.5 top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-forge-signal px-1 font-mono text-[10px] font-bold text-forge-bg">
-            {pendingCount}
-          </span>
-        )}
+        <NotificationBadge count={pendingCount} />
       </button>
 
-      {isOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setIsOpen(false)}
-          />
-          <div className="absolute right-0 top-full z-50 mt-2 w-[min(380px,calc(100vw-32px))] rounded-lg border border-white/10 bg-forge-panel shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
-            <div className="flex items-center justify-between border-b border-white/10 p-4">
-              <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-forge-text">
-                Workspace Invites
+      {/* Dropdown */}
+      <Dropdown 
+        isOpen={isOpen} 
+        onClose={() => setIsOpen(false)}
+        className="w-[min(380px,calc(100vw-32px))]"
+        align="right"
+      >
+        {/* Header */}
+        <div className="border-b border-white/10 bg-[#1f2329] px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-white">
+                Invitations
               </h3>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="grid size-7 place-items-center rounded text-forge-muted transition hover:bg-white/10 hover:text-forge-text"
-                aria-label="Close"
-              >
-                <X size={16} />
-              </button>
+              <p className="mt-0.5 text-xs text-gray-400">
+                {pendingCount === 0 ? "No pending invites" : `${pendingCount} pending`}
+              </p>
             </div>
-
-            <div className="max-h-[400px] overflow-y-auto">
-              {pendingCount === 0 ? (
-                <div className="p-8 text-center">
-                  <Bell size={32} className="mx-auto mb-3 text-forge-muted opacity-50" />
-                  <p className="text-sm text-forge-muted">
-                    No pending invites
-                  </p>
-                </div>
-              ) : (
-                <div className="divide-y divide-white/5">
-                  {invites.map((invite) => {
-                    const isExpired = new Date(invite.expires_at) < new Date();
-                    return (
-                      <button
-                        key={invite.id}
-                        onClick={() => {
-                          setIsOpen(false);
-                          navigate(`/accept-invite/${invite.token}`);
-                        }}
-                        className="flex w-full items-start gap-3 p-4 text-left transition hover:bg-white/[0.03]"
-                      >
-                        <div className="mt-1 grid size-9 shrink-0 place-items-center rounded-lg border border-forge-accent/30 bg-forge-accent/10 text-forge-accent">
-                          <Bell size={16} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold text-forge-text">
-                            {invite.workspace_name || "Workspace"}
-                          </p>
-                          <p className="mt-1 text-xs text-forge-muted">
-                            <span className="text-forge-soft">
-                              {invite.invited_by_user?.name || "Someone"}
-                            </span>{" "}
-                            invited you as{" "}
-                            <span className="font-semibold text-forge-accent">
-                              {invite.role}
-                            </span>
-                          </p>
-                          <p className="mt-2 flex items-center gap-1.5 text-xs text-forge-muted">
-                            <Clock size={12} />
-                            {isExpired ? (
-                              <span className="text-red-400">Expired</span>
-                            ) : (
-                              `Expires ${new Date(invite.expires_at).toLocaleDateString()}`
-                            )}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            {pendingCount > 0 && (
+              <div className="rounded-full bg-forge-accent/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-forge-accent">
+                {pendingCount}
+              </div>
+            )}
           </div>
-        </>
-      )}
+        </div>
+
+        {/* Content */}
+        <div className="max-h-[420px] overflow-y-auto">
+          {pendingCount === 0 ? (
+            <EmptyState
+              icon={CheckCircle2}
+              title="All caught up"
+              description="No pending workspace invitations."
+            />
+          ) : (
+            <div className="divide-y divide-white/[0.06]">
+              {invites.map((invite) => (
+                <InviteNotificationCard
+                  key={invite.id}
+                  invite={invite}
+                  onClick={() => handleInviteClick(invite.token!)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {pendingCount > 0 && (
+          <div className="border-t border-white/10 bg-[#1f2329] px-4 py-2">
+            <p className="text-center text-xs text-gray-400">
+              Click to view details
+            </p>
+          </div>
+        )}
+      </Dropdown>
     </div>
   );
 }
