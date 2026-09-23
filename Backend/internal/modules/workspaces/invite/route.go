@@ -11,6 +11,9 @@ func RegisterRoutes(router gin.IRouter, handler *Handler) {
 	
 	// User's pending invites (authenticated)
 	router.GET("/invites/my-pending", handler.GetMyPendingInvites)
+	
+	// Accept invite (requires authentication to get userID)
+	router.POST("/invites/:token/accept", handler.AcceptInviteByToken)
 }
 
 // RegisterPublicRoutes registers public invite routes
@@ -18,7 +21,4 @@ func RegisterPublicRoutes(router gin.IRouter, handler *Handler) {
 	// Public routes (no authentication required)
 	router.GET("/public/invites/:token", handler.GetInviteByToken)
 	router.POST("/public/invites/:token/reject", handler.RejectInviteByToken)
-	
-	// Accept requires authentication
-	router.POST("/invites/:token/accept", handler.AcceptInviteByToken)
 }

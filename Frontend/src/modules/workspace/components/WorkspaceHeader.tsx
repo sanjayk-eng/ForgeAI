@@ -1,6 +1,7 @@
-import { Bell, ChevronDown, FolderKanban, Menu } from "lucide-react";
+import { ChevronDown, FolderKanban, Menu } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Workspace } from "../types/workspace.types";
+import { NotificationDropdown } from "./NotificationDropdown";
 
 type Props = {
   userName?: string;
@@ -8,6 +9,7 @@ type Props = {
   selected?: Workspace;
   onSelect: (workspace: Workspace) => void;
   onMenu: () => void;
+  accessToken?: string;
 };
 
 export function WorkspaceHeader({
@@ -16,6 +18,7 @@ export function WorkspaceHeader({
   selected,
   onSelect,
   onMenu,
+  accessToken,
 }: Props) {
   return (
     <header className="flex h-[68px] shrink-0 items-center gap-4 border-b border-white/[0.08] bg-forge-bg/90 px-4 sm:gap-7 sm:px-7">
@@ -61,12 +64,7 @@ export function WorkspaceHeader({
         )}
       </div>
       <div className="ml-auto flex items-center gap-2.5">
-        <button
-          className="grid size-9 place-items-center rounded-md border border-transparent text-forge-muted transition hover:border-white/10 hover:bg-white/[0.06] hover:text-forge-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
-          aria-label="Notifications"
-        >
-          <Bell size={17} />
-        </button>
+        {accessToken && <NotificationDropdown accessToken={accessToken} />}
         <div className="hidden items-center gap-2 text-sm font-bold text-forge-soft sm:flex">
           <span className="grid size-8 place-items-center rounded-full bg-forge-signal font-mono text-xs text-forge-bg">
             {userName?.slice(0, 1).toUpperCase() ?? "U"}

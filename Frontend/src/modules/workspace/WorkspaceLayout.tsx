@@ -49,6 +49,7 @@ export function WorkspaceLayout() {
         selected={selected}
         onSelect={selectWorkspace}
         onMenu={openMobileNavigation}
+        accessToken={accessToken}
       />
       <div className="flex min-h-[calc(100vh-68px)]">
         <WorkspaceSidebar

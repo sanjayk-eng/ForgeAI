@@ -72,3 +72,9 @@ export function revokeInvite(
     },
   );
 }
+
+export function getMyPendingInvites(accessToken: string) {
+  return authenticatedRequest<WorkspaceInvite[]>(`/invites/my-pending`, {
+    accessToken,
+  });
+}

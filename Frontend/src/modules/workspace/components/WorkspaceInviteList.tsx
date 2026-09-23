@@ -57,7 +57,7 @@ export function WorkspaceInviteList({
                 </p>
                 <p className="mt-1 font-mono text-[10px] uppercase text-forge-muted">
                   Invited as {invite.role} · by{" "}
-                  {invite.invited_by_user.name || invite.invited_by_user.email}
+                  {invite.invited_by_user?.name || invite.invited_by_user?.email || "Unknown"}
                 </p>
               </div>
             </div>

@@ -29,16 +29,17 @@ export type InviteStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "RE
 export type WorkspaceInvite = {
   id: string;
   workspace_id: string;
+  workspace_name?: string;
   email: string;
   role: string;
   status: InviteStatus;
   invited_by: string;
-  invited_by_user: {
+  invited_by_user?: {
     id: string;
     email: string;
     name: string;
   };
-  token_hash: string;
+  token?: string;
   expires_at: string;
   created_at: string;
   updated_at: string;
