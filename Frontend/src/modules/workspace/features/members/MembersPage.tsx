@@ -1,67 +1,44 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { UserPlus } from "lucide-react";
-import { useAuth } from "../../auth/useAuth";
-import { useToast } from "../../../shared/ui/useToast";
-import {
-  listInvites,
-  listMembers,
-  removeMember,
-  revokeInvite,
-  updateMemberRole,
-} from "../api";
-import { InviteDialog } from "../components/InviteDialog";
-import { WorkspaceInviteList } from "../components/WorkspaceInviteList";
-import { WorkspaceMemberTable } from "../components/WorkspaceMemberTable";
-import { useWorkspaceId } from "../hooks/useWorkspaceId";
-import { useWorkspaceStore } from "../workspaceStore";
+import { useAuth } from "../../../auth/useAuth";
+import { useWorkspaceId } from "../../hooks/useWorkspaceId";
+import { useWorkspaceStore } from "../../workspaceStore";
+import { useMembersQuery } from "./useMembersQuery";
+import { useInvitesQuery } from "../invites/useInvitesQuery";
+import { WorkspaceMemberTable } from "../../components/WorkspaceMemberTable";
+import { WorkspaceInviteList } from "../../components/WorkspaceInviteList";
+import { InviteDialog } from "../../components/InviteDialog";
 
-export function WorkspaceMembers() {
+export function MembersPage() {
   const [view, setView] = useState<"members" | "invitations">("members");
   const workspaceId = useWorkspaceId();
   const { tokens } = useAuth();
-  const toast = useToast();
   const queryClient = useQueryClient();
   const accessToken = tokens?.access_token ?? "";
+  
   const inviteOpen = useWorkspaceStore((state) => state.inviteMemberOpen);
   const openInvite = useWorkspaceStore((state) => state.openInviteMember);
   const closeInvite = useWorkspaceStore((state) => state.closeInviteMember);
-  const membersQuery = useQuery({
-    queryKey: ["members", workspaceId],
-    queryFn: () => listMembers(accessToken, workspaceId),
-    enabled: Boolean(accessToken && workspaceId),
-  });
-  const invitesQuery = useQuery({
-    queryKey: ["invites", workspaceId],
-    queryFn: () => listInvites(accessToken, workspaceId),
-    enabled: Boolean(accessToken && workspaceId),
-  });
-  const roleMutation = useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: string }) =>
-      updateMemberRole(accessToken, workspaceId, userId, role),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["members", workspaceId] }),
-    onError: () => toast.pushError("Could not update member role"),
-  });
-  const removeMutation = useMutation({
-    mutationFn: (userId: string) =>
-      removeMember(accessToken, workspaceId, userId),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["members", workspaceId] }),
-    onError: () => toast.pushError("Could not remove member"),
-  });
 
-  const revokeMutation = useMutation({
-    mutationFn: (inviteId: string) =>
-      revokeInvite(accessToken, workspaceId, inviteId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invites", workspaceId] });
-      toast.pushSuccess("Invitation revoked");
-    },
-    onError: () => toast.pushError("Could not revoke invitation"),
-  });
+  const {
+    members,
+    isLoading: membersLoading,
+    isError: membersError,
+    refetch: refetchMembers,
+    updateRole,
+    removeMember,
+    isUpdating,
+  } = useMembersQuery(accessToken, workspaceId);
 
-  const members = membersQuery.data ?? [];
+  const {
+    invites,
+    isLoading: invitesLoading,
+    isError: invitesError,
+    refetch: refetchInvites,
+    revokeInvite,
+    isRevoking,
+  } = useInvitesQuery(accessToken, workspaceId);
 
   function closeInviteAndRefresh() {
     closeInvite();
@@ -90,6 +67,7 @@ export function WorkspaceMembers() {
           Invite member
         </button>
       </header>
+
       <div className="mb-4 flex w-full max-w-[420px] gap-1 border border-white/[0.09] bg-forge-panel/60 p-1">
         <button
           className={`flex flex-1 items-center justify-center gap-2 px-3 py-2.5 text-xs font-bold transition ${view === "members" ? "bg-forge-accent text-forge-bg" : "text-forge-muted hover:bg-white/[0.05] hover:text-forge-text"}`}
@@ -112,10 +90,11 @@ export function WorkspaceMembers() {
           <span
             className={`font-mono text-[10px] ${view === "invitations" ? "text-forge-bg/70" : "text-forge-muted"}`}
           >
-            {invitesQuery.data?.length ?? 0}
+            {invites.length}
           </span>
         </button>
       </div>
+
       {view === "members" ? (
         <section className="border border-white/[0.09] bg-forge-panel/75">
           <div className="flex items-center justify-between border-b border-white/[0.08] p-5 sm:p-6">
@@ -126,20 +105,18 @@ export function WorkspaceMembers() {
               </p>
             </div>
             <span className="font-mono text-[10px] uppercase tracking-[.1em] text-forge-muted">
-              {membersQuery.isFetching ? "Syncing" : "Synced"}
+              {membersLoading ? "Syncing" : "Synced"}
             </span>
           </div>
           <WorkspaceMemberTable
             members={members}
-            loading={membersQuery.isLoading}
-            error={membersQuery.isError}
-            onRetry={() => void membersQuery.refetch()}
-            onRoleChange={(userId, role) =>
-              roleMutation.mutate({ userId, role })
-            }
-            onRemove={(userId) => removeMutation.mutate(userId)}
-            roleUpdating={roleMutation.isPending}
-            removing={removeMutation.isPending}
+            loading={membersLoading}
+            error={membersError}
+            onRetry={() => void refetchMembers()}
+            onRoleChange={updateRole}
+            onRemove={removeMember}
+            roleUpdating={isUpdating}
+            removing={isUpdating}
           />
         </section>
       ) : (
@@ -151,15 +128,16 @@ export function WorkspaceMembers() {
             </p>
           </div>
           <WorkspaceInviteList
-            invites={invitesQuery.data ?? []}
-            loading={invitesQuery.isLoading}
-            error={invitesQuery.isError}
-            onRetry={() => void invitesQuery.refetch()}
-            onRevoke={(inviteId) => revokeMutation.mutate(inviteId)}
-            revoking={revokeMutation.isPending}
+            invites={invites}
+            loading={invitesLoading}
+            error={invitesError}
+            onRetry={() => void refetchInvites()}
+            onRevoke={revokeInvite}
+            revoking={isRevoking}
           />
         </section>
       )}
+
       {inviteOpen && (
         <InviteDialog
           accessToken={accessToken}

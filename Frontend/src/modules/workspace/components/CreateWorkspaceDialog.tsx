@@ -2,8 +2,8 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { useToast } from "../../../shared/ui/useToast";
-import { createWorkspace } from "../api";
-import type { Workspace } from "../api";
+import { createWorkspace } from "../api/workspace.api";
+import type { Workspace } from "../types/workspace.types";
 
 export function CreateWorkspaceDialog({
   accessToken,

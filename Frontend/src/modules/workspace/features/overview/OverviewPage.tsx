@@ -10,10 +10,11 @@ import {
   Workflow,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../../auth/useAuth";
-import { listMembers, listWorkspaces } from "../api";
-import { WorkspaceStatCard } from "../components/WorkspaceStatCard";
-import { useWorkspaceId } from "../hooks/useWorkspaceId";
+import { useAuth } from "../../../auth/useAuth";
+import { listMembers } from "../../api/members.api";
+import { listWorkspaces } from "../../api/workspace.api";
+import { WorkspaceStatCard } from "../../components/WorkspaceStatCard";
+import { useWorkspaceId } from "../../hooks/useWorkspaceId";
 
 const modules = [
   {
@@ -36,7 +37,7 @@ const modules = [
   },
 ];
 
-export function WorkspaceOverview() {
+export function OverviewPage() {
   const id = useWorkspaceId();
   const { user, tokens } = useAuth();
   const accessToken = tokens?.access_token ?? "";

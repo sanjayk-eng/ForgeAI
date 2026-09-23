@@ -337,6 +337,36 @@ func (service *Service) getInviteDetails(ctx context.Context, workspaceID, invit
 	return workspaceName, inviterName
 }
 
+// GetPendingInvitesByEmail returns all pending invites for a user's email
+func (service *Service) GetPendingInvitesByEmail(ctx context.Context, email string) ([]Invite, error) {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" {
+		return nil, ErrInvalidInviteInput
+	}
+	
+	// Get all invites by email
+	allInvites, err := service.repo.FindByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Filter for pending and not expired (frontend can also filter if needed)
+	now := time.Now()
+	pending := make([]Invite, 0)
+	for _, invite := range allInvites {
+		if invite.Status == InvitePending && invite.ExpiresAt.After(now) {
+			pending = append(pending, invite)
+		}
+	}
+	
+	return pending, nil
+}
+
+// GetUserByID fetches user information
+func (service *Service) GetUserByID(ctx context.Context, userID string) (UserInfo, error) {
+	return service.repo.GetUserInfo(ctx, userID)
+}
+
 // generateToken generates a secure random token
 func generateToken() (string, error) {
 	bytes := make([]byte, 32)

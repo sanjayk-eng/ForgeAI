@@ -139,3 +139,26 @@ func (handler *Handler) RevokeInvite(c *gin.Context) {
 	
 	apierrors.Success(c, http.StatusOK, "invite revoked successfully", nil)
 }
+
+func (handler *Handler) GetMyPendingInvites(c *gin.Context) {
+	userID, ok := middleware.UserID(c)
+	if !ok {
+		apierrors.Error(c, http.StatusUnauthorized, apierrors.ErrCodeUnauthorized, "authenticated user is required", nil)
+		return
+	}
+	
+	// Get user info to fetch email
+	user, err := handler.service.GetUserByID(c.Request.Context(), userID)
+	if err != nil {
+		apierrors.Error(c, http.StatusInternalServerError, apierrors.ErrCodeInternalServer, "could not fetch user info", nil)
+		return
+	}
+	
+	invites, err := handler.service.GetPendingInvitesByEmail(c.Request.Context(), user.Email)
+	if err != nil {
+		apierrors.Error(c, http.StatusInternalServerError, apierrors.ErrCodeInternalServer, err.Error(), nil)
+		return
+	}
+	
+	apierrors.Success(c, http.StatusOK, "pending invites fetched", invites)
+}

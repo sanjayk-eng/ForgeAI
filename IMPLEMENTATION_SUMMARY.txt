@@ -1,0 +1,159 @@
+═══════════════════════════════════════════════════════════════════
+  WORKSPACE INVITE SYSTEM - COMPLETE IMPLEMENTATION
+═══════════════════════════════════════════════════════════════════
+
+✅ BACKEND IMPLEMENTATION (Go)
+
+📁 Structure:
+internal/modules/workspaces/invite/
+├── service.go          - Business logic with state machine
+├── repository.go       - Database operations
+├── handler.go          - HTTP handlers
+├── route.go           - API routes (protected + public)
+├── model.go           - Data models
+└── module.go          - Module initialization
+
+internal/shared/email/
+├── queue.go           - FIFO job queue
+├── worker.go          - Worker pool (3 workers)
+├── service.go         - High-level email API
+├── job.go             - Email job types
+├── provider.go        - Email sender interface
+├── resend.go          - Resend API implementation
+└── module.go          - Email module bootstrap
+
+🔧 Key Features:
+✅ State machine (PENDING → ACCEPTED/REJECTED/EXPIRED/REVOKED)
+✅ Token-based public invite links
+✅ Duplicate prevention (unique constraint)
+✅ Auto-expire on access
+✅ Re-invite after rejection
+✅ Email with workspace + inviter names
+✅ Auto-add member on acceptance
+✅ Worker pool for async email sending
+✅ Retry logic (3 attempts with backoff)
+✅ Interface-based design
+
+📡 API Endpoints:
+Protected:
+  POST   /workspaces/:id/invites          - Create invite
+  GET    /workspaces/:id/invites          - List invites
+  DELETE /workspaces/:id/invites/:id      - Revoke invite
+  POST   /invites/:token/accept           - Accept (requires auth)
+
+Public:
+  GET    /public/invites/:token           - View invite details
+  POST   /public/invites/:token/reject    - Reject invite
+
+═══════════════════════════════════════════════════════════════════
+
+✅ FRONTEND IMPLEMENTATION (React + TypeScript)
+
+📁 New Clean Structure:
+src/modules/workspace/
+├── api/                          # API layer (split by feature)
+│   ├── workspace.api.ts          - Workspace CRUD
+│   ├── members.api.ts            - Member management
+│   └── invites.api.ts            - Invite operations
+│
+├── features/                     # Feature-based modules
+│   ├── overview/
+│   │   └── OverviewPage.tsx
+│   │
+│   ├── members/
+│   │   ├── MembersPage.tsx       - Main members view
+│   │   └── useMembersQuery.ts    - Members data hooks
+│   │
+│   ├── invites/
+│   │   ├── AcceptInvitePage.tsx  - Public invite acceptance
+│   │   └── useInvitesQuery.ts    - Invites data hooks
+│   │
+│   └── settings/
+│       └── SettingsPage.tsx
+│
+├── components/                   # Shared components
+│   ├── WorkspaceMemberTable.tsx
+│   ├── WorkspaceInviteList.tsx
+│   └── InviteDialog.tsx
+│
+├── hooks/
+│   └── useWorkspaceId.ts
+│
+├── types/
+│   └── workspace.types.ts        - TypeScript types
+│
+├── WorkspaceLayout.tsx
+└── workspaceStore.ts
+
+🎯 Architecture Benefits:
+✅ Feature-based folder structure
+✅ Reusable hooks (useMembersQuery, useInvitesQuery)
+✅ API layer separated by domain
+✅ TypeScript types centralized
+✅ Clean separation of concerns
+✅ Easy to test and maintain
+
+🔄 User Flows:
+
+1. Send Invite:
+   - Admin clicks "Invite member"
+   - Enters email + role
+   - Backend creates invite with token
+   - Email sent with link: /accept-invite/:token
+
+2. Accept Invite (New User):
+   - Clicks link → AcceptInvitePage
+   - Not logged in → Shows "Sign in" or "Create account"
+   - After login → Auto-redirects back
+   - Email matches → Accept button
+   - Joins workspace
+
+3. Accept Invite (Existing User):
+   - Clicks link → Already logged in
+   - Email matches → Shows accept/decline
+   - Clicks accept → Added to workspace
+   - Redirects to workspace
+
+4. Revoke Invite:
+   - Admin goes to Members → Invitations tab
+   - Pending invites show "Revoke" button
+   - Click revoke → Invite status = REVOKED
+   - User can no longer accept
+
+═══════════════════════════════════════════════════════════════════
+
+🗄️ DATABASE:
+
+Migration: 20260923000001_fix_workspace_invite.sql
+✅ Unique constraint on (workspace_id, email) WHERE status=PENDING
+✅ Index on token_hash for fast lookups
+
+═══════════════════════════════════════════════════════════════════
+
+🚀 TO RUN:
+
+Backend:
+cd Backend
+go run ./cmd/agent
+
+Frontend:
+cd Frontend
+npm install
+npm run dev
+
+═══════════════════════════════════════════════════════════════════
+
+✨ INDUSTRY BEST PRACTICES IMPLEMENTED:
+
+1. State Machine - Proper transitions, terminal states
+2. Queue-Based Workers - Non-blocking email sending
+3. Token Security - 64-char random tokens
+4. Duplicate Prevention - Database constraints
+5. Auto-Expiration - On access (lazy evaluation)
+6. Clean Architecture - Features, not layers
+7. Type Safety - Full TypeScript coverage
+8. Error Handling - Proper error codes and messages
+9. Retry Logic - Exponential backoff
+10. Interface Design - Dependency inversion
+
+═══════════════════════════════════════════════════════════════════

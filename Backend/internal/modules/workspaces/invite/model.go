@@ -15,12 +15,13 @@ const (
 type Invite struct {
 	ID            string       `json:"id" db:"id"`
 	WorkspaceID   string       `json:"workspace_id" db:"workspace_id"`
+	WorkspaceName string       `json:"workspace_name,omitempty" db:"-"`
 	Email         string       `json:"email" db:"email"`
 	Role          string       `json:"role" db:"role"`
 	Status        InviteStatus `json:"status" db:"status"`
 	InvitedBy     string       `json:"invited_by" db:"invited_by"`
 	InvitedByUser MemberUser   `json:"invited_by_user,omitempty" db:"-"`
-	TokenHash     string       `json:"-" db:"token_hash"`
+	TokenHash     string       `json:"token,omitempty" db:"token_hash"`
 	ExpiresAt     time.Time    `json:"expires_at" db:"expires_at"`
 	AcceptedAt    *time.Time   `json:"accepted_at,omitempty" db:"accepted_at"`
 	RejectedAt    *time.Time   `json:"rejected_at,omitempty" db:"rejected_at"`

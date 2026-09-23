@@ -5,10 +5,10 @@ import { OAuthCallbackPage } from "../modules/auth/OAuthCallbackPage";
 import { RegisterPage } from "../modules/auth/RegisterPage";
 import { ProtectedRoute } from "../modules/auth/ProtectedRoute";
 import { WorkspaceLayout } from "../modules/workspace/WorkspaceLayout";
-import { WorkspaceOverview } from "../modules/workspace/pages/WorkspaceOverview";
-import { WorkspaceMembers } from "../modules/workspace/pages/WorkspaceMembers";
-import { WorkspaceSettings } from "../modules/workspace/pages/WorkspaceSettings";
-import { AcceptInvitePage } from "../modules/workspace/pages/AcceptInvitePage";
+import { OverviewPage } from "../modules/workspace/features/overview/OverviewPage";
+import { MembersPage } from "../modules/workspace/features/members/MembersPage";
+import { SettingsPage } from "../modules/workspace/features/settings/SettingsPage";
+import { AcceptInvitePage } from "../modules/workspace/features/invites/AcceptInvitePage";
 
 export const router = createBrowserRouter([
   {
@@ -30,9 +30,9 @@ export const router = createBrowserRouter([
         path: "/workspace",
         element: <WorkspaceLayout />,
         children: [
-          { index: true, element: <WorkspaceOverview /> },
-          { path: "members", element: <WorkspaceMembers /> },
-          { path: "settings", element: <WorkspaceSettings /> },
+          { index: true, element: <OverviewPage /> },
+          { path: "members", element: <MembersPage /> },
+          { path: "settings", element: <SettingsPage /> },
         ],
       },
     ],

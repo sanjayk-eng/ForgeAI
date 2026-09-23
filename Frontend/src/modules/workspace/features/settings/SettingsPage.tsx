@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../../auth/useAuth";
-import { useToast } from "../../../shared/ui/useToast";
-import { listWorkspaces, updateWorkspace } from "../api";
-import { useWorkspaceId } from "../hooks/useWorkspaceId";
+import { useAuth } from "../../../auth/useAuth";
+import { useToast } from "../../../../shared/ui/useToast";
+import { listWorkspaces, updateWorkspace } from "../../api/workspace.api";
+import { useWorkspaceId } from "../../hooks/useWorkspaceId";
 
-export function WorkspaceSettings() {
+export function SettingsPage() {
   const id = useWorkspaceId();
   const { tokens } = useAuth();
   const toast = useToast();

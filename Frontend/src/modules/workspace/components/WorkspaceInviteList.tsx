@@ -1,5 +1,5 @@
 import { Clock3, Mail, Send, X } from "lucide-react";
-import type { WorkspaceInvite } from "../api";
+import type { WorkspaceInvite } from "../types/workspace.types";
 
 type Props = {
   invites: WorkspaceInvite[];

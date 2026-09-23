@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
-import { useAuth } from "../../auth/useAuth";
-import { useToast } from "../../../shared/ui/useToast";
-import { acceptInvite, getInviteByToken, rejectInvite } from "../api";
+import { useAuth } from "../../../auth/useAuth";
+import { useToast } from "../../../../shared/ui/useToast";
+import { acceptInvite, getInviteByToken, rejectInvite } from "../../api/invites.api";
 
 export function AcceptInvitePage() {
   const { token } = useParams<{ token: string }>();

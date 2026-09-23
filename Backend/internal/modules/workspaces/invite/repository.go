@@ -15,6 +15,7 @@ type Repository interface {
 	FindByToken(ctx context.Context, token string) (Invite, error)
 	FindByID(ctx context.Context, workspaceID, inviteID string) (Invite, error)
 	FindByWorkspaceAndEmail(ctx context.Context, workspaceID, email string) ([]Invite, error)
+	FindByEmail(ctx context.Context, email string) ([]Invite, error)
 	UpdateStatusWithTimestamp(ctx context.Context, tx *sqlx.Tx, workspaceID, inviteID, status string, timestamp *time.Time) (Invite, error)
 	AddWorkspaceMember(ctx context.Context, tx *sqlx.Tx, workspaceID, userID, role string) error
 	GetWorkspaceInfo(ctx context.Context, workspaceID string) (WorkspaceInfo, error)
@@ -148,6 +149,51 @@ func (repo *repository) FindByWorkspaceAndEmail(ctx context.Context, workspaceID
 	if err := repo.db.SelectContext(ctx, &invites, query, workspaceID, email); err != nil {
 		return nil, fmt.Errorf("find invites by workspace and email: %w", err)
 	}
+	if invites == nil {
+		invites = []Invite{}
+	}
+	return invites, nil
+}
+
+// FindByEmail returns all invites for a user's email (returns all statuses for filtering on frontend)
+func (repo *repository) FindByEmail(ctx context.Context, email string) ([]Invite, error) {
+	type inviteRow struct {
+		Invite
+		WorkspaceName string `db:"workspace_name"`
+		InviterEmail  string `db:"inviter_email"`
+		InviterName   string `db:"inviter_name"`
+	}
+	
+	query := `
+		SELECT wi.id, wi.workspace_id, wi.email, role_enum.code AS role,
+		       status_enum.code AS status, wi.invited_by, wi.token_hash,
+		       wi.expires_at, wi.created_at, wi.updated_at,
+		       w.name AS workspace_name,
+		       inviter.email AS inviter_email, inviter.name AS inviter_name
+		FROM tbl_workspace_invite wi
+		JOIN tbl_enum role_enum ON role_enum.id = wi.role_id
+		JOIN tbl_enum status_enum ON status_enum.id = wi.status_id
+		JOIN tbl_workspace w ON w.id = wi.workspace_id
+		JOIN tbl_user inviter ON inviter.id = wi.invited_by
+		WHERE wi.email = $1
+		ORDER BY wi.created_at DESC`
+
+	var rows []inviteRow
+	if err := repo.db.SelectContext(ctx, &rows, query, email); err != nil {
+		return nil, fmt.Errorf("find invites by email: %w", err)
+	}
+	
+	invites := make([]Invite, 0, len(rows))
+	for _, row := range rows {
+		row.Invite.WorkspaceName = row.WorkspaceName
+		row.Invite.InvitedByUser = MemberUser{
+			ID:    row.InvitedBy,
+			Email: row.InviterEmail,
+			Name:  row.InviterName,
+		}
+		invites = append(invites, row.Invite)
+	}
+	
 	if invites == nil {
 		invites = []Invite{}
 	}

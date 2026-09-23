@@ -1,6 +1,6 @@
 import { Bell, ChevronDown, FolderKanban, Menu } from "lucide-react";
 import { Link } from "react-router-dom";
-import type { Workspace } from "../api";
+import type { Workspace } from "../types/workspace.types";
 
 type Props = {
   userName?: string;

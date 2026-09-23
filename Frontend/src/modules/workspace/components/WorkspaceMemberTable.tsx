@@ -1,5 +1,5 @@
 import { AlertCircle, RefreshCw, Users } from "lucide-react";
-import type { WorkspaceMember } from "../api";
+import type { WorkspaceMember } from "../types/workspace.types";
 
 type Props = {
   members: WorkspaceMember[];

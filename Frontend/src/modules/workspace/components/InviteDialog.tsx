@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Mail, X } from "lucide-react";
 import { useToast } from "../../../shared/ui/useToast";
-import { createInvite } from "../api";
+import { createInvite } from "../api/invites.api";
 
 export function InviteDialog({
   accessToken,
