@@ -196,7 +196,7 @@ func (service *Service) AuthenticateOAuth(ctx context.Context, providerType Prov
 	if err := appdatabase.WithTx(ctx, service.db, func(ctx context.Context, tx *sqlx.Tx) error {
 		userID, err = service.repo.FindOAuthUserID(ctx, tx, providerType, result.ProviderID)
 		if err == nil {
-			return nil
+			return service.repo.CreateOAuthAccount(ctx, tx, providerType, userID, result.ProviderID, user.AccessToken)
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
 			return err
@@ -209,7 +209,7 @@ func (service *Service) AuthenticateOAuth(ctx context.Context, providerType Prov
 		if err != nil {
 			return err
 		}
-		return service.repo.CreateOAuthAccount(ctx, tx, providerType, userID, result.ProviderID)
+		return service.repo.CreateOAuthAccount(ctx, tx, providerType, userID, result.ProviderID, user.AccessToken)
 	}); err != nil {
 		if service.log != nil {
 			service.log.Error(ctx, "OAuth authentication persistence failed", "provider", providerType, "error", err)

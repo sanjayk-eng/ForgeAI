@@ -4,6 +4,8 @@ import "github.com/gin-gonic/gin"
 
 func RegisterRoutes(router gin.IRouter, handler *Handler) {
 	router.POST("/projects/repository/resolve", handler.ResolveRepository)
+	router.GET("/workspaces/:workspace_id/github/repositories", handler.ListGitHubRepositories)
+	router.POST("/workspaces/:workspace_id/github/repositories/import", handler.ImportGitHubRepositories)
 	router.POST("/workspaces/:workspace_id/projects", handler.Create)
 	router.GET("/workspaces/:workspace_id/projects", handler.List)
 	router.GET("/workspaces/:workspace_id/projects/slug/:slug", handler.GetBySlug)

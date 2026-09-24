@@ -46,3 +46,12 @@ export type ResolvedRepository = {
   repository: ProjectRepositoryInput;
   branches: string[];
 };
+
+export type GitHubRepositoryOption = ProjectRepositoryInput & {
+  organization: string;
+};
+
+export type GitHubRepositoryCatalog = {
+  organizations: string[];
+  repositories: GitHubRepositoryOption[];
+};

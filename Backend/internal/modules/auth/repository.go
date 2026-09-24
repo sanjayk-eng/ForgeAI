@@ -21,7 +21,8 @@ type AuthRepository interface {
 	FindUserByID(ctx context.Context, userID string) (UserProfile, error)
 	FindCredentials(ctx context.Context, email string) (UserCredentials, error)
 	CreateOAuthUser(ctx context.Context, tx *sqlx.Tx, email, name string) (string, error)
-	CreateOAuthAccount(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, userID, providerUserID string) error
+	CreateOAuthAccount(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, userID, providerUserID, accessToken string) error
+	FindGitHubAccessToken(ctx context.Context, userID string) (string, error)
 }
 
 type repository struct {
@@ -53,6 +54,22 @@ func (repo *repository) FindOAuthUserID(ctx context.Context, tx *sqlx.Tx, provid
 		return "", fmt.Errorf("find OAuth account: %w", err)
 	}
 	return userID, nil
+}
+
+func (repo *repository) FindGitHubAccessToken(ctx context.Context, userID string) (string, error) {
+	var accessToken string
+	err := repo.db.GetContext(ctx, &accessToken, `
+		SELECT oa.access_token
+		FROM tbl_oauth_account oa
+		JOIN tbl_enum e ON e.id = oa.provider_id
+		WHERE oa.user_id = $1 AND e.category = 'AUTH_PROVIDER' AND e.code = 'GITHUB'`, userID)
+	if err != nil {
+		return "", fmt.Errorf("find GitHub access token: %w", err)
+	}
+	if strings.TrimSpace(accessToken) == "" {
+		return "", fmt.Errorf("GitHub account is not connected")
+	}
+	return accessToken, nil
 }
 
 func (repo *repository) FindUserIDByEmail(ctx context.Context, tx *sqlx.Tx, email string) (string, error) {
@@ -160,14 +177,16 @@ func (repo *repository) CreateOAuthUser(ctx context.Context, tx *sqlx.Tx, email,
 	return userID, nil
 }
 
-func (repo *repository) CreateOAuthAccount(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, userID, providerUserID string) error {
+func (repo *repository) CreateOAuthAccount(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, userID, providerUserID, accessToken string) error {
 	providerCode := strings.ToUpper(string(providerType))
 	result, err := tx.ExecContext(ctx, `
-			INSERT INTO tbl_oauth_account (user_id, provider_id, provider_user_id)
-			SELECT $1, id, $3
+			INSERT INTO tbl_oauth_account (user_id, provider_id, provider_user_id, access_token)
+			SELECT $1, id, $3, $4
 			FROM tbl_enum
 			WHERE category = 'AUTH_PROVIDER' AND code = $2
-			`, userID, providerCode, providerUserID)
+			ON CONFLICT (provider_id, provider_user_id)
+			DO UPDATE SET user_id = EXCLUDED.user_id, access_token = EXCLUDED.access_token, updated_at = NOW()
+			`, userID, providerCode, providerUserID, accessToken)
 	if err != nil {
 		return fmt.Errorf("save oauth account: %w", err)
 	}

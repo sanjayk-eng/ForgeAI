@@ -50,7 +50,7 @@ func (factory *Factory) AuthorizationURL(providerType string) (string, error) {
 		}
 		values.Set("client_id", factory.config.GitHubClientID)
 		values.Set("redirect_uri", callbackURL(factory.config.GitHubRedirectURL, providerName))
-		values.Set("scope", "read:user user:email")
+		values.Set("scope", "read:user user:email repo read:org")
 		return "https://github.com/login/oauth/authorize?" + values.Encode(), nil
 	case "google":
 		if factory.config.GoogleClientID == "" || factory.config.GoogleRedirectURL == "" {

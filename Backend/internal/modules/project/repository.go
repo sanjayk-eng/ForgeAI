@@ -16,6 +16,30 @@ type ProjectRepositoryStore interface {
 	FindByWorkspaceSlug(ctx context.Context, workspaceID, slug string) (Project, error)
 	Update(ctx context.Context, projectID, name string, description *string, status string) (Project, error)
 	ConnectRepository(ctx context.Context, tx *sqlx.Tx, projectID string, input ConnectRepositoryRequest) (ProjectRepository, error)
+	IsWorkspaceOwner(ctx context.Context, workspaceID, userID string) (bool, error)
+}
+
+func (repo *repository) IsWorkspaceOwner(ctx context.Context, workspaceID, userID string) (bool, error) {
+	var exists bool
+	err := repo.db.GetContext(ctx, &exists, `
+		SELECT EXISTS(
+			SELECT 1
+			FROM tbl_workspace w
+			WHERE w.id = $1
+			  AND (
+				  w.owner_id = $2
+				  OR EXISTS (
+					  SELECT 1
+					  FROM tbl_workspace_member wm
+					  JOIN tbl_enum role_enum ON role_enum.id = wm.role_id
+					  WHERE wm.workspace_id = w.id
+						AND wm.user_id = $2
+						AND role_enum.category = 'WORKSPACE_ROLE'
+						AND role_enum.code = 'OWNER'
+				  )
+				)
+		)`, workspaceID, userID)
+	return exists, err
 }
 
 type repository struct {

@@ -1,10 +1,11 @@
 package provider
 
 type ServiceUser struct {
-	ProviderID string `json:"provider_id"`
-	Email      string `json:"email"`
-	Name       string `json:"name"`
-	AvatarURL  string `json:"avatar_url"`
+	ProviderID  string `json:"provider_id"`
+	Email       string `json:"email"`
+	Name        string `json:"name"`
+	AvatarURL   string `json:"avatar_url"`
+	AccessToken string `json:"-"`
 }
 
 type oauthTokenResponse struct {
@@ -19,6 +20,10 @@ type GitHubRepository struct {
 	URL           string   `json:"html_url"`
 	DefaultBranch string   `json:"default_branch"`
 	Branches      []string `json:"branches"`
+}
+
+type GitHubOrganization struct {
+	Login string `json:"login"`
 }
 
 type gitHubProfile struct {

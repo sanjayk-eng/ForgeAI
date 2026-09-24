@@ -86,8 +86,29 @@ type ResolvedRepository struct {
 	Branches   []string                 `json:"branches"`
 }
 
+type GitHubRepositoryOption struct {
+	ConnectRepositoryRequest
+	Organization string `json:"organization"`
+}
+
+type GitHubRepositoryCatalogResponse struct {
+	Organizations []string                 `json:"organizations"`
+	Repositories  []GitHubRepositoryOption `json:"repositories"`
+}
+
+type ImportGitHubRepositoriesRequest struct {
+	Repositories []ConnectRepositoryRequest `json:"repositories" binding:"required,min=1,max=100"`
+}
+
+type ImportGitHubRepositoriesResponse struct {
+	Projects []Project `json:"projects"`
+}
+
 var (
-	ErrInvalidProjectInput = errors.New("invalid project input")
-	ErrProjectNotFound     = errors.New("project not found")
-	ErrRepositoryConflict  = errors.New("repository is already connected")
+	ErrInvalidProjectInput      = errors.New("invalid project input")
+	ErrProjectNotFound          = errors.New("project not found")
+	ErrRepositoryConflict       = errors.New("repository is already connected")
+	ErrWorkspaceOwnerRequired   = errors.New("only the workspace owner can import GitHub repositories")
+	ErrGitHubAccountUnavailable = errors.New("GitHub account is not connected; sign in with GitHub again")
+	ErrGitHubCatalogUnavailable = errors.New("GitHub repository catalog is not configured")
 )

@@ -107,6 +107,28 @@ func (handler *Handler) ResolveRepository(c *gin.Context) {
 	apierrors.Success(c, http.StatusOK, "repository resolved", repository)
 }
 
+func (handler *Handler) ListGitHubRepositories(c *gin.Context) {
+	repositories, err := handler.service.ListGitHubRepositories(c.Request.Context(), c.Param("workspace_id"), userID(c))
+	if err != nil {
+		handler.writeError(c, err)
+		return
+	}
+	apierrors.Success(c, http.StatusOK, "GitHub repositories fetched", repositories)
+}
+
+func (handler *Handler) ImportGitHubRepositories(c *gin.Context) {
+	var input ImportGitHubRepositoriesRequest
+	if !bindAndValidate(c, &input) {
+		return
+	}
+	result, err := handler.service.ImportGitHubRepositories(c.Request.Context(), c.Param("workspace_id"), userID(c), input)
+	if err != nil {
+		handler.writeError(c, err)
+		return
+	}
+	apierrors.Success(c, http.StatusCreated, "GitHub repositories imported", result)
+}
+
 func (handler *Handler) writeError(c *gin.Context, err error) {
 	status := http.StatusInternalServerError
 	code, message := apierrors.CodeOf(err)
@@ -117,6 +139,10 @@ func (handler *Handler) writeError(c *gin.Context, err error) {
 		status, code, message = http.StatusNotFound, apierrors.ErrCodeNotFound, err.Error()
 	case errors.Is(err, ErrRepositoryConflict):
 		status, code, message = http.StatusConflict, apierrors.ErrCodeConflict, err.Error()
+	case errors.Is(err, ErrWorkspaceOwnerRequired):
+		status, code, message = http.StatusForbidden, apierrors.ErrCodeForbidden, err.Error()
+	case errors.Is(err, ErrGitHubAccountUnavailable), errors.Is(err, ErrGitHubCatalogUnavailable):
+		status, code, message = http.StatusBadRequest, apierrors.ErrCodeBadRequest, err.Error()
 	case errors.Is(err, ErrSyncUnavailable):
 		status, code, message = http.StatusConflict, apierrors.ErrCodeConflict, err.Error()
 	}

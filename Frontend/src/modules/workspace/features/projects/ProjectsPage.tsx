@@ -4,6 +4,7 @@ import { useAuth } from "../../../auth/useAuth";
 import { useToast } from "../../../../shared/ui/useToast";
 import { useWorkspaceId } from "../../hooks/useWorkspaceId";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
+import { ImportGitHubRepositoriesDialog } from "./components/ImportGitHubRepositoriesDialog";
 import { ProjectCard } from "./components/ProjectCard";
 import { useProjects, useRefreshProjects } from "./hooks/useProjects";
 
@@ -13,6 +14,7 @@ export function ProjectsPage() {
   const accessToken = tokens?.access_token ?? "";
   const toast = useToast();
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const projectsQuery = useProjects(accessToken, workspaceId);
   const refreshProjects = useRefreshProjects(workspaceId);
   const projects = projectsQuery.data ?? [];
@@ -27,6 +29,7 @@ export function ProjectsPage() {
         </div>
         <div className="flex gap-2">
           <button className="grid size-11 place-items-center border border-white/[0.1] text-forge-muted transition hover:border-forge-accent/40 hover:text-forge-text disabled:opacity-50" onClick={() => void refreshProjects()} disabled={projectsQuery.isFetching} aria-label="Refresh projects" title="Refresh projects"><RefreshCw size={16} className={projectsQuery.isFetching ? "animate-spin" : ""} /></button>
+          <button className="inline-flex items-center gap-2 border border-forge-accent/35 px-4 py-3 text-xs font-extrabold text-forge-accent transition hover:bg-forge-accent/[0.08]" onClick={() => setImportOpen(true)}><FolderGit2 size={16} /> Import GitHub</button>
           <button className="inline-flex items-center gap-2 bg-forge-accent px-4 py-3 text-xs font-extrabold text-forge-bg transition hover:bg-forge-accent-strong" onClick={() => setCreateOpen(true)}><Plus size={16} /> New project</button>
         </div>
       </header>
@@ -46,6 +49,7 @@ export function ProjectsPage() {
       )}
 
       {createOpen && <CreateProjectDialog accessToken={accessToken} workspaceId={workspaceId} onClose={() => setCreateOpen(false)} />}
+      {importOpen && <ImportGitHubRepositoriesDialog accessToken={accessToken} workspaceId={workspaceId} onClose={() => setImportOpen(false)} />}
     </div>
   );
 }

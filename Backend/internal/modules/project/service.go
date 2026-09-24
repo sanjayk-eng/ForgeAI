@@ -21,21 +21,30 @@ type Service interface {
 	ConnectRepository(ctx context.Context, projectID string, input ConnectRepositoryRequest) (ProjectRepository, error)
 	SyncProject(ctx context.Context, projectID string) (Project, error)
 	ResolveRepository(ctx context.Context, repositoryURL string) (ResolvedRepository, error)
+	ListGitHubRepositories(ctx context.Context, workspaceID, userID string) (GitHubRepositoryCatalogResponse, error)
+	ImportGitHubRepositories(ctx context.Context, workspaceID, userID string, input ImportGitHubRepositoriesRequest) (ImportGitHubRepositoriesResponse, error)
 }
 
 type service struct {
-	db     *sqlx.DB
-	repo   ProjectRepositoryStore
-	sync   *SyncService
-	github GitHubRepositoryClient
+	db      *sqlx.DB
+	repo    ProjectRepositoryStore
+	sync    *SyncService
+	github  GitHubRepositoryClient
+	account GitHubAccountStore
+	catalog GitHubRepositoryCatalog
+}
+
+type GitHubAccountStore interface {
+	FindGitHubAccessToken(ctx context.Context, userID string) (string, error)
 }
 
 func NewService(db *sqlx.DB, repo ProjectRepositoryStore) Service {
 	return &service{db: db, repo: repo}
 }
 
-func NewServiceWithSync(db *sqlx.DB, repo ProjectRepositoryStore, syncService *SyncService, github GitHubRepositoryClient) Service {
-	return &service{db: db, repo: repo, sync: syncService, github: github}
+func NewServiceWithSync(db *sqlx.DB, repo ProjectRepositoryStore, syncService *SyncService, github GitHubRepositoryClient, account GitHubAccountStore) Service {
+	catalog, _ := github.(GitHubRepositoryCatalog)
+	return &service{db: db, repo: repo, sync: syncService, github: github, account: account, catalog: catalog}
 }
 
 func (service *service) Create(ctx context.Context, workspaceID, createdBy string, input CreateProjectRequest) (Project, error) {
@@ -161,6 +170,109 @@ func (service *service) ResolveRepository(ctx context.Context, repositoryURL str
 		RepositoryURL:        repository.URL,
 		DefaultBranch:        repository.DefaultBranch,
 	}, Branches: repository.Branches}, nil
+}
+
+func (service *service) ListGitHubRepositories(ctx context.Context, workspaceID, userID string) (GitHubRepositoryCatalogResponse, error) {
+	owner, err := service.isWorkspaceOwner(ctx, workspaceID, userID)
+	if err != nil {
+		return GitHubRepositoryCatalogResponse{}, fmt.Errorf("check workspace owner: %w", err)
+	}
+	if !owner {
+		return GitHubRepositoryCatalogResponse{}, ErrWorkspaceOwnerRequired
+	}
+	if service.account == nil {
+		return GitHubRepositoryCatalogResponse{}, ErrGitHubAccountUnavailable
+	}
+	if service.catalog == nil {
+		return GitHubRepositoryCatalogResponse{}, ErrGitHubCatalogUnavailable
+	}
+	token, err := service.account.FindGitHubAccessToken(ctx, userID)
+	if err != nil {
+		return GitHubRepositoryCatalogResponse{}, fmt.Errorf("%w: %v", ErrGitHubAccountUnavailable, err)
+	}
+	organizations, err := service.catalog.ListOrganizations(ctx, token)
+	if err != nil {
+		return GitHubRepositoryCatalogResponse{}, err
+	}
+	result := GitHubRepositoryCatalogResponse{Organizations: organizations, Repositories: []GitHubRepositoryOption{}}
+	seen := make(map[int64]bool)
+	personalRepositories, err := service.catalog.ListRepositories(ctx, token, "")
+	if err != nil {
+		return GitHubRepositoryCatalogResponse{}, err
+	}
+	for _, repository := range personalRepositories {
+		if seen[repository.ID] {
+			continue
+		}
+		seen[repository.ID] = true
+		result.Repositories = append(result.Repositories, repositoryOption(repository, "personal"))
+	}
+	for _, organization := range organizations {
+		repositories, listErr := service.catalog.ListRepositories(ctx, token, organization)
+		if listErr != nil {
+			return GitHubRepositoryCatalogResponse{}, listErr
+		}
+		for _, repository := range repositories {
+			if seen[repository.ID] {
+				continue
+			}
+			seen[repository.ID] = true
+			result.Repositories = append(result.Repositories, repositoryOption(repository, organization))
+		}
+	}
+	return result, nil
+}
+
+func (service *service) ImportGitHubRepositories(ctx context.Context, workspaceID, userID string, input ImportGitHubRepositoriesRequest) (ImportGitHubRepositoriesResponse, error) {
+	owner, err := service.isWorkspaceOwner(ctx, workspaceID, userID)
+	if err != nil {
+		return ImportGitHubRepositoriesResponse{}, fmt.Errorf("check workspace owner: %w", err)
+	}
+	if service.db == nil || !owner || len(input.Repositories) == 0 {
+		if !owner {
+			return ImportGitHubRepositoriesResponse{}, ErrWorkspaceOwnerRequired
+		}
+		return ImportGitHubRepositoriesResponse{}, ErrInvalidProjectInput
+	}
+	result := ImportGitHubRepositoriesResponse{Projects: make([]Project, 0, len(input.Repositories))}
+	err = appdatabase.WithTx(ctx, service.db, func(ctx context.Context, tx *sqlx.Tx) error {
+		for _, repository := range input.Repositories {
+			name := strings.TrimSpace(repository.GitHubRepositoryName)
+			if name == "" || repository.GitHubRepositoryID <= 0 {
+				return ErrInvalidProjectInput
+			}
+			project, err := service.repo.Create(ctx, tx, workspaceID, name, slugify(name), nil, string(ProjectTypeRepository), userID)
+			if err != nil {
+				return err
+			}
+			connected, err := service.repo.ConnectRepository(ctx, tx, project.ID, repository)
+			if err != nil {
+				return err
+			}
+			project.Repository = &connected
+			result.Projects = append(result.Projects, project)
+		}
+		return nil
+	})
+	if err != nil {
+		return ImportGitHubRepositoriesResponse{}, fmt.Errorf("import GitHub repositories: %w", err)
+	}
+	return result, nil
+}
+
+func (service *service) isWorkspaceOwner(ctx context.Context, workspaceID, userID string) (bool, error) {
+	if strings.TrimSpace(workspaceID) == "" || strings.TrimSpace(userID) == "" {
+		return false, nil
+	}
+	owner, err := service.repo.IsWorkspaceOwner(ctx, workspaceID, userID)
+	return owner, err
+}
+
+func repositoryOption(repository GitHubRepository, organization string) GitHubRepositoryOption {
+	return GitHubRepositoryOption{ConnectRepositoryRequest: ConnectRepositoryRequest{
+		GitHubRepositoryID: repository.ID, GitHubOwner: repository.Owner, GitHubRepositoryName: repository.Name,
+		RepositoryURL: repository.URL, DefaultBranch: repository.DefaultBranch,
+	}, Organization: organization}
 }
 
 func slugify(value string) string {

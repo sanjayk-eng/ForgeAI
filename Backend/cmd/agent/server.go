@@ -100,7 +100,7 @@ func runServer() error {
 
 	appLogger.Info(context.Background(), "email service initialized", "queue_size", 100, "workers", 3)
 
-	auth.LoadModule(auth.ModuleConfig{
+	authModule := auth.LoadModule(auth.ModuleConfig{
 		Router:       engine,
 		Database:     db,
 		Provider:     oauthFactory,
@@ -121,11 +121,12 @@ func runServer() error {
 	}
 	githubInspector, _ := githubProvider.(provider.GitHubRepositoryInspector)
 	projectmodule.LoadModule(projectmodule.ModuleConfig{
-		Router:       protectedRouter,
-		Database:     db,
-		Logger:       appLogger,
-		GitHubClient: projectmodule.NewGitHubRepositoryClient(githubInspector),
-		SyncContext:  emailContext,
+		Router:        protectedRouter,
+		Database:      db,
+		Logger:        appLogger,
+		GitHubClient:  projectmodule.NewGitHubRepositoryClient(githubInspector),
+		GitHubAccount: authModule.Repository,
+		SyncContext:   emailContext,
 	})
 	member.LoadModule(member.ModuleConfig{
 		Router:   protectedRouter,

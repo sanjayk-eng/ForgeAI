@@ -11,12 +11,13 @@ import (
 )
 
 type ModuleConfig struct {
-	Router       gin.IRouter
-	Database     *sqlx.DB
-	Logger       logger.Logger
-	GitHubClient GitHubRepositoryClient
-	SyncContext  context.Context
-	SyncInterval time.Duration
+	Router        gin.IRouter
+	Database      *sqlx.DB
+	Logger        logger.Logger
+	GitHubClient  GitHubRepositoryClient
+	GitHubAccount GitHubAccountStore
+	SyncContext   context.Context
+	SyncInterval  time.Duration
 }
 
 type Module struct {
@@ -29,7 +30,7 @@ type Module struct {
 func LoadModule(config ModuleConfig) *Module {
 	repository := NewRepository(config.Database)
 	syncService := NewSyncService(repository, config.GitHubClient, config.Logger, config.SyncInterval)
-	service := NewServiceWithSync(config.Database, repository, syncService, config.GitHubClient)
+	service := NewServiceWithSync(config.Database, repository, syncService, config.GitHubClient, config.GitHubAccount)
 	handler := NewHandler(service)
 	RegisterRoutes(config.Router, handler)
 	if config.Database != nil {

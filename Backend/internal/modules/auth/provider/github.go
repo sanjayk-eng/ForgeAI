@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 type GitHubProvider struct {
@@ -54,6 +55,26 @@ func (provider *GitHubProvider) InspectRepository(ctx context.Context, owner, na
 	}, nil
 }
 
+func (provider *GitHubProvider) ListOrganizations(ctx context.Context, accessToken string) ([]GitHubOrganization, error) {
+	var payload []GitHubOrganization
+	if err := getJSON(ctx, provider.httpClient, "https://api.github.com/user/orgs?per_page=100", accessToken, &payload); err != nil {
+		return nil, fmt.Errorf("list GitHub organizations: %w", err)
+	}
+	return payload, nil
+}
+
+func (provider *GitHubProvider) ListRepositories(ctx context.Context, accessToken, organization string) ([]GitHubRepository, error) {
+	endpoint := "https://api.github.com/user/repos?per_page=100&sort=updated&type=all"
+	if strings.TrimSpace(organization) != "" {
+		endpoint = "https://api.github.com/orgs/" + url.PathEscape(organization) + "/repos?per_page=100&type=all&sort=updated"
+	}
+	var payload []GitHubRepository
+	if err := getJSON(ctx, provider.httpClient, endpoint, accessToken, &payload); err != nil {
+		return nil, fmt.Errorf("list GitHub repositories: %w", err)
+	}
+	return payload, nil
+}
+
 func (provider *GitHubProvider) ExchangeCode(ctx context.Context, code string) (ServiceUser, error) {
 	var token oauthTokenResponse
 	form := url.Values{
@@ -92,5 +113,5 @@ func (provider *GitHubProvider) ExchangeCode(ctx context.Context, code string) (
 	if name == "" {
 		name = profile.Login
 	}
-	return ServiceUser{ProviderID: fmt.Sprintf("%d", profile.ID), Email: profile.Email, Name: name, AvatarURL: profile.AvatarURL}, nil
+	return ServiceUser{ProviderID: fmt.Sprintf("%d", profile.ID), Email: profile.Email, Name: name, AvatarURL: profile.AvatarURL, AccessToken: token.AccessToken}, nil
 }
