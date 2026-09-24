@@ -49,6 +49,7 @@ export function WorkspaceLayout() {
         selected={selected}
         onSelect={selectWorkspace}
         onMenu={openMobileNavigation}
+        onCreateWorkspace={openCreateWorkspace}
         accessToken={accessToken}
       />
       <div className="flex h-[calc(100vh-72px)] min-h-0 overflow-hidden">
@@ -56,6 +57,7 @@ export function WorkspaceLayout() {
           open={mobileOpen}
           hasWorkspace={Boolean(selected)}
           workspaceId={selected?.id}
+          onCreateWorkspace={openCreateWorkspace}
           onClose={closeMobileNavigation}
           onSignOut={signOut}
         />

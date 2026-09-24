@@ -13,6 +13,7 @@ type Props = {
   selected?: Workspace;
   onSelect: (workspace: Workspace) => void;
   onMenu: () => void;
+  onCreateWorkspace: () => void;
   accessToken?: string;
 };
 
@@ -22,6 +23,7 @@ export function WorkspaceHeader({
   selected,
   onSelect,
   onMenu,
+  onCreateWorkspace,
   accessToken,
 }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -52,6 +54,7 @@ export function WorkspaceHeader({
         workspaces={workspaces}
         selected={selected}
         onSelect={onSelect}
+        onCreate={onCreateWorkspace}
       />
       
       <div className="ml-auto flex items-center gap-2">

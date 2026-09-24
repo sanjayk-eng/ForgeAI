@@ -1,4 +1,5 @@
 import { request } from "../../../shared/api/client";
+import { pageQuery, type PageParams, type PagedResult } from "../../../shared/api/pagination";
 import type { WorkspaceMember } from "../types/workspace.types";
 
 type AuthenticatedOptions = RequestInit & { accessToken: string };
@@ -17,9 +18,9 @@ function authenticatedRequest<T>(
   });
 }
 
-export function listMembers(accessToken: string, workspaceId: string) {
-  return authenticatedRequest<WorkspaceMember[]>(
-    `/workspaces/${workspaceId}/members`,
+export function listMembers(accessToken: string, workspaceId: string, params?: PageParams) {
+  return authenticatedRequest<PagedResult<WorkspaceMember>>(
+    `/workspaces/${workspaceId}/members${pageQuery(params)}`,
     { accessToken },
   );
 }

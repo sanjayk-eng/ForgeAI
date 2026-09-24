@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"time"
 
+	"ai-agent/internal/shared/pagination"
+
 	"github.com/jmoiron/sqlx"
 )
 
 type ProjectRepositoryStore interface {
 	SyncRepositoryStore
 	Create(ctx context.Context, tx *sqlx.Tx, workspaceID, name, slug string, description *string, projectType, createdBy string) (Project, error)
-	ListByWorkspace(ctx context.Context, workspaceID string) ([]Project, error)
+	ListByWorkspace(ctx context.Context, workspaceID string, query pagination.Query) (pagination.Result[Project], error)
 	FindByID(ctx context.Context, projectID string) (Project, error)
 	FindByWorkspaceSlug(ctx context.Context, workspaceID, slug string) (Project, error)
 	Update(ctx context.Context, projectID, name string, description *string, status string) (Project, error)
@@ -114,18 +116,35 @@ func (repo *repository) Create(ctx context.Context, tx *sqlx.Tx, workspaceID, na
 	return row.project(), nil
 }
 
-func (repo *repository) ListByWorkspace(ctx context.Context, workspaceID string) ([]Project, error) {
+func (repo *repository) ListByWorkspace(ctx context.Context, workspaceID string, query pagination.Query) (pagination.Result[Project], error) {
+	var total int
+	countQuery := `SELECT COUNT(*) FROM tbl_project p LEFT JOIN tbl_project_repository pr ON pr.project_id = p.id WHERE p.workspace_id = $1`
+	countArgs := []any{workspaceID}
+	if query.Search != "" {
+		countQuery += ` AND (p.name ILIKE '%' || $2 || '%' OR p.slug ILIKE '%' || $2 || '%' OR pr.github_owner ILIKE '%' || $2 || '%' OR pr.github_repository_name ILIKE '%' || $2 || '%' OR pr.repository_url ILIKE '%' || $2 || '%')`
+		countArgs = append(countArgs, query.Search)
+	}
+	if err := repo.db.GetContext(ctx, &total, countQuery, countArgs...); err != nil {
+		return pagination.Result[Project]{}, fmt.Errorf("count projects by workspace: %w", err)
+	}
+
+	listQuery := projectSelect + ` WHERE p.workspace_id = $1`
+	listArgs := []any{workspaceID}
+	if query.Search != "" {
+		listQuery += ` AND (p.name ILIKE '%' || $2 || '%' OR p.slug ILIKE '%' || $2 || '%' OR pr.github_owner ILIKE '%' || $2 || '%' OR pr.github_repository_name ILIKE '%' || $2 || '%' OR pr.repository_url ILIKE '%' || $2 || '%')`
+		listArgs = append(listArgs, query.Search)
+	}
+	listQuery += fmt.Sprintf(" ORDER BY p.created_at DESC LIMIT $%d OFFSET $%d", len(listArgs)+1, len(listArgs)+2)
+	listArgs = append(listArgs, query.PerPage, query.Offset())
 	var rows []projectRow
-	if err := repo.db.SelectContext(ctx, &rows, projectSelect+`
-		WHERE p.workspace_id = $1
-		ORDER BY p.created_at DESC`, workspaceID); err != nil {
-		return nil, fmt.Errorf("list projects by workspace: %w", err)
+	if err := repo.db.SelectContext(ctx, &rows, listQuery, listArgs...); err != nil {
+		return pagination.Result[Project]{}, fmt.Errorf("list projects by workspace: %w", err)
 	}
 	projects := make([]Project, 0, len(rows))
 	for _, row := range rows {
 		projects = append(projects, row.project())
 	}
-	return projects, nil
+	return pagination.NewResult(projects, query, total), nil
 }
 
 func (repo *repository) FindByID(ctx context.Context, projectID string) (Project, error) {

@@ -52,7 +52,7 @@ export function OverviewPage() {
     enabled: Boolean(accessToken && id),
   });
   const workspace = workspacesQuery.data?.find((item) => item.id === id);
-  const memberCount = membersQuery.data?.length ?? 0;
+  const memberCount = membersQuery.data?.total ?? 0;
   const firstName = user?.name?.split(" ")[0] ?? "there";
 
   return (

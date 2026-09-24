@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Archive, Boxes, FolderGit2, Plus, RefreshCw } from "lucide-react";
+import { Archive, Boxes, FolderGit2, Plus, RefreshCw, Search } from "lucide-react";
 import { useAuth } from "../../../auth/useAuth";
 import { useToast } from "../../../../shared/ui/useToast";
 import { useWorkspaceId } from "../../hooks/useWorkspaceId";
@@ -7,6 +7,7 @@ import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { ImportGitHubRepositoriesDialog } from "./components/ImportGitHubRepositoriesDialog";
 import { ProjectCard } from "./components/ProjectCard";
 import { useProjects, useRefreshProjects } from "./hooks/useProjects";
+import { PaginationControls } from "../../../../shared/ui/PaginationControls";
 
 export function ProjectsPage() {
   const workspaceId = useWorkspaceId();
@@ -15,9 +16,11 @@ export function ProjectsPage() {
   const toast = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const projectsQuery = useProjects(accessToken, workspaceId);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const projectsQuery = useProjects(accessToken, workspaceId, { page, perPage: 10, search });
   const refreshProjects = useRefreshProjects(workspaceId);
-  const projects = projectsQuery.data ?? [];
+  const projects = projectsQuery.data?.items ?? [];
 
   return (
     <div className="animate-page-enter space-y-6">
@@ -40,12 +43,17 @@ export function ProjectsPage() {
         <Summary icon={Archive} label="Active projects" value={projects.filter((project) => project.status === "ACTIVE").length} />
       </section>
 
+      <label className="relative block max-w-[560px]">
+        <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-forge-muted" />
+        <input className="input pl-10" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search project or repository" aria-label="Search projects and repositories" />
+      </label>
+
       {projectsQuery.isLoading ? <Loading /> : projectsQuery.isError ? (
         <div className="border border-forge-signal/30 bg-forge-signal/[0.06] p-5 text-sm text-forge-soft">Could not load projects. {projectsQuery.error instanceof Error ? projectsQuery.error.message : "Try again."}</div>
       ) : projects.length === 0 ? (
         <EmptyProjects onCreate={() => setCreateOpen(true)} />
       ) : (
-        <section className="grid gap-3">{projects.map((project) => <ProjectCard key={project.id} project={project} accessToken={accessToken} workspaceId={workspaceId} onError={(message) => toast.pushError(message)} />)}</section>
+        <section className="grid gap-3">{projects.map((project) => <ProjectCard key={project.id} project={project} accessToken={accessToken} workspaceId={workspaceId} onError={(message) => toast.pushError(message)} />)}<PaginationControls page={projectsQuery.data?.page ?? page} totalPages={projectsQuery.data?.total_pages ?? 0} total={projectsQuery.data?.total ?? 0} onPageChange={setPage} /></section>
       )}
 
       {createOpen && <CreateProjectDialog accessToken={accessToken} workspaceId={workspaceId} onClose={() => setCreateOpen(false)} />}

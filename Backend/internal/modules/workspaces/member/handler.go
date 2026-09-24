@@ -5,6 +5,7 @@ import (
 
 	"ai-agent/internal/middleware"
 	apierrors "ai-agent/internal/shared/errors"
+	"ai-agent/internal/shared/pagination"
 	"ai-agent/pkg/validate"
 
 	"github.com/gin-gonic/gin"
@@ -41,7 +42,7 @@ func (handler *Handler) AddMember(c *gin.Context) {
 
 func (handler *Handler) ListMembers(c *gin.Context) {
 	workspaceID := c.Param("workspace_id")
-	members, err := handler.service.ListMembers(c.Request.Context(), workspaceID)
+	members, err := handler.service.ListMembers(c.Request.Context(), workspaceID, pagination.FromContext(c))
 	if err != nil {
 		apierrors.Error(c, http.StatusInternalServerError, apierrors.ErrCodeInternalServer, err.Error(), nil)
 		return

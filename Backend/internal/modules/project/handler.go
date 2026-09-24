@@ -6,6 +6,7 @@ import (
 
 	"ai-agent/internal/middleware"
 	apierrors "ai-agent/internal/shared/errors"
+	"ai-agent/internal/shared/pagination"
 	"ai-agent/pkg/validate"
 
 	"github.com/gin-gonic/gin"
@@ -33,7 +34,7 @@ func (handler *Handler) Create(c *gin.Context) {
 }
 
 func (handler *Handler) List(c *gin.Context) {
-	projects, err := handler.service.ListByWorkspace(c.Request.Context(), c.Param("workspace_id"))
+	projects, err := handler.service.ListByWorkspace(c.Request.Context(), c.Param("workspace_id"), pagination.FromContext(c))
 	if err != nil {
 		handler.writeError(c, err)
 		return

@@ -9,6 +9,8 @@ import { useInvitesQuery } from "../invites/useInvitesQuery";
 import { WorkspaceMemberTable } from "../../components/WorkspaceMemberTable";
 import { WorkspaceInviteList } from "../../components/WorkspaceInviteList";
 import { InviteDialog } from "../../components/InviteDialog";
+import { PaginationControls } from "../../../../shared/ui/PaginationControls";
+import { Search } from "lucide-react";
 
 export function MembersPage() {
   const [view, setView] = useState<"members" | "invitations">("members");
@@ -29,6 +31,12 @@ export function MembersPage() {
     updateRole,
     removeMember,
     isUpdating,
+    total: memberTotal,
+    page: memberPage,
+    totalPages: memberTotalPages,
+    search: memberSearch,
+    setPage: setMemberPage,
+    setSearch: setMemberSearch,
   } = useMembersQuery(accessToken, workspaceId);
 
   const {
@@ -79,7 +87,7 @@ export function MembersPage() {
           <span
             className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${view === "members" ? "bg-forge-bg/15 text-forge-bg" : "bg-white/[0.06] text-forge-muted"}`}
           >
-            {members.length}
+            {memberTotal}
           </span>
         </button>
         <button
@@ -110,6 +118,7 @@ export function MembersPage() {
               {membersLoading ? "Syncing" : "Synced"}
             </span>
           </div>
+          <label className="relative block max-w-[420px] px-5 pt-5 sm:px-6"><Search size={16} className="pointer-events-none absolute left-8 top-1/2 -translate-y-1/2 text-forge-muted" /><input className="input pl-10" value={memberSearch} onChange={(event) => setMemberSearch(event.target.value)} placeholder="Search members by name or email" aria-label="Search members" /></label>
           <WorkspaceMemberTable
             members={members}
             loading={membersLoading}
@@ -120,6 +129,7 @@ export function MembersPage() {
             roleUpdating={isUpdating}
             removing={isUpdating}
           />
+          <div className="p-5 sm:p-6"><PaginationControls page={memberPage} totalPages={memberTotalPages} total={memberTotal} onPageChange={setMemberPage} /></div>
         </section>
       ) : (
         <section className="overflow-hidden rounded-xl border border-[var(--border)] bg-forge-panel/75 shadow-[0_18px_50px_rgba(0,0,0,.08)]">

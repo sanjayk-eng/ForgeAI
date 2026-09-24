@@ -1,4 +1,5 @@
 import { request } from "../../../shared/api/client";
+import { pageQuery, type PageParams, type PagedResult } from "../../../shared/api/pagination";
 import type {
   CreateProjectInput,
   GitHubRepositoryCatalog,
@@ -35,10 +36,10 @@ function authenticatedRequest<T>(
   });
 }
 
-export function listProjects(accessToken: string, workspaceId: string) {
-  return authenticatedRequest<Project[]>(
+export function listProjects(accessToken: string, workspaceId: string, params?: PageParams) {
+  return authenticatedRequest<PagedResult<Project>>(
     accessToken,
-    `/workspaces/${workspaceId}/projects`,
+    `/workspaces/${workspaceId}/projects${pageQuery(params)}`,
   );
 }
 

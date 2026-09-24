@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { FolderKanban, ChevronDown, Check } from "lucide-react";
+import { FolderKanban, ChevronDown, Check, Plus } from "lucide-react";
 import { Dropdown } from "../../../shared/ui/Dropdown";
 import type { Workspace } from "../types/workspace.types";
 
@@ -7,19 +7,18 @@ type WorkspaceSelectorProps = {
   workspaces: Workspace[];
   selected?: Workspace;
   onSelect: (workspace: Workspace) => void;
+  onCreate: () => void;
 };
 
-export function WorkspaceSelector({ workspaces, selected, onSelect }: WorkspaceSelectorProps) {
+export function WorkspaceSelector({ workspaces, selected, onSelect, onCreate }: WorkspaceSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuId = useId();
 
   if (workspaces.length === 0) {
-    return (
-      <div className="flex items-center gap-2 text-forge-soft">
-        <FolderKanban size={15} />
-        <span className="text-sm font-bold text-forge-muted">No workspace yet</span>
-      </div>
-    );
+    return <button type="button" className="group flex items-center gap-2.5 rounded-lg border border-dashed border-forge-accent/35 bg-forge-accent/[0.06] px-3 py-2 text-left transition hover:border-forge-accent hover:bg-forge-accent/[0.12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent" onClick={onCreate}>
+      <span className="grid size-8 place-items-center rounded-md border border-forge-accent/35 bg-forge-accent/[0.12] text-forge-accent"><Plus size={16} /></span>
+      <span><span className="block text-[10px] font-extrabold uppercase tracking-[.1em] text-forge-accent">Workspace</span><span className="block text-sm font-bold text-forge-text">Add workspace</span></span>
+    </button>;
   }
 
   const handleSelect = (workspace: Workspace) => {
@@ -30,8 +29,8 @@ export function WorkspaceSelector({ workspaces, selected, onSelect }: WorkspaceS
   return (
     <div className="relative z-50">
       <div className="flex items-center gap-2 text-forge-soft">
-        <span className="grid size-8 place-items-center rounded-lg border border-forge-accent/20 bg-forge-accent/[0.08] text-forge-accent">
-          <FolderKanban size={16} />
+        <span className="grid size-10 place-items-center rounded-lg border border-forge-accent/30 bg-forge-accent/[0.1] font-mono text-sm font-extrabold text-forge-accent">
+          {workspaceInitial(selected?.name)}
         </span>
         
         <button
@@ -41,7 +40,7 @@ export function WorkspaceSelector({ workspaces, selected, onSelect }: WorkspaceS
           aria-expanded={isOpen}
           aria-controls={menuId}
         >
-          <span className="min-w-0 truncate">{selected?.name ?? "Select workspace"}</span>
+          <span className="min-w-0"><span className="block truncate text-[10px] font-extrabold uppercase tracking-[.1em] text-forge-muted">Current workspace</span><span className="block truncate text-sm font-bold">{selected?.name ?? "Select workspace"}</span></span>
           <ChevronDown 
             size={14} 
             className="shrink-0 transition-transform group-hover:translate-y-0.5" 
@@ -107,7 +106,15 @@ export function WorkspaceSelector({ workspaces, selected, onSelect }: WorkspaceS
             );
           })}
         </div>
+        <button type="button" className="flex w-full items-center gap-3 border-t border-[var(--border)] px-4 py-3 text-left text-sm font-bold text-forge-accent transition hover:bg-forge-accent/[0.08]" onClick={() => { setIsOpen(false); onCreate(); }}>
+          <span className="grid size-8 place-items-center rounded-md border border-forge-accent/30 bg-forge-accent/[0.08]"><Plus size={15} /></span>
+          Add workspace
+        </button>
       </Dropdown>
     </div>
   );
+}
+
+function workspaceInitial(name?: string) {
+  return name?.trim().slice(0, 1).toUpperCase() || <FolderKanban size={17} />;
 }

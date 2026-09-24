@@ -1,4 +1,4 @@
-import { Bot, FolderGit2, LayoutDashboard, LogOut, MessagesSquare, Settings, Users, X } from "lucide-react";
+import { Bot, FolderGit2, LayoutDashboard, LogOut, MessagesSquare, Plus, Settings, Users, X } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const items = [
@@ -17,12 +17,14 @@ export function WorkspaceSidebar({
   open,
   hasWorkspace,
   workspaceId,
+  onCreateWorkspace,
   onClose,
   onSignOut,
 }: {
   open: boolean;
   hasWorkspace: boolean;
   workspaceId?: string;
+  onCreateWorkspace: () => void;
   onClose: () => void;
   onSignOut: () => void;
 }) {
@@ -88,8 +90,11 @@ export function WorkspaceSidebar({
             </div>
           </>
         ) : (
-          <div className="mt-2 border-l-2 border-forge-accent/40 px-3 py-3 text-xs leading-5 text-forge-muted">
-            Create a workspace to unlock team navigation.
+          <div className="mt-2 border border-dashed border-forge-accent/30 bg-forge-accent/[0.05] p-4">
+            <div className="mb-3 grid size-9 place-items-center rounded-md border border-forge-accent/30 bg-forge-accent/[0.1] text-forge-accent"><Plus size={17} /></div>
+            <p className="text-sm font-bold text-forge-text">No workspace yet</p>
+            <p className="mt-1 text-xs leading-5 text-forge-muted">Create a workspace to unlock team navigation.</p>
+            <button type="button" className="mt-4 inline-flex w-full items-center justify-center gap-2 bg-forge-accent px-3 py-2.5 text-xs font-extrabold text-forge-bg transition hover:bg-forge-accent-strong" onClick={onCreateWorkspace}><Plus size={14} /> Add workspace</button>
           </div>
         )}
         <button

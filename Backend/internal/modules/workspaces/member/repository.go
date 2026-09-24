@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"strings"
 
+	"ai-agent/internal/shared/pagination"
+
 	"github.com/jmoiron/sqlx"
 )
 
 type Repository interface {
 	AddMember(ctx context.Context, tx *sqlx.Tx, workspaceID, userID, role string) error
-	ListMembers(ctx context.Context, workspaceID string) ([]Member, error)
+	ListMembers(ctx context.Context, workspaceID string, query pagination.Query) (pagination.Result[Member], error)
 	UpdateMemberRole(ctx context.Context, tx *sqlx.Tx, workspaceID, userID, role string) error
 	RemoveMember(ctx context.Context, tx *sqlx.Tx, workspaceID, userID string) error
 }
@@ -38,29 +40,47 @@ func (repo *repository) AddMember(ctx context.Context, tx *sqlx.Tx, workspaceID,
 	return nil
 }
 
-func (repo *repository) ListMembers(ctx context.Context, workspaceID string) ([]Member, error) {
+func (repo *repository) ListMembers(ctx context.Context, workspaceID string, query pagination.Query) (pagination.Result[Member], error) {
 	type memberRow struct {
 		Member
 		UserEmail string `db:"user_email"`
 		UserName  string `db:"user_name"`
 	}
-	var rows []memberRow
-	if err := repo.db.SelectContext(ctx, &rows, `
+	var total int
+	countQuery := `SELECT COUNT(*) FROM tbl_workspace_member wm JOIN tbl_user u ON u.id = wm.user_id WHERE wm.workspace_id = $1`
+	countArgs := []any{workspaceID}
+	if query.Search != "" {
+		countQuery += ` AND (u.name ILIKE '%' || $2 || '%' OR u.email ILIKE '%' || $2 || '%')`
+		countArgs = append(countArgs, query.Search)
+	}
+	if err := repo.db.GetContext(ctx, &total, countQuery, countArgs...); err != nil {
+		return pagination.Result[Member]{}, fmt.Errorf("count workspace members: %w", err)
+	}
+
+	listQuery := `
 		SELECT wm.id, wm.workspace_id, wm.user_id, e.code AS role, wm.created_at, wm.updated_at,
 		       u.email AS user_email, u.name AS user_name
 		FROM tbl_workspace_member wm
 		JOIN tbl_enum e ON e.id = wm.role_id
 		JOIN tbl_user u ON u.id = wm.user_id
-		WHERE wm.workspace_id = $1
-		ORDER BY wm.created_at ASC`, workspaceID); err != nil {
-		return nil, fmt.Errorf("list workspace members: %w", err)
+		WHERE wm.workspace_id = $1`
+	listArgs := []any{workspaceID}
+	if query.Search != "" {
+		listQuery += ` AND (u.name ILIKE '%' || $2 || '%' OR u.email ILIKE '%' || $2 || '%')`
+		listArgs = append(listArgs, query.Search)
+	}
+	listQuery += fmt.Sprintf(" ORDER BY wm.created_at ASC LIMIT $%d OFFSET $%d", len(listArgs)+1, len(listArgs)+2)
+	listArgs = append(listArgs, query.PerPage, query.Offset())
+	var rows []memberRow
+	if err := repo.db.SelectContext(ctx, &rows, listQuery, listArgs...); err != nil {
+		return pagination.Result[Member]{}, fmt.Errorf("list workspace members: %w", err)
 	}
 	members := make([]Member, 0, len(rows))
 	for _, row := range rows {
 		row.Member.User = MemberUser{ID: row.UserID, Email: row.UserEmail, Name: row.UserName}
 		members = append(members, row.Member)
 	}
-	return members, nil
+	return pagination.NewResult(members, query, total), nil
 }
 
 func (repo *repository) UpdateMemberRole(ctx context.Context, tx *sqlx.Tx, workspaceID, userID, role string) error {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"ai-agent/internal/shared/pagination"
 	appdatabase "ai-agent/pkg/database"
 
 	"github.com/jmoiron/sqlx"
@@ -43,12 +44,12 @@ func (service *Service) AddMember(ctx context.Context, workspaceID, inviterID, u
 	return member, nil
 }
 
-func (service *Service) ListMembers(ctx context.Context, workspaceID string) ([]Member, error) {
+func (service *Service) ListMembers(ctx context.Context, workspaceID string, query pagination.Query) (pagination.Result[Member], error) {
 	workspaceID = strings.TrimSpace(workspaceID)
 	if workspaceID == "" {
-		return nil, ErrInvalidMemberInput
+		return pagination.Result[Member]{}, ErrInvalidMemberInput
 	}
-	return service.repo.ListMembers(ctx, workspaceID)
+	return service.repo.ListMembers(ctx, workspaceID, query)
 }
 
 func (service *Service) UpdateMemberRole(ctx context.Context, workspaceID, userID, role string) error {

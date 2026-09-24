@@ -1,14 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listMembers, removeMember, updateMemberRole } from "../../api/members.api";
 import { useToast } from "../../../../shared/ui/useToast";
+import { useState } from "react";
 
 export function useMembersQuery(accessToken: string, workspaceId: string) {
   const toast = useToast();
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
 
   const membersQuery = useQuery({
-    queryKey: ["members", workspaceId],
-    queryFn: () => listMembers(accessToken, workspaceId),
+    queryKey: ["members", workspaceId, page, search],
+    queryFn: () => listMembers(accessToken, workspaceId, { page, perPage: 10, search }),
     enabled: Boolean(accessToken && workspaceId),
   });
 
@@ -29,7 +32,13 @@ export function useMembersQuery(accessToken: string, workspaceId: string) {
   });
 
   return {
-    members: membersQuery.data ?? [],
+    members: membersQuery.data?.items ?? [],
+    total: membersQuery.data?.total ?? 0,
+    page,
+    totalPages: membersQuery.data?.total_pages ?? 0,
+    search,
+    setPage,
+    setSearch: (value: string) => { setSearch(value); setPage(1); },
     isLoading: membersQuery.isLoading,
     isError: membersQuery.isError,
     refetch: membersQuery.refetch,

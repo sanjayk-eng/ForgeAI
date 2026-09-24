@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"ai-agent/internal/shared/pagination"
 	appdatabase "ai-agent/pkg/database"
 
 	"github.com/jmoiron/sqlx"
@@ -14,7 +15,7 @@ import (
 
 type Service interface {
 	Create(ctx context.Context, workspaceID, createdBy string, input CreateProjectRequest) (Project, error)
-	ListByWorkspace(ctx context.Context, workspaceID string) ([]Project, error)
+	ListByWorkspace(ctx context.Context, workspaceID string, query pagination.Query) (pagination.Result[Project], error)
 	FindByID(ctx context.Context, projectID string) (Project, error)
 	FindByWorkspaceSlug(ctx context.Context, workspaceID, slug string) (Project, error)
 	Update(ctx context.Context, projectID string, input UpdateProjectRequest) (Project, error)
@@ -81,11 +82,11 @@ func (service *service) Create(ctx context.Context, workspaceID, createdBy strin
 	return project, nil
 }
 
-func (service *service) ListByWorkspace(ctx context.Context, workspaceID string) ([]Project, error) {
+func (service *service) ListByWorkspace(ctx context.Context, workspaceID string, query pagination.Query) (pagination.Result[Project], error) {
 	if strings.TrimSpace(workspaceID) == "" {
-		return nil, ErrInvalidProjectInput
+		return pagination.Result[Project]{}, ErrInvalidProjectInput
 	}
-	return service.repo.ListByWorkspace(ctx, workspaceID)
+	return service.repo.ListByWorkspace(ctx, workspaceID, query)
 }
 
 func (service *service) FindByID(ctx context.Context, projectID string) (Project, error) {
