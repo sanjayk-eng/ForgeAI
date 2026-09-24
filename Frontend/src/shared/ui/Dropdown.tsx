@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 type DropdownProps = {
   isOpen: boolean;
@@ -15,6 +15,15 @@ export function Dropdown({
   className = "",
   align = "right" 
 }: DropdownProps) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
@@ -28,9 +37,9 @@ export function Dropdown({
       
       {/* Dropdown content */}
       <div
-        className={`absolute ${align === "right" ? "right-0" : "left-0"} top-full z-50 mt-2 rounded-lg border border-white/20 bg-[#1a1d24] shadow-[0_8px_30px_rgba(0,0,0,0.7)] ${className}`}
-        role="dialog"
-        aria-modal="true"
+        className={`absolute ${align === "right" ? "right-0" : "left-0"} top-full z-50 mt-2 rounded-lg border border-[var(--border)] bg-forge-card shadow-[0_8px_30px_rgba(0,0,0,0.24)] ${className}`}
+        role="menu"
+        aria-label="Dropdown menu"
       >
         {children}
       </div>

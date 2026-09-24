@@ -42,7 +42,7 @@ export function WorkspaceLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-forge-bg text-[#f1f3f5]">
+    <div className="min-h-screen bg-forge-bg text-forge-text">
       <WorkspaceHeader
         userName={user?.name}
         workspaces={workspaces}
@@ -51,7 +51,7 @@ export function WorkspaceLayout() {
         onMenu={openMobileNavigation}
         accessToken={accessToken}
       />
-      <div className="flex min-h-[calc(100vh-68px)]">
+      <div className="flex h-[calc(100vh-72px)] min-h-0 overflow-hidden">
         <WorkspaceSidebar
           open={mobileOpen}
           hasWorkspace={Boolean(selected)}
@@ -59,8 +59,8 @@ export function WorkspaceLayout() {
           onClose={closeMobileNavigation}
           onSignOut={signOut}
         />
-        <main className="min-w-0 flex-1 bg-[radial-gradient(circle_at_72%_8%,rgba(198,243,106,.055),transparent_27%)]">
-          <div className="mx-auto w-[calc(100%-32px)] max-w-[1120px] py-9 sm:w-[calc(100%-80px)] sm:py-14">
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-[calc(100%-32px)] max-w-[1180px] py-8 sm:w-[calc(100%-64px)] sm:py-11 lg:w-[calc(100%-96px)]">
             {query.isLoading ? (
               <LoadingState />
             ) : selected ? (

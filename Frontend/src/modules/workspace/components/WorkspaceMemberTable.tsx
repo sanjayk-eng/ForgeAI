@@ -24,7 +24,7 @@ export function WorkspaceMemberTable({
   roleUpdating,
   removing,
 }: Props) {
-  if (loading) return <TableMessage label="Loading workspace members..." />;
+  if (loading) return <MemberSkeleton />;
   if (error) {
     return (
       <div className="grid min-h-[190px] place-content-center justify-items-center gap-3 text-center">
@@ -43,7 +43,7 @@ export function WorkspaceMemberTable({
   }
   if (members.length === 0)
     return (
-      <TableMessage icon label="No members have joined this workspace yet." />
+      <TableMessage icon label="No members yet" description="Invite teammates to start collaborating." />
     );
 
   return (
@@ -127,14 +127,30 @@ function MemberRow({
 function TableMessage({
   label,
   icon = false,
+  description,
 }: {
   label: string;
   icon?: boolean;
+  description?: string;
 }) {
   return (
     <div className="grid min-h-[190px] place-content-center justify-items-center gap-3 text-center text-sm text-forge-muted">
       {icon && <Users size={24} />}
-      {label}
+      <strong className="text-forge-soft">{label}</strong>
+      {description && <span className="text-xs text-forge-muted">{description}</span>}
+    </div>
+  );
+}
+
+function MemberSkeleton() {
+  return (
+    <div className="divide-y divide-[var(--border)]" aria-label="Loading members">
+      {[1, 2, 3].map((item) => (
+        <div key={item} className="flex items-center gap-3 px-5 py-5 sm:px-6">
+          <span className="size-9 animate-pulse rounded-full bg-white/[0.08]" />
+          <span className="grid flex-1 gap-2"><span className="h-3 w-40 animate-pulse rounded bg-white/[0.08]" /><span className="h-2.5 w-56 animate-pulse rounded bg-white/[0.05]" /></span>
+        </div>
+      ))}
     </div>
   );
 }

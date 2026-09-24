@@ -34,7 +34,7 @@ export function NotificationDropdown({ accessToken }: NotificationDropdownProps)
     <div className="relative">
       {/* Bell Button */}
       <button
-        className="relative grid size-9 place-items-center rounded-md border border-transparent text-forge-muted transition hover:border-white/10 hover:bg-white/[0.06] hover:text-forge-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
+        className="relative grid size-9 place-items-center rounded-md border border-transparent text-forge-muted transition hover:border-[var(--border)] hover:bg-[var(--surface-hover)] hover:text-forge-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
         aria-label={`Notifications${pendingCount > 0 ? ` (${pendingCount} pending)` : ""}`}
         onClick={() => setIsOpen(!isOpen)}
       >
@@ -50,13 +50,13 @@ export function NotificationDropdown({ accessToken }: NotificationDropdownProps)
         align="right"
       >
         {/* Header */}
-        <div className="border-b border-white/10 bg-[#1f2329] px-4 py-3">
+        <div className="border-b border-[var(--border)] bg-forge-card px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-white">
+              <h3 className="text-sm font-semibold text-forge-text">
                 Invitations
               </h3>
-              <p className="mt-0.5 text-xs text-gray-400">
+              <p className="mt-0.5 text-xs text-forge-muted">
                 {pendingCount === 0 ? "No pending invites" : `${pendingCount} pending`}
               </p>
             </div>
@@ -91,8 +91,8 @@ export function NotificationDropdown({ accessToken }: NotificationDropdownProps)
 
         {/* Footer */}
         {pendingCount > 0 && (
-          <div className="border-t border-white/10 bg-[#1f2329] px-4 py-2">
-            <p className="text-center text-xs text-gray-400">
+          <div className="border-t border-[var(--border)] bg-forge-card px-4 py-2">
+            <p className="text-center text-xs text-forge-muted">
               Click to view details
             </p>
           </div>

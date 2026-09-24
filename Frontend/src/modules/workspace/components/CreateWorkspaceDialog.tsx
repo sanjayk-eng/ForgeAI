@@ -36,9 +36,9 @@ export function CreateWorkspaceDialog({
     if (name.trim().length >= 2) mutation.mutate();
   }
   return (
-    <div className="fixed inset-0 z-30 grid place-items-center bg-black/75 p-5 backdrop-blur-md">
+    <div className="fixed inset-0 z-30 grid place-items-center bg-[var(--overlay)] p-5 backdrop-blur-md">
       <form
-        className="w-full max-w-[450px] border border-forge-accent/20 bg-[#171b20] p-7 shadow-2xl"
+        className="w-full max-w-[450px] rounded-xl border border-forge-accent/20 bg-forge-card p-7 shadow-2xl"
         onSubmit={submit}
       >
         <div className="flex items-start justify-between gap-5">
@@ -52,7 +52,7 @@ export function CreateWorkspaceDialog({
           </div>
           <button
             type="button"
-            className="grid size-9 place-items-center rounded-md text-forge-muted hover:bg-white/[0.06]"
+            className="grid size-9 place-items-center rounded-md text-forge-muted hover:bg-[var(--surface-hover)]"
             onClick={onClose}
             aria-label="Close dialog"
           >
@@ -70,7 +70,7 @@ export function CreateWorkspaceDialog({
         </label>
         <input
           id="workspace-name"
-          className="mt-2 w-full rounded-md border border-white/[0.13] bg-[#101217] px-3 py-3 text-forge-text outline-none focus:border-forge-accent"
+          className="mt-2 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 py-3 text-forge-text outline-none transition focus:border-forge-accent focus:ring-2 focus:ring-forge-accent/15"
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="e.g. Acme AI"
@@ -79,7 +79,7 @@ export function CreateWorkspaceDialog({
         <div className="mt-7 flex justify-end gap-2">
           <button
             type="button"
-            className="rounded-md bg-white/[0.06] px-4 py-2.5 text-xs font-extrabold text-forge-soft hover:bg-white/10"
+            className="rounded-md bg-[var(--surface-subtle)] px-4 py-2.5 text-xs font-extrabold text-forge-soft hover:bg-[var(--surface-hover)]"
             onClick={onClose}
           >
             Cancel

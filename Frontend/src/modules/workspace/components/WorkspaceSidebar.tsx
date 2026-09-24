@@ -1,4 +1,4 @@
-import { LayoutDashboard, LogOut, Settings, Users, X } from "lucide-react";
+import { Bot, FolderGit2, LayoutDashboard, LogOut, MessagesSquare, Settings, Users, X } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const items = [
@@ -8,9 +8,9 @@ const items = [
 ];
 
 const modules = [
-  { label: "Agent workspace", color: "bg-forge-accent" },
-  { label: "Repositories", color: "bg-forge-signal" },
-  { label: "Conversations", color: "bg-[#8ed4ff]" },
+  { label: "Agent workspace", icon: Bot },
+  { label: "Repositories", icon: FolderGit2 },
+  { label: "Conversations", icon: MessagesSquare },
 ];
 
 export function WorkspaceSidebar({
@@ -29,7 +29,7 @@ export function WorkspaceSidebar({
   return (
     <>
       <aside
-        className={`fixed inset-y-0 left-0 z-20 flex w-[248px] flex-col border-r border-white/[0.08] bg-[#111419] p-5 pt-8 transition-transform md:static md:z-auto md:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed inset-y-0 left-0 z-20 flex h-screen w-[248px] shrink-0 flex-col overflow-hidden border-r border-[var(--sidebar-border)] bg-forge-panel p-5 pt-8 transition-transform md:sticky md:top-0 md:h-[calc(100vh-72px)] md:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="mb-9 flex items-center justify-between md:hidden">
           <span className="font-bold text-forge-text">Workspace</span>
@@ -66,13 +66,13 @@ export function WorkspaceSidebar({
               Modules
             </span>
             <div className="grid gap-1 text-[13px] font-semibold text-forge-muted">
-              {modules.map((module) => (
+              {modules.map(({ label, icon: Icon }) => (
                 <span
-                  key={module.label}
+                  key={label}
                   className="flex items-center gap-3 px-3 py-2"
                 >
-                  <i className={`size-1.5 rounded-full ${module.color}`} />
-                  {module.label}
+                  <Icon size={17} className="text-forge-muted" />
+                  {label}
                 </span>
               ))}
             </div>

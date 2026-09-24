@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { FolderKanban, ChevronDown, Check } from "lucide-react";
 import { Dropdown } from "../../../shared/ui/Dropdown";
 import type { Workspace } from "../types/workspace.types";
@@ -11,6 +11,7 @@ type WorkspaceSelectorProps = {
 
 export function WorkspaceSelector({ workspaces, selected, onSelect }: WorkspaceSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const menuId = useId();
 
   if (workspaces.length === 0) {
     return (
@@ -27,16 +28,20 @@ export function WorkspaceSelector({ workspaces, selected, onSelect }: WorkspaceS
   };
 
   return (
-    <div className="relative">
+    <div className="relative z-50">
       <div className="flex items-center gap-2 text-forge-soft">
-        <FolderKanban size={15} />
+        <span className="grid size-8 place-items-center rounded-lg border border-forge-accent/20 bg-forge-accent/[0.08] text-forge-accent">
+          <FolderKanban size={16} />
+        </span>
         
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="group flex max-w-[150px] items-center gap-2 rounded-md px-2 py-1.5 text-sm font-bold text-forge-text transition hover:bg-white/[0.06] sm:max-w-[220px]"
+          className="group flex max-w-[180px] items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-bold text-forge-text transition hover:bg-[var(--surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent sm:max-w-[240px]"
           aria-label="Select workspace"
+          aria-expanded={isOpen}
+          aria-controls={menuId}
         >
-          <span className="truncate">{selected?.name ?? "Select workspace"}</span>
+          <span className="min-w-0 truncate">{selected?.name ?? "Select workspace"}</span>
           <ChevronDown 
             size={14} 
             className="shrink-0 transition-transform group-hover:translate-y-0.5" 
@@ -47,15 +52,15 @@ export function WorkspaceSelector({ workspaces, selected, onSelect }: WorkspaceS
       <Dropdown 
         isOpen={isOpen} 
         onClose={() => setIsOpen(false)}
-        className="w-[min(300px,calc(100vw-32px))]"
+        className="w-[min(320px,calc(100vw-32px))] overflow-hidden"
         align="left"
       >
         {/* Header */}
-        <div className="border-b border-white/10 bg-[#1f2329] px-4 py-3">
-          <h3 className="text-xs font-semibold text-white">
+        <div id={menuId} className="border-b border-[var(--border)] bg-forge-card px-4 py-3">
+          <h3 className="text-xs font-bold text-forge-text">
             Switch Workspace
           </h3>
-          <p className="mt-0.5 text-xs text-gray-400">
+          <p className="mt-0.5 text-xs text-forge-muted">
             {workspaces.length} available
           </p>
         </div>
@@ -68,17 +73,18 @@ export function WorkspaceSelector({ workspaces, selected, onSelect }: WorkspaceS
               <button
                 key={workspace.id}
                 onClick={() => handleSelect(workspace)}
-                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition ${
+                  role="menuitem"
+                  className={`flex w-full items-center gap-3 px-4 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-forge-accent ${
                   isSelected 
-                    ? "bg-white/10 text-white" 
-                    : "text-gray-300 hover:bg-white/5 hover:text-white"
+                    ? "bg-forge-accent/[0.1] text-forge-text" 
+                    : "text-forge-soft hover:bg-[var(--surface-hover)] hover:text-forge-text"
                 }`}
               >
                 {/* Icon */}
                 <div className={`grid size-8 shrink-0 place-items-center rounded-lg border transition ${
                   isSelected
                     ? "border-forge-accent/50 bg-forge-accent/15 text-forge-accent"
-                    : "border-white/15 bg-white/5 text-gray-400"
+                    : "border-[var(--border)] bg-[var(--surface-subtle)] text-forge-muted"
                 }`}>
                   <FolderKanban size={15} />
                 </div>
@@ -88,7 +94,7 @@ export function WorkspaceSelector({ workspaces, selected, onSelect }: WorkspaceS
                   <p className="truncate text-sm font-medium">
                     {workspace.name}
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-forge-muted">
                     /{workspace.slug}
                   </p>
                 </div>
