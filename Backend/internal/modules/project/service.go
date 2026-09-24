@@ -19,6 +19,7 @@ type Service interface {
 	FindByID(ctx context.Context, projectID string) (Project, error)
 	FindByWorkspaceSlug(ctx context.Context, workspaceID, slug string) (Project, error)
 	Update(ctx context.Context, projectID string, input UpdateProjectRequest) (Project, error)
+	UpdateRepositoryBranch(ctx context.Context, projectID, branch string) (ProjectRepository, error)
 	ConnectRepository(ctx context.Context, projectID string, input ConnectRepositoryRequest) (ProjectRepository, error)
 	SyncProject(ctx context.Context, projectID string) (Project, error)
 	ResolveRepository(ctx context.Context, repositoryURL string) (ResolvedRepository, error)
@@ -114,14 +115,25 @@ func (service *service) FindByWorkspaceSlug(ctx context.Context, workspaceID, sl
 func (service *service) Update(ctx context.Context, projectID string, input UpdateProjectRequest) (Project, error) {
 	projectID = strings.TrimSpace(projectID)
 	name := strings.TrimSpace(input.Name)
+	status := input.Status
+	if status == "" {
+		status = ProjectStatusActive
+	}
 	if service.db == nil || projectID == "" || name == "" {
 		return Project{}, ErrInvalidProjectInput
 	}
-	project, err := service.repo.Update(ctx, projectID, name, input.Description, string(input.Status))
+	project, err := service.repo.Update(ctx, projectID, name, input.Description, string(status))
 	if err != nil {
 		return Project{}, ErrProjectNotFound
 	}
 	return project, nil
+}
+
+func (service *service) UpdateRepositoryBranch(ctx context.Context, projectID, branch string) (ProjectRepository, error) {
+	if service.db == nil || strings.TrimSpace(projectID) == "" || strings.TrimSpace(branch) == "" {
+		return ProjectRepository{}, ErrInvalidProjectInput
+	}
+	return service.repo.UpdateRepositoryBranch(ctx, projectID, strings.TrimSpace(branch))
 }
 
 func (service *service) ConnectRepository(ctx context.Context, projectID string, input ConnectRepositoryRequest) (ProjectRepository, error) {

@@ -7,6 +7,7 @@ import {
   listGitHubRepositories,
 } from "../../../api/projects.api";
 import type { GitHubRepositoryOption } from "../types/project.types";
+import { LoadingOverlay } from "../../../../../shared/ui/LoadingOverlay";
 
 type ImportGitHubRepositoriesDialogProps = {
   accessToken: string;
@@ -33,7 +34,7 @@ export function ImportGitHubRepositoriesDialog({
       importGitHubRepositories(
         accessToken,
         workspaceId,
-        visibleRepositories.filter((repository) => selected.has(repository.github_repository_id)),
+        (catalog?.repositories ?? []).filter((repository) => selected.has(repository.github_repository_id)),
       ),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ["projects", workspaceId] });
@@ -76,7 +77,8 @@ export function ImportGitHubRepositoriesDialog({
 
   return (
     <div className="fixed inset-0 z-30 grid place-items-center bg-[var(--overlay)] p-5 backdrop-blur-md">
-      <section className="flex max-h-[min(760px,calc(100vh-40px))] w-full max-w-[720px] flex-col rounded-xl border border-forge-accent/20 bg-forge-card shadow-2xl">
+      <section className="relative flex max-h-[min(760px,calc(100vh-40px))] w-full max-w-[720px] flex-col rounded-xl border border-forge-accent/20 bg-forge-card shadow-2xl">
+        {(repositoriesQuery.isLoading || importMutation.isPending) && <LoadingOverlay message={importMutation.isPending ? "Importing repositories" : "Loading GitHub repositories"} />}
         <header className="flex items-start justify-between gap-5 border-b border-white/[0.08] p-7">
           <div>
             <span className="mb-2 block font-mono text-[10px] uppercase tracking-[.12em] text-forge-accent">GitHub import</span>

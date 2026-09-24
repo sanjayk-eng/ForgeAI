@@ -17,6 +17,7 @@ type ProjectRepositoryStore interface {
 	FindByID(ctx context.Context, projectID string) (Project, error)
 	FindByWorkspaceSlug(ctx context.Context, workspaceID, slug string) (Project, error)
 	Update(ctx context.Context, projectID, name string, description *string, status string) (Project, error)
+	UpdateRepositoryBranch(ctx context.Context, projectID, branch string) (ProjectRepository, error)
 	ConnectRepository(ctx context.Context, tx *sqlx.Tx, projectID string, input ConnectRepositoryRequest) (ProjectRepository, error)
 	IsWorkspaceOwner(ctx context.Context, workspaceID, userID string) (bool, error)
 }
@@ -181,6 +182,29 @@ func (repo *repository) Update(ctx context.Context, projectID, name string, desc
 		return Project{}, fmt.Errorf("update project: %w", err)
 	}
 	return row.project(), nil
+}
+
+func (repo *repository) UpdateRepositoryBranch(ctx context.Context, projectID, branch string) (ProjectRepository, error) {
+	var repository ProjectRepository
+	err := repo.db.GetContext(ctx, &repository, `
+		UPDATE tbl_project_repository
+		SET default_branch = $2,
+		    sync_status_id = (
+			    SELECT id FROM tbl_enum
+			    WHERE category = 'PROJECT_REPOSITORY_SYNC_STATUS' AND code = 'PENDING'
+		    ),
+		    last_synced_at = NULL,
+		    updated_at = NOW()
+		WHERE project_id = $1
+		RETURNING id AS repository_id, project_id, github_repository_id, github_owner,
+		          github_repository_name, repository_url, default_branch,
+		          last_synced_at, created_at AS repository_created_at,
+		          updated_at AS repository_updated_at`, projectID, branch)
+	if err != nil {
+		return ProjectRepository{}, fmt.Errorf("update repository branch: %w", err)
+	}
+	repository.SyncStatus = SyncStatusPending
+	return repository, nil
 }
 
 func (repo *repository) ConnectRepository(ctx context.Context, tx *sqlx.Tx, projectID string, input ConnectRepositoryRequest) (ProjectRepository, error) {

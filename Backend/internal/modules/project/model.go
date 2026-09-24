@@ -66,7 +66,11 @@ type CreateProjectRequest struct {
 type UpdateProjectRequest struct {
 	Name        string        `json:"name" binding:"required,min=1,max=150"`
 	Description *string       `json:"description"`
-	Status      ProjectStatus `json:"status" binding:"required,oneof=ACTIVE ARCHIVED"`
+	Status      ProjectStatus `json:"status,omitempty" binding:"omitempty,oneof=ACTIVE ARCHIVED"`
+}
+
+type UpdateRepositoryBranchRequest struct {
+	DefaultBranch string `json:"default_branch" binding:"required,max=255"`
 }
 
 type ConnectRepositoryRequest struct {

@@ -55,3 +55,9 @@ export type GitHubRepositoryCatalog = {
   organizations: string[];
   repositories: GitHubRepositoryOption[];
 };
+
+export type UpdateProjectInput = {
+  name: string;
+  description?: string;
+  status?: ProjectStatus;
+};

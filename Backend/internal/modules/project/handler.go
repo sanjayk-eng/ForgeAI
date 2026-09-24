@@ -95,6 +95,19 @@ func (handler *Handler) Sync(c *gin.Context) {
 	apierrors.Success(c, http.StatusOK, "repository sync completed", project)
 }
 
+func (handler *Handler) UpdateRepositoryBranch(c *gin.Context) {
+	var input UpdateRepositoryBranchRequest
+	if !bindAndValidate(c, &input) {
+		return
+	}
+	repository, err := handler.service.UpdateRepositoryBranch(c.Request.Context(), c.Param("project_id"), input.DefaultBranch)
+	if err != nil {
+		handler.writeError(c, err)
+		return
+	}
+	apierrors.Success(c, http.StatusOK, "repository branch updated", repository)
+}
+
 func (handler *Handler) ResolveRepository(c *gin.Context) {
 	var input ResolveRepositoryRequest
 	if !bindAndValidate(c, &input) {

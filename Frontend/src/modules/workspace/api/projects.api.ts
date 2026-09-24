@@ -7,6 +7,7 @@ import type {
   Project,
   ProjectRepositoryInput,
   ResolvedRepository,
+  UpdateProjectInput,
 } from "../features/projects/types/project.types";
 
 export type {
@@ -20,6 +21,7 @@ export type {
   SyncStatus,
   ProjectRepositoryInput,
   ResolvedRepository,
+  UpdateProjectInput,
 } from "../features/projects/types/project.types";
 
 function authenticatedRequest<T>(
@@ -102,4 +104,18 @@ export function connectRepository(
     `/projects/${projectId}/repository`,
     { method: "POST", body: JSON.stringify(repository) },
   );
+}
+
+export function updateProject(accessToken: string, projectId: string, input: UpdateProjectInput) {
+  return authenticatedRequest<Project>(accessToken, `/projects/${projectId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateRepositoryBranch(accessToken: string, projectId: string, defaultBranch: string) {
+  return authenticatedRequest<ProjectRepositoryInput>(accessToken, `/projects/${projectId}/repository/branch`, {
+    method: "PATCH",
+    body: JSON.stringify({ default_branch: defaultBranch }),
+  });
 }
