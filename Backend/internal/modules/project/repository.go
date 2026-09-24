@@ -69,9 +69,15 @@ func (repo *repository) Create(ctx context.Context, tx *sqlx.Tx, workspaceID, na
 			  AND type_enum.code = $6
 			  AND status_enum.category = 'PROJECT_STATUS'
 			  AND status_enum.code = 'ACTIVE'
-			RETURNING id
-		)` + projectSelect + `
-		JOIN inserted ON inserted.id = p.id`
+			RETURNING id, workspace_id, name, slug, description, type_id, status_id,
+			          created_by, created_at, updated_at
+		)
+		SELECT inserted.id, inserted.workspace_id, inserted.name, inserted.slug,
+		       inserted.description, type_enum.code AS type, status_enum.code AS status,
+		       inserted.created_by, inserted.created_at, inserted.updated_at
+		FROM inserted
+		JOIN tbl_enum type_enum ON type_enum.id = inserted.type_id
+		JOIN tbl_enum status_enum ON status_enum.id = inserted.status_id`
 	var err error
 	if tx != nil {
 		err = tx.GetContext(ctx, &row, query, workspaceID, name, slug, description, createdBy, projectType)
