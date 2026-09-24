@@ -12,6 +12,14 @@ type oauthTokenResponse struct {
 	Error       string `json:"error"`
 }
 
+type GitHubRepository struct {
+	ID            int64  `json:"id"`
+	Owner         string `json:"owner"`
+	Name          string `json:"name"`
+	URL           string `json:"html_url"`
+	DefaultBranch string `json:"default_branch"`
+}
+
 type gitHubProfile struct {
 	ID        int64  `json:"id"`
 	Email     string `json:"email"`

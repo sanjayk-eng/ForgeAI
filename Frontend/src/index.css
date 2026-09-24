@@ -1,6 +1,16 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
+@layer components {
+  .input {
+    @apply mt-2 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 py-3 text-sm text-forge-text outline-none transition focus:border-forge-accent focus:ring-2 focus:ring-forge-accent/15;
+  }
+
+  .label {
+    @apply block font-mono text-[11px] text-forge-soft;
+  }
+}
+
 @theme {
   --font-sans: "Manrope", sans-serif;
   --font-mono: "DM Mono", monospace;
@@ -26,6 +36,15 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes sync-progress {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(340%);
   }
 }
 

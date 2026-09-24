@@ -10,6 +10,7 @@ import { OverviewPage } from "../modules/workspace/features/overview/OverviewPag
 import { MembersPage } from "../modules/workspace/features/members/MembersPage";
 import { SettingsPage } from "../modules/workspace/features/settings/SettingsPage";
 import { AcceptInvitePage } from "../modules/workspace/features/invites/AcceptInvitePage";
+import { ProjectsPage } from "../modules/workspace/features/projects/ProjectsPage";
 
 export const router = createBrowserRouter([
   {
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
         element: <WorkspaceLayout />,
         children: [
           { index: true, element: <OverviewPage /> },
+          { path: "projects", element: <ProjectsPage /> },
           { path: "members", element: <MembersPage /> },
           { path: "settings", element: <SettingsPage /> },
         ],

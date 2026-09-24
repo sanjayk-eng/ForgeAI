@@ -9,7 +9,7 @@ const items = [
 
 const modules = [
   { label: "Agent workspace", icon: Bot },
-  { label: "Repositories", icon: FolderGit2 },
+  { label: "Projects", to: "/workspace/projects", icon: FolderGit2 },
   { label: "Conversations", icon: MessagesSquare },
 ];
 
@@ -66,7 +66,17 @@ export function WorkspaceSidebar({
               Modules
             </span>
             <div className="grid gap-1 text-[13px] font-semibold text-forge-muted">
-              {modules.map(({ label, icon: Icon }) => (
+              {modules.map(({ label, to, icon: Icon }) => to ? (
+                <NavLink
+                  key={label}
+                  to={`${to}?workspace=${workspaceId ?? ""}`}
+                  onClick={onClose}
+                  className={({ isActive }) => `flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-semibold no-underline transition ${isActive ? "bg-forge-accent/[0.09] text-forge-text" : "text-forge-muted hover:bg-white/[0.05] hover:text-forge-text"}`}
+                >
+                  <Icon size={17} />
+                  {label}
+                </NavLink>
+              ) : (
                 <span
                   key={label}
                   className="flex items-center gap-3 px-3 py-2"

@@ -5,6 +5,7 @@ import (
 	"ai-agent/internal/middleware"
 	"ai-agent/internal/modules/auth"
 	"ai-agent/internal/modules/auth/provider"
+	projectmodule "ai-agent/internal/modules/project"
 	workspaceinvite "ai-agent/internal/modules/workspaces/invite"
 	member "ai-agent/internal/modules/workspaces/member"
 	workspacecore "ai-agent/internal/modules/workspaces/workspace"
@@ -113,6 +114,18 @@ func runServer() error {
 		Router:   protectedRouter,
 		Database: db,
 		Logger:   appLogger,
+	})
+	githubProvider, err := oauthFactory.Create("github")
+	if err != nil {
+		return fmt.Errorf("initialize GitHub repository provider: %w", err)
+	}
+	githubInspector, _ := githubProvider.(provider.GitHubRepositoryInspector)
+	projectmodule.LoadModule(projectmodule.ModuleConfig{
+		Router:       protectedRouter,
+		Database:     db,
+		Logger:       appLogger,
+		GitHubClient: projectmodule.NewGitHubRepositoryClient(githubInspector),
+		SyncContext:  emailContext,
 	})
 	member.LoadModule(member.ModuleConfig{
 		Router:   protectedRouter,

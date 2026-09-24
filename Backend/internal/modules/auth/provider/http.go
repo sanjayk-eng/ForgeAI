@@ -24,7 +24,9 @@ func getJSON(ctx context.Context, client *http.Client, endpoint string, accessTo
 	if err != nil {
 		return err
 	}
-	request.Header.Set("Authorization", "Bearer "+accessToken)
+	if strings.TrimSpace(accessToken) != "" {
+		request.Header.Set("Authorization", "Bearer "+accessToken)
+	}
 	request.Header.Set("Accept", "application/json")
 	return doJSON(client, request, result)
 }

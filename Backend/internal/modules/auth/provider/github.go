@@ -12,8 +12,33 @@ type GitHubProvider struct {
 	httpClient *http.Client
 }
 
+var _ GitHubRepositoryInspector = (*GitHubProvider)(nil)
+
 func NewGitHubProvider(config Config, httpClient *http.Client) *GitHubProvider {
 	return &GitHubProvider{config: config, httpClient: httpClient}
+}
+
+func (provider *GitHubProvider) InspectRepository(ctx context.Context, owner, name string) (GitHubRepository, error) {
+	var payload struct {
+		ID            int64  `json:"id"`
+		Name          string `json:"name"`
+		HTMLURL       string `json:"html_url"`
+		DefaultBranch string `json:"default_branch"`
+		Owner         struct {
+			Login string `json:"login"`
+		} `json:"owner"`
+	}
+	endpoint := "https://api.github.com/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(name)
+	if err := getJSON(ctx, provider.httpClient, endpoint, "", &payload); err != nil {
+		return GitHubRepository{}, fmt.Errorf("inspect GitHub repository: %w", err)
+	}
+	if payload.ID <= 0 || payload.Owner.Login == "" || payload.Name == "" || payload.HTMLURL == "" || payload.DefaultBranch == "" {
+		return GitHubRepository{}, fmt.Errorf("GitHub repository response is incomplete")
+	}
+	return GitHubRepository{
+		ID: payload.ID, Owner: payload.Owner.Login, Name: payload.Name,
+		URL: payload.HTMLURL, DefaultBranch: payload.DefaultBranch,
+	}, nil
 }
 
 func (provider *GitHubProvider) ExchangeCode(ctx context.Context, code string) (ServiceUser, error) {
