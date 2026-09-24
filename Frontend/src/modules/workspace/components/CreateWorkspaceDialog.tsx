@@ -85,7 +85,7 @@ export function CreateWorkspaceDialog({
             Cancel
           </button>
           <button
-            className="rounded-md bg-forge-accent px-4 py-2.5 text-xs font-extrabold text-forge-bg hover:bg-[#d7ff82] disabled:cursor-not-allowed disabled:opacity-45"
+            className="rounded-md bg-forge-accent px-4 py-2.5 text-xs font-extrabold text-[var(--primary-foreground)] hover:bg-forge-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
             disabled={mutation.isPending || name.trim().length < 2}
           >
             {mutation.isPending ? "Creating..." : "Create workspace"}

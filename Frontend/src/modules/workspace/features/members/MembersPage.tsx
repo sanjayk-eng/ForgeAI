@@ -60,7 +60,7 @@ export function MembersPage() {
           </p>
         </div>
         <button
-          className="inline-flex h-11 items-center gap-2 rounded-lg bg-forge-accent px-4 text-xs font-extrabold text-forge-bg shadow-[0_8px_24px_rgba(198,243,106,.12)] transition hover:bg-forge-accent-strong active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forge-accent"
+          className="inline-flex h-11 items-center gap-2 rounded-lg bg-forge-accent px-4 text-xs font-extrabold text-[var(--primary-foreground)] shadow-[0_8px_24px_rgba(198,243,106,.12)] transition hover:bg-forge-accent-strong active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forge-accent"
           onClick={openInvite}
         >
           <UserPlus size={16} />
@@ -70,7 +70,7 @@ export function MembersPage() {
 
       <div className="mb-5 flex w-full max-w-[420px] gap-1 rounded-lg border border-[var(--border)] bg-forge-panel/60 p-1" role="tablist" aria-label="Access management views">
         <button
-          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2.5 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent ${view === "members" ? "bg-forge-accent text-forge-bg shadow-sm" : "text-forge-muted hover:bg-white/[0.05] hover:text-forge-text"}`}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2.5 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent ${view === "members" ? "bg-forge-accent text-[var(--primary-foreground)] shadow-sm" : "text-forge-muted hover:bg-white/[0.05] hover:text-forge-text"}`}
           onClick={() => setView("members")}
           aria-pressed={view === "members"}
           role="tab"
@@ -83,7 +83,7 @@ export function MembersPage() {
           </span>
         </button>
         <button
-          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2.5 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent ${view === "invitations" ? "bg-forge-accent text-forge-bg shadow-sm" : "text-forge-muted hover:bg-white/[0.05] hover:text-forge-text"}`}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2.5 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent ${view === "invitations" ? "bg-forge-accent text-[var(--primary-foreground)] shadow-sm" : "text-forge-muted hover:bg-white/[0.05] hover:text-forge-text"}`}
           onClick={() => setView("invitations")}
           aria-pressed={view === "invitations"}
           role="tab"

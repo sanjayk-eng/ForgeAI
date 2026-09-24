@@ -30,7 +30,7 @@ export function AuthForm({ children, onSubmit, submitLabel, error }: AuthFormPro
         </p>
       )}
       <button
-        className="mt-1 flex h-12 items-center justify-center gap-2 rounded-[10px] border-0 bg-gradient-to-r from-forge-accent to-forge-signal font-extrabold text-[#111419] shadow-[0_8px_24px_rgba(198,243,106,0.14)] transition hover:-translate-y-px hover:shadow-[0_12px_30px_rgba(198,243,106,0.2)] disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0"
+        className="mt-1 flex h-12 items-center justify-center gap-2 rounded-[10px] border-0 bg-forge-accent font-extrabold text-[var(--primary-foreground)] shadow-[0_8px_24px_rgba(198,243,106,0.14)] transition hover:-translate-y-px hover:bg-forge-accent-strong hover:shadow-[0_12px_30px_rgba(198,243,106,0.2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forge-accent disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0"
         type="submit"
         disabled={submitting}
       >
@@ -54,7 +54,7 @@ export function PasswordField({ value, onChange }: PasswordFieldProps) {
       <span>Password</span>
       <span className="relative">
         <input
-          className="h-12 w-full rounded-[10px] border border-white/15 bg-white/[0.02] px-3.5 pr-12 text-sm text-[#edf2ee] outline-none transition focus:border-forge-accent/70 focus:ring-4 focus:ring-forge-accent/10"
+          className="h-12 w-full rounded-[10px] border border-[var(--border)] bg-[var(--input)] px-3.5 pr-12 text-sm text-forge-text outline-none transition placeholder:text-forge-muted focus:border-forge-accent focus:ring-4 focus:ring-forge-accent/10"
           required
           minLength={8}
           type={visible ? "text" : "password"}
@@ -63,7 +63,7 @@ export function PasswordField({ value, onChange }: PasswordFieldProps) {
         />
         <button
           type="button"
-          className="absolute right-2 top-0 grid h-12 place-items-center border-0 bg-transparent text-forge-soft"
+          className="absolute right-2 top-0 grid h-12 place-items-center border-0 bg-transparent text-forge-soft transition hover:text-forge-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
           aria-label={visible ? "Hide password" : "Show password"}
           onClick={() => setVisible(!visible)}
         >

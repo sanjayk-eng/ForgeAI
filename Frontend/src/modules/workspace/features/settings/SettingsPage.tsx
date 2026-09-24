@@ -62,7 +62,7 @@ export function SettingsPage() {
         />
         <br />
         <button
-          className="rounded-md bg-forge-accent px-4 py-3 text-xs font-extrabold text-forge-bg disabled:cursor-not-allowed disabled:opacity-45"
+          className="rounded-md bg-forge-accent px-4 py-3 text-xs font-extrabold text-[var(--primary-foreground)] hover:bg-forge-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
           disabled={
             mutation.isPending ||
             value.trim().length < 2 ||
@@ -92,7 +92,7 @@ export function SettingsPage() {
                 onClick={() => setTheme(value as Theme)}
                 aria-pressed={theme === value}
               >
-                <span className={`grid size-9 place-items-center rounded-md ${theme === value ? "bg-forge-accent text-forge-bg" : "bg-[var(--surface-strong)] text-forge-soft"}`}><Icon size={16} /></span>
+                <span className={`grid size-9 place-items-center rounded-md ${theme === value ? "bg-forge-accent text-[var(--primary-foreground)]" : "bg-[var(--surface-strong)] text-forge-soft"}`}><Icon size={16} /></span>
                 <span className="mt-3 block text-sm font-bold text-forge-text">{label}</span>
                 <span className="mt-1 block text-[11px] leading-4 text-forge-muted">{value === "system" ? `${description}. Currently using ${resolvedTheme}.` : description}</span>
                 <span className={`mt-3 block text-[10px] font-bold uppercase tracking-wide ${theme === value ? "text-forge-accent" : "text-transparent"}`}>{value === "system" && theme === value ? `Active · ${resolvedTheme}` : "Selected"}</span>

@@ -90,6 +90,7 @@
 .auth-motion {
   position: absolute;
   inset: 0;
+  z-index: 0;
   overflow: hidden;
   pointer-events: none;
 }
@@ -103,6 +104,7 @@
   perspective: 900px;
   transform-style: preserve-3d;
   transform: translate(-50%, -50%);
+  z-index: 1;
   opacity: 0.68;
 }
 
@@ -111,7 +113,7 @@
   z-index: 2;
   width: 8px;
   height: 8px;
-  border: 1px solid rgba(226, 255, 157, 0.9);
+  border: 1px solid var(--auth-dust-border);
   border-radius: 50%;
   background: radial-gradient(
     circle at 35% 30%,
@@ -176,7 +178,7 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  border: 1px solid rgba(198, 243, 106, 0.18);
+  border: 1px solid var(--auth-orbit-border);
   border-radius: 50%;
   transform: translate(-50%, -50%) rotateX(62deg) rotateZ(0deg);
   transform-origin: center;
@@ -243,8 +245,39 @@
   width: 14px;
   height: 14px;
   border: 2px solid #ffb86b;
-  background: #15181d;
+  background: var(--sidebar);
   box-shadow: 0 0 12px rgba(255, 184, 107, 0.42);
+}
+
+:root {
+  --auth-dust-border: rgba(226, 255, 157, 0.9);
+  --auth-orbit-border: rgba(198, 243, 106, 0.24);
+}
+
+:root[data-theme="light"] {
+  --auth-dust-border: rgba(77, 111, 70, 0.62);
+  --auth-orbit-border: rgba(76, 112, 74, 0.38);
+}
+
+:root[data-theme="light"] .auth-solar-system {
+  opacity: 0.78;
+  filter: saturate(0.82);
+}
+
+:root[data-theme="light"] .auth-dust {
+  background: radial-gradient(
+    circle at 35% 30%,
+    #ffffff 0 22%,
+    #719e20 52%,
+    transparent 78%
+  );
+  box-shadow:
+    0 0 8px rgba(113, 158, 32, 0.5),
+    0 0 18px rgba(113, 158, 32, 0.22);
+}
+
+:root[data-theme="light"] .auth-orbit {
+  border-width: 1.5px;
 }
 
 @media (prefers-reduced-motion: reduce) {

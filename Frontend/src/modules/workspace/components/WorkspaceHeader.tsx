@@ -40,7 +40,7 @@ export function WorkspaceHeader({
         to="/workspace"
         aria-label="ForgeAI workspace home"
       >
-        <span className="grid size-7 shrink-0 place-items-center rounded-md bg-forge-accent font-mono text-sm font-extrabold text-forge-bg">
+        <span className="grid size-7 shrink-0 place-items-center rounded-md bg-forge-accent font-mono text-sm font-extrabold text-[var(--primary-foreground)]">
           F
         </span>
         <span className="hidden sm:block">
@@ -63,7 +63,7 @@ export function WorkspaceHeader({
             aria-expanded={profileOpen}
             aria-label="Open user menu"
           >
-            <span className="grid size-8 place-items-center rounded-full bg-forge-signal font-mono text-xs font-bold text-forge-bg">{initial}</span>
+            <span className="grid size-8 place-items-center rounded-full bg-forge-signal font-mono text-xs font-bold text-[var(--primary-foreground)]">{initial}</span>
             <span className="max-w-[150px] truncate text-sm font-bold text-forge-soft">{userName ?? "User"}</span>
             <ChevronDown size={14} className="text-forge-muted" />
           </button>

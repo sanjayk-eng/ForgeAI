@@ -8,11 +8,11 @@ import { useAuth } from "./useAuth";
 import { useToast } from "../../shared/ui/useToast";
 
 const inputClass =
-  "h-12 w-full rounded-[10px] border border-white/15 bg-white/[0.02] px-3.5 text-sm text-[#edf2ee] outline-none transition focus:border-forge-accent/70 focus:ring-4 focus:ring-forge-accent/10";
+  "h-12 w-full rounded-[10px] border border-[var(--border)] bg-[var(--input)] px-3.5 text-sm text-forge-text outline-none transition placeholder:text-forge-muted focus:border-forge-accent focus:ring-4 focus:ring-forge-accent/10";
 
 const fieldClass = "grid gap-2 text-xs font-bold text-forge-soft";
 const oauthButtonClass =
-  "flex h-11 items-center justify-center gap-2 rounded-[10px] border border-white/15 bg-white/[0.02] text-[13px] font-bold no-underline transition hover:border-forge-accent/45 hover:bg-forge-accent/10";
+  "flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[var(--border)] bg-[var(--surface-subtle)] text-[13px] font-bold text-forge-text no-underline transition hover:border-forge-accent/45 hover:bg-forge-accent/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent";
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -77,7 +77,7 @@ export function RegisterPage() {
         <PasswordField value={password} onChange={setPassword} />
       </AuthForm>
 
-      <div className="my-6 flex items-center gap-3 font-mono text-[10px] uppercase text-forge-muted before:h-px before:flex-1 before:bg-white/15 after:h-px after:flex-1 after:bg-white/15 lg:my-4">
+      <div className="my-6 flex items-center gap-3 font-mono text-[10px] uppercase text-forge-muted before:h-px before:flex-1 before:bg-[var(--border)] after:h-px after:flex-1 after:bg-[var(--border)] lg:my-4">
         <span>or register with</span>
       </div>
 

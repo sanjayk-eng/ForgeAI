@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
 import { useAuth } from "../../../auth/useAuth";
 import { useToast } from "../../../../shared/ui/useToast";
@@ -9,8 +9,9 @@ import { acceptInvite, getInviteByToken, rejectInvite } from "../../api/invites.
 export function AcceptInvitePage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const { tokens, user } = useAuth();
+  const { tokens, user, loading: authLoading } = useAuth();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const [rejecting, setRejecting] = useState(false);
 
   // Fetch invite details
@@ -38,9 +39,8 @@ export function AcceptInvitePage() {
     },
     onSuccess: (data) => {
       toast.pushSuccess("Invitation accepted! Redirecting to workspace...");
-      setTimeout(() => {
-        navigate(`/workspace?id=${data.workspace_id}`);
-      }, 1500);
+      void queryClient.invalidateQueries({ queryKey: ["my-pending-invites"] });
+      navigate(`/workspace?workspace=${data.workspace_id}`, { replace: true });
     },
     onError: (error: Error) => {
       toast.pushError(error.message || "Failed to accept invitation");
@@ -57,7 +57,8 @@ export function AcceptInvitePage() {
     },
     onSuccess: () => {
       toast.pushSuccess("Invitation rejected");
-      setTimeout(() => navigate("/"), 2000);
+      void queryClient.invalidateQueries({ queryKey: ["my-pending-invites"] });
+      navigate("/", { replace: true });
     },
     onError: (error: Error) => {
       toast.pushError(error.message || "Failed to reject invitation");
@@ -72,7 +73,7 @@ export function AcceptInvitePage() {
     }
   }, [invite, isAuthenticated, token, rejecting]);
 
-  if (inviteQuery.isLoading) {
+  if (authLoading || inviteQuery.isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-forge-bg">
         <div className="text-center">
@@ -96,7 +97,7 @@ export function AcceptInvitePage() {
           </p>
           <button
             onClick={() => navigate("/")}
-            className="rounded-md bg-forge-accent px-6 py-2.5 font-bold text-forge-bg transition hover:bg-[#d7ff82]"
+            className="rounded-md bg-forge-accent px-6 py-2.5 font-bold text-[var(--primary-foreground)] transition hover:bg-forge-accent-strong"
           >
             Go to Home
           </button>
@@ -119,7 +120,7 @@ export function AcceptInvitePage() {
           </p>
           <button
             onClick={() => navigate("/")}
-            className="rounded-md bg-forge-accent px-6 py-2.5 font-bold text-forge-bg transition hover:bg-[#d7ff82]"
+            className="rounded-md bg-forge-accent px-6 py-2.5 font-bold text-[var(--primary-foreground)] transition hover:bg-forge-accent-strong"
           >
             Go to Home
           </button>
@@ -143,7 +144,7 @@ export function AcceptInvitePage() {
           </p>
           <button
             onClick={() => navigate("/")}
-            className="rounded-md bg-forge-accent px-6 py-2.5 font-bold text-forge-bg transition hover:bg-[#d7ff82]"
+            className="rounded-md bg-forge-accent px-6 py-2.5 font-bold text-[var(--primary-foreground)] transition hover:bg-forge-accent-strong"
           >
             Go to Home
           </button>
@@ -181,7 +182,7 @@ export function AcceptInvitePage() {
           <div className="space-y-3">
             <button
               onClick={() => navigate("/login")}
-              className="w-full rounded-md bg-forge-accent px-6 py-3 font-bold text-forge-bg transition hover:bg-[#d7ff82]"
+              className="w-full rounded-md bg-forge-accent px-6 py-3 font-bold text-[var(--primary-foreground)] transition hover:bg-forge-accent-strong"
             >
               Sign in to accept
             </button>
@@ -233,7 +234,7 @@ export function AcceptInvitePage() {
           </p>
           <button
             onClick={() => navigate("/")}
-            className="w-full rounded-md bg-forge-accent px-6 py-2.5 font-bold text-forge-bg transition hover:bg-[#d7ff82]"
+            className="w-full rounded-md bg-forge-accent px-6 py-2.5 font-bold text-[var(--primary-foreground)] transition hover:bg-forge-accent-strong"
           >
             Go to Home
           </button>
@@ -270,7 +271,7 @@ export function AcceptInvitePage() {
           <button
             onClick={() => acceptMutation.mutate()}
             disabled={acceptMutation.isPending}
-            className="w-full rounded-md bg-forge-accent px-6 py-3 font-bold text-forge-bg transition hover:bg-[#d7ff82] disabled:opacity-50"
+            className="w-full rounded-md bg-forge-accent px-6 py-3 font-bold text-[var(--primary-foreground)] transition hover:bg-forge-accent-strong disabled:opacity-50"
           >
             {acceptMutation.isPending ? "Accepting..." : "Accept invitation"}
           </button>

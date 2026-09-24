@@ -108,7 +108,7 @@ export function InviteDialog({
             Cancel
           </button>
           <button
-            className="rounded-md bg-forge-accent px-4 py-2.5 text-xs font-bold text-forge-bg disabled:opacity-45"
+            className="rounded-md bg-forge-accent px-4 py-2.5 text-xs font-bold text-[var(--primary-foreground)] hover:bg-forge-accent-strong disabled:opacity-45"
             disabled={mutation.isPending || !validEmail}
           >
             {mutation.isPending ? "Sending..." : "Send invitation"}
