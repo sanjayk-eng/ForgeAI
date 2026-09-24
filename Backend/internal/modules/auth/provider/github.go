@@ -35,9 +35,22 @@ func (provider *GitHubProvider) InspectRepository(ctx context.Context, owner, na
 	if payload.ID <= 0 || payload.Owner.Login == "" || payload.Name == "" || payload.HTMLURL == "" || payload.DefaultBranch == "" {
 		return GitHubRepository{}, fmt.Errorf("GitHub repository response is incomplete")
 	}
+	var branchesPayload []struct {
+		Name string `json:"name"`
+	}
+	branchesEndpoint := "https://api.github.com/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(name) + "/branches?per_page=100"
+	if err := getJSON(ctx, provider.httpClient, branchesEndpoint, "", &branchesPayload); err != nil {
+		return GitHubRepository{}, fmt.Errorf("inspect GitHub repository branches: %w", err)
+	}
+	branches := make([]string, 0, len(branchesPayload))
+	for _, branch := range branchesPayload {
+		if branch.Name != "" {
+			branches = append(branches, branch.Name)
+		}
+	}
 	return GitHubRepository{
 		ID: payload.ID, Owner: payload.Owner.Login, Name: payload.Name,
-		URL: payload.HTMLURL, DefaultBranch: payload.DefaultBranch,
+		URL: payload.HTMLURL, DefaultBranch: payload.DefaultBranch, Branches: branches,
 	}, nil
 }
 

@@ -41,3 +41,8 @@ export type ProjectRepositoryInput = {
   repository_url: string;
   default_branch: string;
 };
+
+export type ResolvedRepository = {
+  repository: ProjectRepositoryInput;
+  branches: string[];
+};

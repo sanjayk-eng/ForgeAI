@@ -81,6 +81,11 @@ type ResolveRepositoryRequest struct {
 	RepositoryURL string `json:"repository_url" binding:"required,url"`
 }
 
+type ResolvedRepository struct {
+	Repository ConnectRepositoryRequest `json:"repository"`
+	Branches   []string                 `json:"branches"`
+}
+
 var (
 	ErrInvalidProjectInput = errors.New("invalid project input")
 	ErrProjectNotFound     = errors.New("project not found")

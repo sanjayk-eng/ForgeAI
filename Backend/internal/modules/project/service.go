@@ -20,7 +20,7 @@ type Service interface {
 	Update(ctx context.Context, projectID string, input UpdateProjectRequest) (Project, error)
 	ConnectRepository(ctx context.Context, projectID string, input ConnectRepositoryRequest) (ProjectRepository, error)
 	SyncProject(ctx context.Context, projectID string) (Project, error)
-	ResolveRepository(ctx context.Context, repositoryURL string) (ConnectRepositoryRequest, error)
+	ResolveRepository(ctx context.Context, repositoryURL string) (ResolvedRepository, error)
 }
 
 type service struct {
@@ -140,27 +140,27 @@ func (service *service) SyncProject(ctx context.Context, projectID string) (Proj
 	return service.FindByID(ctx, projectID)
 }
 
-func (service *service) ResolveRepository(ctx context.Context, repositoryURL string) (ConnectRepositoryRequest, error) {
+func (service *service) ResolveRepository(ctx context.Context, repositoryURL string) (ResolvedRepository, error) {
 	parsed, err := url.Parse(strings.TrimSpace(repositoryURL))
 	if err != nil || !strings.EqualFold(parsed.Scheme, "https") || !strings.EqualFold(parsed.Host, "github.com") || service.github == nil {
-		return ConnectRepositoryRequest{}, ErrInvalidProjectInput
+		return ResolvedRepository{}, ErrInvalidProjectInput
 	}
 	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return ConnectRepositoryRequest{}, ErrInvalidProjectInput
+		return ResolvedRepository{}, ErrInvalidProjectInput
 	}
 	name := strings.TrimSuffix(parts[1], ".git")
 	repository, err := service.github.InspectRepository(ctx, parts[0], name)
 	if err != nil {
-		return ConnectRepositoryRequest{}, fmt.Errorf("resolve GitHub repository: %w", err)
+		return ResolvedRepository{}, fmt.Errorf("resolve GitHub repository: %w", err)
 	}
-	return ConnectRepositoryRequest{
+	return ResolvedRepository{Repository: ConnectRepositoryRequest{
 		GitHubRepositoryID:   repository.ID,
 		GitHubOwner:          repository.Owner,
 		GitHubRepositoryName: repository.Name,
 		RepositoryURL:        repository.URL,
 		DefaultBranch:        repository.DefaultBranch,
-	}, nil
+	}, Branches: repository.Branches}, nil
 }
 
 func slugify(value string) string {

@@ -13,11 +13,12 @@ type oauthTokenResponse struct {
 }
 
 type GitHubRepository struct {
-	ID            int64  `json:"id"`
-	Owner         string `json:"owner"`
-	Name          string `json:"name"`
-	URL           string `json:"html_url"`
-	DefaultBranch string `json:"default_branch"`
+	ID            int64    `json:"id"`
+	Owner         string   `json:"owner"`
+	Name          string   `json:"name"`
+	URL           string   `json:"html_url"`
+	DefaultBranch string   `json:"default_branch"`
+	Branches      []string `json:"branches"`
 }
 
 type gitHubProfile struct {

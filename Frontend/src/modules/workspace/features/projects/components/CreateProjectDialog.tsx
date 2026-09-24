@@ -3,20 +3,23 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, GitBranch, Link2, LoaderCircle, X } from "lucide-react";
 import { useToast } from "../../../../../shared/ui/useToast";
 import { createProject, resolveRepository } from "../../../api/projects.api";
-import type { CreateProjectInput, ProjectRepositoryInput, ProjectType } from "../types/project.types";
+import type { CreateProjectInput, ProjectType, ResolvedRepository } from "../types/project.types";
 
 export function CreateProjectDialog({ accessToken, workspaceId, onClose }: { accessToken: string; workspaceId: string; onClose: () => void }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<ProjectType>("REPOSITORY");
   const [repositoryUrl, setRepositoryUrl] = useState("");
-  const [resolvedRepository, setResolvedRepository] = useState<ProjectRepositoryInput>();
+  const [resolvedRepository, setResolvedRepository] = useState<ResolvedRepository>();
+  const [selectedBranch, setSelectedBranch] = useState("");
   const toast = useToast();
   const queryClient = useQueryClient();
   const resolveMutation = useMutation({
     mutationFn: () => resolveRepository(accessToken, repositoryUrl.trim()),
     onSuccess: (repository) => {
       setResolvedRepository(repository);
+      setSelectedBranch(repository.repository.default_branch);
+      setName((current) => current.trim() || repository.repository.github_repository_name);
       toast.pushSuccess("GitHub repository verified");
     },
     onError: (error) => {
@@ -30,7 +33,7 @@ export function CreateProjectDialog({ accessToken, workspaceId, onClose }: { acc
         name: name.trim(),
         description: description.trim() || undefined,
         type,
-        repository: resolvedRepository,
+        repository: resolvedRepository ? { ...resolvedRepository.repository, default_branch: selectedBranch } : undefined,
       };
       return createProject(accessToken, workspaceId, input);
     },
@@ -44,7 +47,10 @@ export function CreateProjectDialog({ accessToken, workspaceId, onClose }: { acc
 
   function changeType(nextType: ProjectType) {
     setType(nextType);
-    if (nextType === "EMPTY") setResolvedRepository(undefined);
+    if (nextType === "EMPTY") {
+      setResolvedRepository(undefined);
+      setSelectedBranch("");
+    }
   }
 
   function submit(event: FormEvent) {
@@ -65,7 +71,7 @@ export function CreateProjectDialog({ accessToken, workspaceId, onClose }: { acc
           <Field label="Project name"><input className="input" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Agent Console" autoFocus /></Field>
           <Field label="Description"><textarea className="input min-h-20 resize-y" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What is this project for?" /></Field>
           <div><span className="label">Project type</span><div className="mt-2 grid grid-cols-2 gap-2">{(["REPOSITORY", "EMPTY"] as const).map((option) => <button key={option} type="button" className={`border px-3 py-3 text-left text-xs font-bold transition ${type === option ? "border-forge-accent bg-forge-accent/[0.1] text-forge-text" : "border-white/[0.1] text-forge-muted hover:border-white/25"}`} onClick={() => changeType(option)}>{option === "REPOSITORY" ? "GitHub repository" : "Empty project"}<span className="mt-1 block text-[10px] font-normal text-forge-muted">{option === "REPOSITORY" ? "Resolve existing code from GitHub" : "Connect a repository later"}</span></button>)}</div></div>
-          {type === "REPOSITORY" && <RepositoryResolver url={repositoryUrl} onUrlChange={(value) => { setRepositoryUrl(value); setResolvedRepository(undefined); }} onResolve={() => resolveMutation.mutate()} isResolving={resolveMutation.isPending} repository={resolvedRepository} />}
+          {type === "REPOSITORY" && <RepositoryResolver url={repositoryUrl} onUrlChange={(value) => { setRepositoryUrl(value); setResolvedRepository(undefined); setSelectedBranch(""); }} onResolve={() => resolveMutation.mutate()} isResolving={resolveMutation.isPending} repository={resolvedRepository} branch={selectedBranch} onBranchChange={setSelectedBranch} />}
         </div>
         <div className="mt-7 flex justify-end gap-2"><button type="button" className="rounded-md bg-[var(--surface-subtle)] px-4 py-2.5 text-xs font-extrabold text-forge-soft hover:bg-[var(--surface-hover)]" onClick={onClose}>Cancel</button><button className="rounded-md bg-forge-accent px-4 py-2.5 text-xs font-extrabold text-[var(--primary-foreground)] hover:bg-forge-accent-strong disabled:cursor-not-allowed disabled:opacity-45" disabled={!canCreate || createMutation.isPending}>{createMutation.isPending ? "Creating..." : "Create project"}</button></div>
       </form>
@@ -73,8 +79,9 @@ export function CreateProjectDialog({ accessToken, workspaceId, onClose }: { acc
   );
 }
 
-function RepositoryResolver({ url, onUrlChange, onResolve, isResolving, repository }: { url: string; onUrlChange: (value: string) => void; onResolve: () => void; isResolving: boolean; repository?: ProjectRepositoryInput }) {
-  return <div className="grid gap-4 border-l-2 border-forge-accent/40 pl-4"><div className="flex items-center gap-2 text-xs font-bold text-forge-soft"><GitBranch size={16} /> GitHub repository</div><div><Field label="Repository URL"><div className="flex gap-2"><input className="input mt-0 min-w-0" type="url" value={url} onChange={(event) => onUrlChange(event.target.value)} placeholder="https://github.com/org/repository" /><button type="button" className="grid size-12 shrink-0 place-items-center border border-forge-accent/30 text-forge-accent transition hover:bg-forge-accent/[0.1] disabled:opacity-50" onClick={onResolve} disabled={isResolving || !url.trim()} aria-label="Resolve GitHub repository" title="Resolve GitHub repository">{isResolving ? <LoaderCircle size={17} className="animate-spin" /> : <Link2 size={17} />}</button></div></Field></div>{repository && <div className="grid gap-3 border border-forge-accent/20 bg-forge-accent/[0.05] p-4"><div className="flex items-center gap-2 text-xs font-bold text-forge-accent"><Check size={15} /> Repository verified</div><div className="grid gap-3 text-xs sm:grid-cols-2"><Meta label="Repository" value={`${repository.github_owner}/${repository.github_repository_name}`} /><Meta label="Default branch" value={repository.default_branch} /><Meta label="GitHub ID" value={String(repository.github_repository_id)} /><Meta label="Canonical URL" value={repository.repository_url} /></div></div>}</div>;
+function RepositoryResolver({ url, onUrlChange, onResolve, isResolving, repository, branch, onBranchChange }: { url: string; onUrlChange: (value: string) => void; onResolve: () => void; isResolving: boolean; repository?: ResolvedRepository; branch: string; onBranchChange: (value: string) => void }) {
+  const metadata = repository?.repository;
+  return <div className="grid gap-4 border-l-2 border-forge-accent/40 pl-4"><div className="flex items-center gap-2 text-xs font-bold text-forge-soft"><GitBranch size={16} /> GitHub repository</div><div><Field label="Repository URL"><div className="flex gap-2"><input className="input mt-0 min-w-0" type="url" value={url} onChange={(event) => onUrlChange(event.target.value)} placeholder="https://github.com/org/repository" /><button type="button" className="grid size-12 shrink-0 place-items-center border border-forge-accent/30 text-forge-accent transition hover:bg-forge-accent/[0.1] disabled:opacity-50" onClick={onResolve} disabled={isResolving || !url.trim()} aria-label="Resolve GitHub repository" title="Resolve GitHub repository">{isResolving ? <LoaderCircle size={17} className="animate-spin" /> : <Link2 size={17} />}</button></div></Field></div>{metadata && <div className="grid gap-3 border border-forge-accent/20 bg-forge-accent/[0.05] p-4"><div className="flex items-center gap-2 text-xs font-bold text-forge-accent"><Check size={15} /> Repository verified</div><div className="grid gap-3 text-xs sm:grid-cols-2"><Meta label="Repository" value={`${metadata.github_owner}/${metadata.github_repository_name}`} /><Meta label="GitHub ID" value={String(metadata.github_repository_id)} /><Meta label="Canonical URL" value={metadata.repository_url} />{repository.branches.length > 1 ? <label><span className="block font-mono text-[10px] text-forge-muted">Sync branch</span><select className="input mt-1" value={branch} onChange={(event) => onBranchChange(event.target.value)}>{repository.branches.map((item) => <option key={item} value={item}>{item}</option>)}</select></label> : <Meta label="Sync branch" value={metadata.default_branch} />}</div></div>}</div>;
 }
 
 function Meta({ label, value }: { label: string; value: string }) { return <div><span className="block font-mono text-[10px] text-forge-muted">{label}</span><span className="mt-1 block truncate text-forge-soft" title={value}>{value}</span></div>; }

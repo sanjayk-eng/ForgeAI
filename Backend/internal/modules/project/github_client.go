@@ -17,6 +17,7 @@ type GitHubRepository struct {
 	Name          string
 	URL           string
 	DefaultBranch string
+	Branches      []string
 }
 
 type githubRepositoryClient struct {
@@ -37,6 +38,6 @@ func (client *githubRepositoryClient) InspectRepository(ctx context.Context, own
 	}
 	return GitHubRepository{
 		ID: repository.ID, Owner: repository.Owner, Name: repository.Name,
-		URL: repository.URL, DefaultBranch: repository.DefaultBranch,
+		URL: repository.URL, DefaultBranch: repository.DefaultBranch, Branches: repository.Branches,
 	}, nil
 }

@@ -1,5 +1,5 @@
 import { request } from "../../../shared/api/client";
-import type { CreateProjectInput, Project, ProjectRepositoryInput } from "../features/projects/types/project.types";
+import type { CreateProjectInput, Project, ResolvedRepository } from "../features/projects/types/project.types";
 
 export type {
   CreateProjectInput,
@@ -9,6 +9,7 @@ export type {
   ProjectType,
   SyncStatus,
   ProjectRepositoryInput,
+  ResolvedRepository,
 } from "../features/projects/types/project.types";
 
 function authenticatedRequest<T>(
@@ -53,7 +54,7 @@ export function syncProject(accessToken: string, projectId: string) {
 }
 
 export function resolveRepository(accessToken: string, repositoryUrl: string) {
-  return authenticatedRequest<ProjectRepositoryInput>(accessToken, "/projects/repository/resolve", {
+  return authenticatedRequest<ResolvedRepository>(accessToken, "/projects/repository/resolve", {
     method: "POST",
     body: JSON.stringify({ repository_url: repositoryUrl }),
   });
