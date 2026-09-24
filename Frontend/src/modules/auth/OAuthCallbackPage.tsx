@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authenticateOAuth } from "./api";
@@ -11,10 +11,9 @@ export function OAuthCallbackPage() {
   const { acceptTokens } = useAuth();
   const { pushError } = useToast();
   const [error, setError] = useState("");
+  const handledCallbackRef = useRef<string | null>(null);
 
   useEffect(() => {
-    let active = true;
-
     async function finish() {
       const query = new URLSearchParams(location.search);
       const provider = query.get("type");
@@ -25,22 +24,20 @@ export function OAuthCallbackPage() {
         return;
       }
 
+      if (handledCallbackRef.current === location.search) return;
+      handledCallbackRef.current = location.search;
+
       try {
         await acceptTokens(await authenticateOAuth(provider, code));
-        if (active) navigate("/workspace", { replace: true });
+        navigate("/workspace", { replace: true });
       } catch (reason) {
         const message = reason instanceof Error ? reason.message : "OAuth sign-in failed";
-        if (active) {
-          setError(message);
-          pushError(message);
-        }
+        setError(message);
+        pushError(message);
       }
     }
 
     void finish();
-    return () => {
-      active = false;
-    };
   }, [acceptTokens, location.search, navigate, pushError]);
 
   return (

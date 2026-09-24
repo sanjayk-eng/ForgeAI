@@ -9,7 +9,9 @@ import (
 )
 
 func RegisterRoutes(router gin.IRouter, handler *Handler) {
+	router.GET("/:provider/connect", handler.OAuthConnect)
 	router.GET("/auth/callback", handler.OAuthCallback)
+	router.GET("/auth/verify-email", handler.VerifyEmail)
 	router.POST("/auth/register", handler.Register)
 	router.POST("/auth/login", handler.Login)
 	router.POST("/auth/refresh", handler.Refresh)

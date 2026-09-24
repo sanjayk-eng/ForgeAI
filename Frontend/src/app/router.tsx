@@ -3,6 +3,7 @@ import { AuthLayout } from "../modules/auth/AuthLayout";
 import { LoginPage } from "../modules/auth/LoginPage";
 import { OAuthCallbackPage } from "../modules/auth/OAuthCallbackPage";
 import { RegisterPage } from "../modules/auth/RegisterPage";
+import { VerifyEmailPage } from "../modules/auth/VerifyEmailPage";
 import { ProtectedRoute } from "../modules/auth/ProtectedRoute";
 import { WorkspaceLayout } from "../modules/workspace/WorkspaceLayout";
 import { OverviewPage } from "../modules/workspace/features/overview/OverviewPage";
@@ -17,6 +18,7 @@ export const router = createBrowserRouter([
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
       { path: "/auth/callback", element: <OAuthCallbackPage /> },
+      { path: "/auth/verify", element: <VerifyEmailPage /> },
     ],
   },
   {

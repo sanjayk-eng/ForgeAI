@@ -2,8 +2,15 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"net/url"
+	"strings"
+	"time"
 
 	"ai-agent/internal/modules/auth/provider"
 	apperrors "ai-agent/internal/shared/errors"
@@ -16,24 +23,39 @@ import (
 )
 
 type Service struct {
-	factory ProviderFactory
-	db      *sqlx.DB
-	repo    AuthRepository
-	jwt     *appjwt.Manager
-	log     logger.Logger
+	factory     ProviderFactory
+	db          *sqlx.DB
+	repo        AuthRepository
+	jwt         *appjwt.Manager
+	log         logger.Logger
+	email       EmailService
+	frontendURL string
+}
+
+type EmailService interface {
+	SendVerification(ctx context.Context, to, verificationLink string) error
 }
 
 type ProviderFactory interface {
 	Create(providerType string) (provider.ServiceProvider, error)
 }
 
-func NewService(factory ProviderFactory, db *sqlx.DB, repo AuthRepository, jwt *appjwt.Manager, log logger.Logger) *Service {
-	return &Service{factory: factory, db: db, repo: repo, jwt: jwt, log: log}
+type ProviderURLFactory interface {
+	AuthorizationURL(providerType string) (string, error)
+}
+
+func NewService(factory ProviderFactory, db *sqlx.DB, repo AuthRepository, jwt *appjwt.Manager, log logger.Logger, email EmailService, frontendURL string) *Service {
+	return &Service{factory: factory, db: db, repo: repo, jwt: jwt, log: log, email: email, frontendURL: frontendURL}
 }
 
 func (service *Service) Register(ctx context.Context, input RegisterRequest) (AuthResponse, error) {
-	if service.db == nil || service.repo == nil || service.jwt == nil {
+	if service.db == nil || service.repo == nil || service.email == nil {
 		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "registration is not configured", nil)
+	}
+	input.Email = normalizeEmail(input.Email)
+	verificationToken, err := newVerificationToken()
+	if err != nil {
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "verification setup failed", err)
 	}
 	passwordHash, err := appbcrypt.Hash(input.Password)
 	if err != nil {
@@ -41,24 +63,39 @@ func (service *Service) Register(ctx context.Context, input RegisterRequest) (Au
 	}
 	var userID string
 	if err := appdatabase.WithTx(ctx, service.db, func(ctx context.Context, tx *sqlx.Tx) error {
-		var err error
-		userID, err = service.repo.CreateUser(ctx, tx, input.Email, input.Name, passwordHash)
-		return err
+		var txErr error
+		userID, txErr = service.repo.CreateUser(ctx, tx, input.Email, input.Name, passwordHash)
+		if txErr != nil {
+			return txErr
+		}
+		return service.repo.CreateEmailVerification(ctx, tx, userID, hashVerificationToken(verificationToken), time.Now().UTC().Add(24*time.Hour))
 	}); err != nil {
 		if errors.Is(err, ErrEmailAlreadyExists) {
 			return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeConflict, "email is already registered", err)
 		}
 		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "registration failed", err)
 	}
-	return service.issueTokens(userID)
+	verificationLink := strings.TrimRight(service.frontendURL, "/") + "/auth/verify?token=" + url.QueryEscape(verificationToken)
+	if err := service.email.SendVerification(ctx, input.Email, verificationLink); err != nil {
+		if service.log != nil {
+			service.log.Error(ctx, "verification email enqueue failed", "error", err)
+		}
+		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "verification email could not be sent", err)
+	}
+	_ = userID
+	return AuthResponse{}, nil
 }
 
 func (service *Service) Login(ctx context.Context, input LoginRequest) (AuthResponse, error) {
 	if service.repo == nil || service.jwt == nil {
 		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "login is not configured", nil)
 	}
+	input.Email = normalizeEmail(input.Email)
 	credentials, err := service.repo.FindCredentials(ctx, input.Email)
 	if err != nil {
+		if errors.Is(err, ErrEmailNotVerified) {
+			return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeUnauthorized, "please verify your email before signing in", err)
+		}
 		if errors.Is(err, ErrInvalidCredentials) {
 			return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeUnauthorized, "invalid email or password", err)
 		}
@@ -68,6 +105,38 @@ func (service *Service) Login(ctx context.Context, input LoginRequest) (AuthResp
 		return AuthResponse{}, apperrors.NewCodedError(apperrors.ErrCodeUnauthorized, "invalid email or password", ErrInvalidCredentials)
 	}
 	return service.issueTokens(credentials.ID)
+}
+
+func (service *Service) VerifyEmail(ctx context.Context, token string) error {
+	if service.db == nil || service.repo == nil {
+		return apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "email verification is not configured", nil)
+	}
+	if strings.TrimSpace(token) == "" {
+		return apperrors.NewCodedError(apperrors.ErrCodeBadRequest, "verification token is required", nil)
+	}
+	err := appdatabase.WithTx(ctx, service.db, func(ctx context.Context, tx *sqlx.Tx) error {
+		return service.repo.VerifyEmailToken(ctx, tx, hashVerificationToken(token))
+	})
+	if errors.Is(err, ErrInvalidVerificationToken) {
+		return apperrors.NewCodedError(apperrors.ErrCodeBadRequest, "verification link is invalid or expired", err)
+	}
+	if err != nil {
+		return apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "email verification failed", err)
+	}
+	return nil
+}
+
+func newVerificationToken() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("generate verification token: %w", err)
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
+func hashVerificationToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
 }
 
 func (service *Service) Refresh(ctx context.Context, input RefreshTokenRequest) (AuthResponse, error) {
@@ -122,7 +191,7 @@ func (service *Service) AuthenticateOAuth(ctx context.Context, providerType Prov
 		return AuthResponse{}, err
 	}
 
-	result := OAuthUser{ProviderID: user.ProviderID, Email: user.Email, Name: user.Name, AvatarURL: user.AvatarURL}
+	result := OAuthUser{ProviderID: user.ProviderID, Email: normalizeEmail(user.Email), Name: user.Name, AvatarURL: user.AvatarURL}
 	var userID string
 	if err := appdatabase.WithTx(ctx, service.db, func(ctx context.Context, tx *sqlx.Tx) error {
 		userID, err = service.repo.FindOAuthUserID(ctx, tx, providerType, result.ProviderID)
@@ -149,4 +218,20 @@ func (service *Service) AuthenticateOAuth(ctx context.Context, providerType Prov
 	}
 
 	return service.issueTokens(userID)
+}
+
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
+func (service *Service) OAuthAuthorizationURL(providerType ProviderType) (string, error) {
+	authorizer, ok := service.factory.(ProviderURLFactory)
+	if !ok {
+		return "", apperrors.NewCodedError(apperrors.ErrCodeInternalServer, "OAuth authorization is not configured", nil)
+	}
+	redirectURL, err := authorizer.AuthorizationURL(string(providerType))
+	if err != nil {
+		return "", apperrors.NewCodedError(apperrors.ErrCodeBadRequest, err.Error(), err)
+	}
+	return redirectURL, nil
 }

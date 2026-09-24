@@ -27,7 +27,7 @@ export function RegisterPage() {
     try {
       setError("");
       await signUp({ name, email, password });
-      navigate("/workspace", { replace: true });
+      navigate("/login?registered=1", { replace: true });
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "Unable to create account";
       setError(message);

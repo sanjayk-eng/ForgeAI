@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -13,6 +14,8 @@ import (
 
 type AuthRepository interface {
 	CreateUser(ctx context.Context, tx *sqlx.Tx, email, name, passwordHash string) (string, error)
+	CreateEmailVerification(ctx context.Context, tx *sqlx.Tx, userID, tokenHash string, expiresAt time.Time) error
+	VerifyEmailToken(ctx context.Context, tx *sqlx.Tx, tokenHash string) error
 	FindOAuthUserID(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, providerUserID string) (string, error)
 	FindUserIDByEmail(ctx context.Context, tx *sqlx.Tx, email string) (string, error)
 	FindUserByID(ctx context.Context, userID string) (UserProfile, error)
@@ -26,8 +29,9 @@ type repository struct {
 }
 
 type UserCredentials struct {
-	ID           string `db:"id"`
-	PasswordHash string `db:"password_hash"`
+	ID            string `db:"id"`
+	PasswordHash  string `db:"password_hash"`
+	EmailVerified bool   `db:"email_verified"`
 }
 
 func NewRepository(db *sqlx.DB) AuthRepository {
@@ -53,7 +57,7 @@ func (repo *repository) FindOAuthUserID(ctx context.Context, tx *sqlx.Tx, provid
 
 func (repo *repository) FindUserIDByEmail(ctx context.Context, tx *sqlx.Tx, email string) (string, error) {
 	var userID string
-	err := tx.GetContext(ctx, &userID, `SELECT id FROM tbl_user WHERE email = $1`, email)
+	err := tx.GetContext(ctx, &userID, `SELECT id FROM tbl_user WHERE LOWER(email) = LOWER($1)`, email)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", sql.ErrNoRows
 	}
@@ -81,9 +85,9 @@ func (repo *repository) FindUserByID(ctx context.Context, userID string) (UserPr
 func (repo *repository) FindCredentials(ctx context.Context, email string) (UserCredentials, error) {
 	var credentials UserCredentials
 	if err := repo.db.GetContext(ctx, &credentials, `
-		SELECT id, password_hash
+		SELECT id, password_hash, email_verified_at IS NOT NULL AS email_verified
 		FROM tbl_user
-		WHERE email = $1`, email); err != nil {
+		WHERE LOWER(email) = LOWER($1)`, email); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return UserCredentials{}, ErrInvalidCredentials
 		}
@@ -92,7 +96,42 @@ func (repo *repository) FindCredentials(ctx context.Context, email string) (User
 	if credentials.PasswordHash == "" {
 		return UserCredentials{}, ErrInvalidCredentials
 	}
+	if !credentials.EmailVerified {
+		return UserCredentials{}, ErrEmailNotVerified
+	}
 	return credentials, nil
+}
+
+func (repo *repository) CreateEmailVerification(ctx context.Context, tx *sqlx.Tx, userID, tokenHash string, expiresAt time.Time) error {
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO tbl_email_verification (user_id, token_hash, expires_at)
+		VALUES ($1, $2, $3)`, userID, tokenHash, expiresAt)
+	if err != nil {
+		return fmt.Errorf("create email verification: %w", err)
+	}
+	return nil
+}
+
+func (repo *repository) VerifyEmailToken(ctx context.Context, tx *sqlx.Tx, tokenHash string) error {
+	var userID string
+	err := tx.GetContext(ctx, &userID, `
+		SELECT user_id
+		FROM tbl_email_verification
+		WHERE token_hash = $1 AND expires_at > NOW()
+		FOR UPDATE`, tokenHash)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrInvalidVerificationToken
+	}
+	if err != nil {
+		return fmt.Errorf("find email verification: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE tbl_user SET email_verified_at = NOW(), updated_at = NOW() WHERE id = $1`, userID); err != nil {
+		return fmt.Errorf("verify email: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM tbl_email_verification WHERE user_id = $1`, userID); err != nil {
+		return fmt.Errorf("remove email verification: %w", err)
+	}
+	return nil
 }
 
 func (repo *repository) CreateUser(ctx context.Context, tx *sqlx.Tx, email, name, passwordHash string) (string, error) {
@@ -113,8 +152,8 @@ func (repo *repository) CreateUser(ctx context.Context, tx *sqlx.Tx, email, name
 func (repo *repository) CreateOAuthUser(ctx context.Context, tx *sqlx.Tx, email, name string) (string, error) {
 	var userID string
 	if err := tx.GetContext(ctx, &userID, `
-			INSERT INTO tbl_user (email, name)
-			VALUES ($1, $2)
+			INSERT INTO tbl_user (email, name, email_verified_at)
+			VALUES ($1, $2, NOW())
 			RETURNING id`, email, name); err != nil {
 		return "", fmt.Errorf("create OAuth user: %w", err)
 	}

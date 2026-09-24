@@ -22,7 +22,7 @@ func (provider *GoogleProvider) ExchangeCode(ctx context.Context, code string) (
 		"client_id":     {provider.config.GoogleClientID},
 		"client_secret": {provider.config.GoogleClientSecret},
 		"code":          {code},
-		"redirect_uri":  {provider.config.GoogleRedirectURL},
+		"redirect_uri":  {callbackURL(provider.config.GoogleRedirectURL, "google")},
 		"grant_type":    {"authorization_code"},
 	}
 	if err := postForm(ctx, provider.httpClient, "https://oauth2.googleapis.com/token", form, &token); err != nil {

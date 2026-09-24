@@ -20,6 +20,12 @@ type gitHubProfile struct {
 	AvatarURL string `json:"avatar_url"`
 }
 
+type gitHubEmail struct {
+	Email    string `json:"email"`
+	Primary  bool   `json:"primary"`
+	Verified bool   `json:"verified"`
+}
+
 type googleProfile struct {
 	ID      string `json:"sub"`
 	Email   string `json:"email"`

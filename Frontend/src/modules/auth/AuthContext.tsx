@@ -69,9 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback(
     async (input: Registration) => {
-      await acceptTokens(await register(input));
+      await register(input);
     },
-    [acceptTokens],
+    [],
   );
 
   const signOut = useCallback(() => {

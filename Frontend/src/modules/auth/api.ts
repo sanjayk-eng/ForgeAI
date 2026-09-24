@@ -8,8 +8,8 @@ export function login(input: Credentials): Promise<AuthTokens> {
   });
 }
 
-export function register(input: Registration): Promise<AuthTokens> {
-  return request<AuthTokens>("/auth/register", {
+export function register(input: Registration): Promise<void> {
+  return request<void>("/auth/register", {
     method: "POST",
     body: JSON.stringify(input),
   });

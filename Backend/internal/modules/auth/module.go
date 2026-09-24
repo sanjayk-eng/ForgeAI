@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"ai-agent/internal/shared/email"
 	"ai-agent/internal/shared/logger"
 	appjwt "ai-agent/pkg/jwt"
 
@@ -9,11 +10,13 @@ import (
 )
 
 type ModuleConfig struct {
-	Router   gin.IRouter
-	Database *sqlx.DB
-	Provider ProviderFactory
-	JWT      *appjwt.Manager
-	Logger   logger.Logger
+	Router       gin.IRouter
+	Database     *sqlx.DB
+	Provider     ProviderFactory
+	JWT          *appjwt.Manager
+	Logger       logger.Logger
+	EmailService *email.Service
+	FrontendURL  string
 }
 
 type Module struct {
@@ -28,7 +31,7 @@ func LoadModule(config ModuleConfig) *Module {
 		repository = NewRepository(config.Database)
 	}
 
-	service := NewService(config.Provider, config.Database, repository, config.JWT, config.Logger)
+	service := NewService(config.Provider, config.Database, repository, config.JWT, config.Logger, config.EmailService, config.FrontendURL)
 	handler := NewHandler(service)
 	RegisterRoutes(config.Router, handler)
 	RegisterProtectedRoutes(config.Router, handler, config.JWT, config.Logger)

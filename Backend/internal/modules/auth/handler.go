@@ -18,6 +18,26 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+func (handler *Handler) OAuthConnect(c *gin.Context) {
+	providerType := ProviderType(c.Param("provider"))
+	if providerType == "" {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "OAuth provider type is required", nil)
+		return
+	}
+
+	redirectURL, err := handler.service.OAuthAuthorizationURL(providerType)
+	if err != nil {
+		code, message := apierrors.CodeOf(err)
+		status := http.StatusInternalServerError
+		if code == apierrors.ErrCodeBadRequest || code == apierrors.ErrCodeValidation {
+			status = http.StatusBadRequest
+		}
+		apierrors.Error(c, status, code, message, nil)
+		return
+	}
+	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
+}
+
 func (handler *Handler) OAuthCallback(c *gin.Context) {
 	providerType := c.Query("type")
 	if providerType == "" {
@@ -62,6 +82,19 @@ func (handler *Handler) Register(c *gin.Context) {
 		return
 	}
 	apierrors.Success(c, http.StatusCreated, "registration successful", result)
+}
+
+func (handler *Handler) VerifyEmail(c *gin.Context) {
+	if err := handler.service.VerifyEmail(c.Request.Context(), c.Query("token")); err != nil {
+		code, message := apierrors.CodeOf(err)
+		status := http.StatusInternalServerError
+		if code == apierrors.ErrCodeBadRequest {
+			status = http.StatusBadRequest
+		}
+		apierrors.Error(c, status, code, message, nil)
+		return
+	}
+	apierrors.Success(c, http.StatusOK, "email verified successfully", nil)
 }
 
 func (handler *Handler) Login(c *gin.Context) {

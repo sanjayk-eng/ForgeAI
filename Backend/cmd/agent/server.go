@@ -78,24 +78,6 @@ func runServer() error {
 		}
 		defer db.Close()
 	}
-	auth.LoadModule(auth.ModuleConfig{
-		Router:   engine,
-		Database: db,
-		Provider: oauthFactory,
-		JWT:      jwtManager,
-		Logger:   appLogger,
-	})
-	protectedRouter := middleware.ProtectedGroup(engine, jwtManager, appLogger)
-	workspacecore.LoadModule(workspacecore.ModuleConfig{
-		Router:   protectedRouter,
-		Database: db,
-		Logger:   appLogger,
-	})
-	member.LoadModule(member.ModuleConfig{
-		Router:   protectedRouter,
-		Database: db,
-		Logger:   appLogger,
-	})
 	// Initialize email module
 	emailModule, err := email.NewModule(email.Config{
 		Provider:    "resend",
@@ -116,6 +98,27 @@ func runServer() error {
 	emailModule.Start(emailContext)
 
 	appLogger.Info(context.Background(), "email service initialized", "queue_size", 100, "workers", 3)
+
+	auth.LoadModule(auth.ModuleConfig{
+		Router:       engine,
+		Database:     db,
+		Provider:     oauthFactory,
+		JWT:          jwtManager,
+		Logger:       appLogger,
+		EmailService: emailModule.Service,
+		FrontendURL:  settings.FrontendURL,
+	})
+	protectedRouter := middleware.ProtectedGroup(engine, jwtManager, appLogger)
+	workspacecore.LoadModule(workspacecore.ModuleConfig{
+		Router:   protectedRouter,
+		Database: db,
+		Logger:   appLogger,
+	})
+	member.LoadModule(member.ModuleConfig{
+		Router:   protectedRouter,
+		Database: db,
+		Logger:   appLogger,
+	})
 
 	// Initialize workspace invite module
 	workspaceinvite.LoadModule(workspaceinvite.ModuleConfig{

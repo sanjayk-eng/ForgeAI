@@ -45,3 +45,7 @@ type UserProfile struct {
 var ErrEmailAlreadyExists = errors.New("email already exists")
 
 var ErrInvalidCredentials = errors.New("invalid credentials")
+
+var ErrEmailNotVerified = errors.New("email is not verified")
+
+var ErrInvalidVerificationToken = errors.New("invalid or expired verification token")
