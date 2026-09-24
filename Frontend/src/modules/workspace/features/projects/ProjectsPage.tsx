@@ -8,6 +8,7 @@ import { ImportGitHubRepositoriesDialog } from "./components/ImportGitHubReposit
 import { ProjectCard } from "./components/ProjectCard";
 import { useProjects, useRefreshProjects } from "./hooks/useProjects";
 import { PaginationControls } from "../../../../shared/ui/PaginationControls";
+import { useDebouncedValue } from "../../../../shared/hooks/useDebouncedValue";
 
 export function ProjectsPage() {
   const workspaceId = useWorkspaceId();
@@ -18,7 +19,8 @@ export function ProjectsPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const projectsQuery = useProjects(accessToken, workspaceId, { page, perPage: 10, search });
+  const debouncedSearch = useDebouncedValue(search);
+  const projectsQuery = useProjects(accessToken, workspaceId, { page, perPage: 10, search: debouncedSearch });
   const refreshProjects = useRefreshProjects(workspaceId);
   const projects = projectsQuery.data?.items ?? [];
 
@@ -44,16 +46,17 @@ export function ProjectsPage() {
       </section>
 
       <label className="relative block max-w-[560px]">
-        <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-forge-muted" />
+        <Search size={16} className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-forge-muted ${search !== debouncedSearch || projectsQuery.isFetching ? "animate-pulse text-forge-accent" : ""}`} />
         <input className="input pl-10" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search project or repository" aria-label="Search projects and repositories" />
       </label>
+      {(search !== debouncedSearch || projectsQuery.isFetching) && <div className="flex items-center gap-2 text-xs text-forge-muted" role="status"><span className="size-1.5 animate-ping rounded-full bg-forge-accent" />Filtering projects...</div>}
 
       {projectsQuery.isLoading ? <Loading /> : projectsQuery.isError ? (
         <div className="border border-forge-signal/30 bg-forge-signal/[0.06] p-5 text-sm text-forge-soft">Could not load projects. {projectsQuery.error instanceof Error ? projectsQuery.error.message : "Try again."}</div>
       ) : projects.length === 0 ? (
         <EmptyProjects onCreate={() => setCreateOpen(true)} />
       ) : (
-        <section className="grid gap-3">{projects.map((project) => <ProjectCard key={project.id} project={project} accessToken={accessToken} workspaceId={workspaceId} onError={(message) => toast.pushError(message)} />)}<PaginationControls page={projectsQuery.data?.page ?? page} totalPages={projectsQuery.data?.total_pages ?? 0} total={projectsQuery.data?.total ?? 0} onPageChange={setPage} /></section>
+        <section className={`grid gap-3 transition-opacity duration-200 ${projectsQuery.isFetching ? "opacity-55" : "opacity-100"}`} aria-busy={projectsQuery.isFetching}>{projects.map((project) => <ProjectCard key={project.id} project={project} accessToken={accessToken} workspaceId={workspaceId} onError={(message) => toast.pushError(message)} />)}<PaginationControls page={projectsQuery.data?.page ?? page} totalPages={projectsQuery.data?.total_pages ?? 0} total={projectsQuery.data?.total ?? 0} onPageChange={setPage} /></section>
       )}
 
       {createOpen && <CreateProjectDialog accessToken={accessToken} workspaceId={workspaceId} onClose={() => setCreateOpen(false)} />}

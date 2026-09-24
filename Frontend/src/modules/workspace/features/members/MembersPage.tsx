@@ -37,6 +37,7 @@ export function MembersPage() {
     search: memberSearch,
     setPage: setMemberPage,
     setSearch: setMemberSearch,
+    isSearching: membersSearching,
   } = useMembersQuery(accessToken, workspaceId);
 
   const {
@@ -115,20 +116,22 @@ export function MembersPage() {
               </p>
             </div>
             <span className="font-mono text-[10px] uppercase tracking-[.1em] text-forge-muted">
-              {membersLoading ? "Syncing" : "Synced"}
+              {membersLoading ? "Syncing" : membersSearching ? "Filtering" : "Synced"}
             </span>
           </div>
-          <label className="relative block max-w-[420px] px-5 pt-5 sm:px-6"><Search size={16} className="pointer-events-none absolute left-8 top-1/2 -translate-y-1/2 text-forge-muted" /><input className="input pl-10" value={memberSearch} onChange={(event) => setMemberSearch(event.target.value)} placeholder="Search members by name or email" aria-label="Search members" /></label>
-          <WorkspaceMemberTable
-            members={members}
-            loading={membersLoading}
+          <label className="relative block max-w-[420px] px-5 pt-5 sm:px-6"><Search size={16} className={`pointer-events-none absolute left-8 top-1/2 -translate-y-1/2 text-forge-muted ${membersSearching ? "animate-pulse text-forge-accent" : ""}`} /><input className="input pl-10" value={memberSearch} onChange={(event) => setMemberSearch(event.target.value)} placeholder="Search members by name or email" aria-label="Search members" /></label>
+          <div className={`transition-opacity duration-200 ${membersSearching ? "opacity-55" : "opacity-100"}`} aria-busy={membersSearching}>
+            <WorkspaceMemberTable
+              members={members}
+              loading={membersLoading}
             error={membersError}
             onRetry={() => void refetchMembers()}
             onRoleChange={updateRole}
             onRemove={removeMember}
             roleUpdating={isUpdating}
-            removing={isUpdating}
-          />
+              removing={isUpdating}
+            />
+          </div>
           <div className="p-5 sm:p-6"><PaginationControls page={memberPage} totalPages={memberTotalPages} total={memberTotal} onPageChange={setMemberPage} /></div>
         </section>
       ) : (
