@@ -68,11 +68,26 @@ func (provider *GitHubProvider) ListRepositories(ctx context.Context, accessToke
 	if strings.TrimSpace(organization) != "" {
 		endpoint = "https://api.github.com/orgs/" + url.PathEscape(organization) + "/repos?per_page=100&type=all&sort=updated"
 	}
-	var payload []GitHubRepository
+	var payload []struct {
+		ID            int64  `json:"id"`
+		Name          string `json:"name"`
+		HTMLURL       string `json:"html_url"`
+		DefaultBranch string `json:"default_branch"`
+		Owner         struct {
+			Login string `json:"login"`
+		} `json:"owner"`
+	}
 	if err := getJSON(ctx, provider.httpClient, endpoint, accessToken, &payload); err != nil {
 		return nil, fmt.Errorf("list GitHub repositories: %w", err)
 	}
-	return payload, nil
+	repositories := make([]GitHubRepository, 0, len(payload))
+	for _, repository := range payload {
+		repositories = append(repositories, GitHubRepository{
+			ID: repository.ID, Owner: repository.Owner.Login, Name: repository.Name,
+			URL: repository.HTMLURL, DefaultBranch: repository.DefaultBranch,
+		})
+	}
+	return repositories, nil
 }
 
 func (provider *GitHubProvider) ExchangeCode(ctx context.Context, code string) (ServiceUser, error) {
