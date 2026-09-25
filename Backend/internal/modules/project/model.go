@@ -78,6 +78,7 @@ type ConnectRepositoryRequest struct {
 	GitHubOwner          string `json:"github_owner" binding:"required,max=255"`
 	GitHubRepositoryName string `json:"github_repository_name" binding:"required,max=255"`
 	RepositoryURL        string `json:"repository_url" binding:"required"`
+	Private              bool   `json:"private"`
 	DefaultBranch        string `json:"default_branch" binding:"required,max=255"`
 }
 

@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listProjects } from "../../../api/projects.api";
 import type { PageParams } from "../../../../../shared/api/pagination";
 
@@ -9,6 +9,7 @@ export function useProjects(accessToken: string, workspaceId: string, params: Pa
     queryKey: [...projectsQueryKey(workspaceId), params.page ?? 1, params.search ?? ""],
     queryFn: () => listProjects(accessToken, workspaceId, params),
     enabled: Boolean(accessToken && workspaceId),
+    placeholderData: keepPreviousData,
     refetchInterval: (query) => {
       const active = query.state.data?.items.some((project) =>
         ["PENDING", "SYNCING"].includes(project.repository?.sync_status ?? ""),

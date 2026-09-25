@@ -54,6 +54,9 @@ func CodeOf(err error) (string, string) {
 	if errors.As(err, &coded) {
 		return coded.Code, coded.Message
 	}
+	if err != nil && err.Error() != "" {
+		return ErrCodeInternalServer, err.Error()
+	}
 	return ErrCodeInternalServer, "internal server error"
 }
 

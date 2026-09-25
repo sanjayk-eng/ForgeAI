@@ -24,6 +24,7 @@ func (provider *GitHubProvider) InspectRepository(ctx context.Context, owner, na
 		ID            int64  `json:"id"`
 		Name          string `json:"name"`
 		HTMLURL       string `json:"html_url"`
+		Private       bool   `json:"private"`
 		DefaultBranch string `json:"default_branch"`
 		Owner         struct {
 			Login string `json:"login"`
@@ -51,7 +52,7 @@ func (provider *GitHubProvider) InspectRepository(ctx context.Context, owner, na
 	}
 	return GitHubRepository{
 		ID: payload.ID, Owner: payload.Owner.Login, Name: payload.Name,
-		URL: payload.HTMLURL, DefaultBranch: payload.DefaultBranch, Branches: branches,
+		URL: payload.HTMLURL, Private: payload.Private, DefaultBranch: payload.DefaultBranch, Branches: branches,
 	}, nil
 }
 
@@ -76,6 +77,7 @@ func (provider *GitHubProvider) ListRepositories(ctx context.Context, accessToke
 		Owner         struct {
 			Login string `json:"login"`
 		} `json:"owner"`
+		Private bool `json:"private"`
 	}
 	if err := getJSON(ctx, provider.httpClient, endpoint, accessToken, &payload); err != nil {
 		return nil, fmt.Errorf("list GitHub repositories: %w", err)
@@ -84,7 +86,7 @@ func (provider *GitHubProvider) ListRepositories(ctx context.Context, accessToke
 	for _, repository := range payload {
 		repositories = append(repositories, GitHubRepository{
 			ID: repository.ID, Owner: repository.Owner.Login, Name: repository.Name,
-			URL: repository.HTMLURL, DefaultBranch: repository.DefaultBranch,
+			URL: repository.HTMLURL, Private: repository.Private, DefaultBranch: repository.DefaultBranch,
 		})
 	}
 	return repositories, nil

@@ -9,6 +9,7 @@ export type ProjectRepository = {
   github_owner: string;
   github_repository_name: string;
   repository_url: string;
+  private: boolean;
   default_branch: string;
   sync_status: SyncStatus;
   last_synced_at?: string;
@@ -39,6 +40,7 @@ export type ProjectRepositoryInput = {
   github_owner: string;
   github_repository_name: string;
   repository_url: string;
+  private: boolean;
   default_branch: string;
 };
 

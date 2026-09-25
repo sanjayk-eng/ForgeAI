@@ -21,6 +21,7 @@ type GitHubRepository struct {
 	Owner         string
 	Name          string
 	URL           string
+	Private       bool
 	DefaultBranch string
 	Branches      []string
 }
@@ -45,7 +46,7 @@ func (client *githubRepositoryClient) InspectRepository(ctx context.Context, own
 	}
 	return GitHubRepository{
 		ID: repository.ID, Owner: repository.Owner, Name: repository.Name,
-		URL: repository.URL, DefaultBranch: repository.DefaultBranch, Branches: repository.Branches,
+		URL: repository.URL, Private: repository.Private, DefaultBranch: repository.DefaultBranch, Branches: repository.Branches,
 	}, nil
 }
 
@@ -78,7 +79,7 @@ func (client *githubRepositoryClient) ListRepositories(ctx context.Context, acce
 	for _, repository := range repositories {
 		result = append(result, GitHubRepository{
 			ID: repository.ID, Owner: repository.Owner, Name: repository.Name,
-			URL: repository.URL, DefaultBranch: repository.DefaultBranch, Branches: repository.Branches,
+			URL: repository.URL, Private: repository.Private, DefaultBranch: repository.DefaultBranch, Branches: repository.Branches,
 		})
 	}
 	return result, nil

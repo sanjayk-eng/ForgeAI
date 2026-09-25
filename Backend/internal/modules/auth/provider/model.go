@@ -18,6 +18,7 @@ type GitHubRepository struct {
 	Owner         string   `json:"owner"`
 	Name          string   `json:"name"`
 	URL           string   `json:"html_url"`
+	Private       bool     `json:"private"`
 	DefaultBranch string   `json:"default_branch"`
 	Branches      []string `json:"branches"`
 }

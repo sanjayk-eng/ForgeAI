@@ -84,7 +84,7 @@ export function importGitHubRepositories(
   workspaceId: string,
   repositories: GitHubRepositoryOption[],
 ) {
-  return authenticatedRequest<{ projects: Project[] }>(
+  return authenticatedRequest<{ projects: Project[]; skipped: number }>(
     accessToken,
     `/workspaces/${workspaceId}/github/repositories/import`,
     {

@@ -215,6 +215,7 @@ func (service *service) ResolveRepository(ctx context.Context, repositoryURL str
 		GitHubOwner:          repository.Owner,
 		GitHubRepositoryName: repository.Name,
 		RepositoryURL:        repository.URL,
+		Private:              repository.Private,
 		DefaultBranch:        repository.DefaultBranch,
 	}, Branches: repository.Branches}, nil
 }
@@ -332,7 +333,7 @@ func (service *service) isWorkspaceOwner(ctx context.Context, workspaceID, userI
 func repositoryOption(repository GitHubRepository, organization string) GitHubRepositoryOption {
 	return GitHubRepositoryOption{ConnectRepositoryRequest: ConnectRepositoryRequest{
 		GitHubRepositoryID: repository.ID, GitHubOwner: repository.Owner, GitHubRepositoryName: repository.Name,
-		RepositoryURL: repository.URL, DefaultBranch: repository.DefaultBranch,
+		RepositoryURL: repository.URL, Private: repository.Private, DefaultBranch: repository.DefaultBranch,
 	}, Organization: organization}
 }
 
