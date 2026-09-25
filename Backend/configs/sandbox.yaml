@@ -1,0 +1,13 @@
+sandbox:
+  image: alpine:3.20
+  workspace_path: /workspace
+  network_mode: none
+  read_only_rootfs: true
+  no_new_privileges: true
+  cap_drop:
+    - ALL
+  command_timeout: 2m
+  limits:
+    cpu_shares: 512
+    memory_bytes: 536870912
+    pids_limit: 256
