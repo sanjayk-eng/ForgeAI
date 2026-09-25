@@ -57,7 +57,7 @@ export function OverviewPage() {
 
   return (
     <div className="animate-page-enter space-y-5">
-      <header className="flex flex-col justify-between gap-5 border-b border-white/[0.08] pb-6 lg:flex-row lg:items-end">
+      <header className="flex flex-col justify-between gap-5 border-b border-[var(--border)] pb-6 lg:flex-row lg:items-end">
         <div>
           <span className="mb-3 block font-mono text-[10px] uppercase tracking-[.14em] text-forge-accent">
             Workspace overview
@@ -70,14 +70,14 @@ export function OverviewPage() {
             next action obvious.
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start border border-forge-accent/20 px-3 py-2 font-mono text-[10px] uppercase tracking-[.1em] text-[#bde986] lg:self-auto">
+        <div className="flex items-center gap-2 self-start border border-forge-accent/20 px-3 py-2 font-mono text-[10px] uppercase tracking-[.1em] text-forge-accent lg:self-auto">
           <span className="size-1.5 bg-forge-accent shadow-[0_0_9px_#c6f36a]" />
           Operational
         </div>
       </header>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,.8fr)]">
-        <div className="relative min-h-[245px] overflow-hidden border border-white/[0.09] bg-forge-card p-6 sm:p-8">
+        <div className="relative min-h-[245px] overflow-hidden border border-[var(--border)] bg-forge-card p-6 sm:p-8">
           <div className="absolute right-0 top-0 h-full w-1/2 bg-[linear-gradient(115deg,transparent_15%,rgba(198,243,106,.07)_15%,transparent_16%,transparent_35%,rgba(142,212,255,.04)_35%,transparent_36%)] opacity-70" />
           <div className="relative flex h-full flex-col justify-between">
             <div>
@@ -109,8 +109,8 @@ export function OverviewPage() {
           </div>
         </div>
 
-        <aside className="border border-white/[0.09] bg-forge-panel/75 p-6">
-          <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+        <aside className="border border-[var(--border)] bg-forge-panel/75 p-6">
+          <div className="flex items-center justify-between border-b border-[var(--border)] pb-4">
             <div>
               <span className="font-mono text-[10px] uppercase tracking-[.13em] text-forge-muted">
                 Shortcuts
@@ -123,7 +123,7 @@ export function OverviewPage() {
           </div>
           <div className="mt-4 grid gap-2">
             <Link
-              className="group flex items-center justify-between border border-white/[0.07] px-3 py-3 text-xs font-bold text-forge-soft no-underline transition hover:border-forge-accent/30 hover:bg-white/[0.03] hover:text-forge-text"
+              className="group flex items-center justify-between border border-[var(--border)] px-3 py-3 text-xs font-bold text-forge-soft no-underline transition hover:border-forge-accent/30 hover:bg-[var(--surface-hover)] hover:text-forge-text"
               to={`/workspace/members?workspace=${id}`}
             >
               Invite a team member{" "}
@@ -133,7 +133,7 @@ export function OverviewPage() {
               />
             </Link>
             <Link
-              className="group flex items-center justify-between border border-white/[0.07] px-3 py-3 text-xs font-bold text-forge-soft no-underline transition hover:border-forge-accent/30 hover:bg-white/[0.03] hover:text-forge-text"
+              className="group flex items-center justify-between border border-[var(--border)] px-3 py-3 text-xs font-bold text-forge-soft no-underline transition hover:border-forge-accent/30 hover:bg-[var(--surface-hover)] hover:text-forge-text"
               to={`/workspace/settings?workspace=${id}`}
             >
               Configure workspace{" "}

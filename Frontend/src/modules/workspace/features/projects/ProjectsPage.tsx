@@ -36,14 +36,14 @@ export function ProjectsPage() {
 
   return (
     <div className="animate-page-enter space-y-6">
-      <header className="flex flex-col justify-between gap-5 border-b border-white/[0.08] pb-6 sm:flex-row sm:items-end">
+      <header className="flex flex-col justify-between gap-5 border-b border-[var(--border)] pb-6 sm:flex-row sm:items-end">
         <div>
           <span className="mb-3 block font-mono text-[10px] uppercase tracking-[.14em] text-forge-accent">Project workspace</span>
           <h1 className="m-0 text-3xl font-extrabold tracking-[-.05em] text-forge-text sm:text-[42px]">Projects</h1>
           <p className="mt-3 max-w-xl text-sm leading-6 text-forge-muted">Organize repositories and agent work into focused project spaces.</p>
         </div>
         <div className="flex gap-2">
-          <button className="grid size-11 place-items-center border border-white/[0.1] text-forge-muted transition hover:border-forge-accent/40 hover:text-forge-text disabled:opacity-50" onClick={() => void refreshProjects()} disabled={projectsQuery.isFetching} aria-label="Refresh projects" title="Refresh projects"><RefreshCw size={16} className={projectsQuery.isFetching ? "animate-spin" : ""} /></button>
+          <button className="grid size-11 place-items-center border border-[var(--border)] text-forge-muted transition hover:border-forge-accent/40 hover:text-forge-text disabled:opacity-50" onClick={() => void refreshProjects()} disabled={projectsQuery.isFetching} aria-label="Refresh projects" title="Refresh projects"><RefreshCw size={16} className={projectsQuery.isFetching ? "animate-spin" : ""} /></button>
           <button className="inline-flex items-center gap-2 border border-forge-accent/35 px-4 py-3 text-xs font-extrabold text-forge-accent transition hover:bg-forge-accent/[0.08] disabled:opacity-50" onClick={() => syncAllMutation.mutate()} disabled={syncAllMutation.isPending}><RefreshCw size={16} className={syncAllMutation.isPending ? "animate-spin" : ""} /> Sync all</button>
           <button className="inline-flex items-center gap-2 border border-forge-accent/35 px-4 py-3 text-xs font-extrabold text-forge-accent transition hover:bg-forge-accent/[0.08]" onClick={() => setImportOpen(true)}><FolderGit2 size={16} /> Import GitHub</button>
           <button className="inline-flex items-center gap-2 bg-forge-accent px-4 py-3 text-xs font-extrabold text-forge-bg transition hover:bg-forge-accent-strong" onClick={() => setCreateOpen(true)}><Plus size={16} /> New project</button>
@@ -77,11 +77,11 @@ export function ProjectsPage() {
 }
 
 function Summary({ icon: Icon, label, value }: { icon: typeof Boxes; label: string; value: number }) {
-  return <div className="border border-white/[0.09] bg-forge-panel/70 p-5"><Icon size={17} className="text-forge-accent" /><p className="mt-4 text-2xl font-extrabold text-forge-text">{value}</p><p className="mt-1 text-xs text-forge-muted">{label}</p></div>;
+  return <div className="border border-[var(--border)] bg-forge-panel/70 p-5"><Icon size={17} className="text-forge-accent" /><p className="mt-4 text-2xl font-extrabold text-forge-text">{value}</p><p className="mt-1 text-xs text-forge-muted">{label}</p></div>;
 }
 
 function EmptyProjects({ onCreate }: { onCreate: () => void }) {
-  return <div className="border border-dashed border-white/[0.14] bg-forge-panel/60 px-6 py-16 text-center"><FolderGit2 className="mx-auto text-forge-accent" size={28} /><h2 className="mt-4 text-xl font-bold text-forge-text">No projects yet</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-forge-muted">Create an empty project or connect an existing GitHub repository to get started.</p><button className="mt-6 bg-forge-accent px-4 py-3 text-xs font-extrabold text-forge-bg" onClick={onCreate}>Create your first project</button></div>;
+  return <div className="border border-dashed border-[var(--border)] bg-forge-panel/60 px-6 py-16 text-center"><FolderGit2 className="mx-auto text-forge-accent" size={28} /><h2 className="mt-4 text-xl font-bold text-forge-text">No projects yet</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-forge-muted">Create an empty project or connect an existing GitHub repository to get started.</p><button className="mt-6 bg-forge-accent px-4 py-3 text-xs font-extrabold text-forge-bg" onClick={onCreate}>Create your first project</button></div>;
 }
 
 function Loading() {

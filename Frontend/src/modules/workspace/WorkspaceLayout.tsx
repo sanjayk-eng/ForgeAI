@@ -99,7 +99,7 @@ function LoadingState() {
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="mx-auto grid min-h-[480px] max-w-[760px] place-content-center">
-      <section className="border border-white/[0.09] bg-forge-panel/80 p-7 shadow-[0_24px_70px_rgba(0,0,0,.18)] sm:p-10">
+      <section className="border border-[var(--border)] bg-forge-panel/80 p-7 shadow-[0_24px_70px_rgba(0,0,0,.12)] sm:p-10">
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-[460px]">
             <span className="mb-3 block font-mono text-[10px] uppercase tracking-[.14em] text-forge-accent">
@@ -108,7 +108,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
             <div className="mb-5 flex size-11 items-center justify-center border border-forge-accent/25 bg-forge-accent/[0.08] text-forge-accent">
               <ShieldCheck size={22} />
             </div>
-            <h1 className="m-0 text-3xl font-extrabold tracking-[-.045em] text-[#f1f3f5] sm:text-4xl">
+            <h1 className="m-0 text-3xl font-extrabold tracking-[-.045em] text-forge-text sm:text-4xl">
               Create your first workspace
             </h1>
             <p className="mt-4 max-w-[420px] text-sm leading-6 text-forge-muted">
@@ -126,7 +126,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
               />
             </button>
           </div>
-          <div className="grid min-w-[190px] gap-4 border-t border-white/[0.08] pt-5 text-xs text-forge-muted sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+          <div className="grid min-w-[190px] gap-4 border-t border-[var(--border)] pt-5 text-xs text-forge-muted sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
             <div>
               <strong className="mb-1 block text-forge-soft">01</strong>Create a
               shared home

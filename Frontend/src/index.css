@@ -334,26 +334,26 @@
   }
 
   :root[data-theme="light"] {
-    --background: #f2f6f2;
+    --background: #eef3ef;
     --foreground: #17221b;
     --card: #ffffff;
-    --card-foreground: #506158;
-    --muted: #e7eee8;
-    --muted-foreground: #68786e;
-    --border: rgba(23, 34, 27, 0.14);
+    --card-foreground: #46584d;
+    --muted: #e2ebe4;
+    --muted-foreground: #5e7065;
+    --border: rgba(23, 34, 27, 0.16);
     --input: #ffffff;
     --primary: #719e20;
     --primary-strong: #5c8615;
     --primary-foreground: #ffffff;
     --destructive: #b94f45;
     --destructive-foreground: #ffffff;
-    --sidebar: #e6eee7;
+    --sidebar: #e8f0e9;
     --sidebar-foreground: #172019;
     --sidebar-border: rgba(23, 34, 27, 0.12);
-    --signal: #b66b20;
-    --surface-hover: rgba(23, 32, 25, 0.06);
-    --surface-subtle: rgba(23, 32, 25, 0.035);
-    --surface-strong: rgba(23, 32, 25, 0.1);
+    --signal: #a85f1b;
+    --surface-hover: rgba(23, 32, 25, 0.07);
+    --surface-subtle: rgba(23, 32, 25, 0.045);
+    --surface-strong: rgba(23, 32, 25, 0.11);
     --overlay: rgba(23, 32, 25, 0.42);
   }
 

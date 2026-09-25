@@ -17,7 +17,7 @@ export function WorkspaceStatCard({
 }: Props) {
   return (
     <article
-      className={`group border p-5 transition duration-300 hover:-translate-y-0.5 hover:border-forge-accent/30 ${accent ? "border-forge-accent/25 bg-forge-accent/[0.07]" : "border-white/[0.08] bg-forge-panel/70"}`}
+      className={`group border p-5 transition duration-300 hover:-translate-y-0.5 hover:border-forge-accent/30 ${accent ? "border-forge-accent/25 bg-forge-accent/[0.07]" : "border-[var(--border)] bg-forge-panel/70"}`}
     >
       <div className="mb-7 flex items-start justify-between">
         <span className="grid size-9 place-items-center border border-forge-accent/25 text-forge-accent">

@@ -36,7 +36,7 @@ export function WorkspaceSidebar({
         <div className="mb-9 flex items-center justify-between md:hidden">
           <span className="font-bold text-forge-text">Workspace</span>
           <button
-            className="grid size-9 place-items-center rounded-md text-forge-muted transition hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
+            className="grid size-9 place-items-center rounded-md text-forge-muted transition hover:bg-[var(--surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
             onClick={onClose}
             aria-label="Close navigation"
           >
@@ -56,7 +56,7 @@ export function WorkspaceSidebar({
                   end={end}
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-md border-l-2 px-3 py-2.5 text-[13px] font-bold no-underline transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent ${isActive ? "border-forge-accent bg-forge-accent/[0.09] text-forge-text" : "border-transparent text-forge-muted hover:bg-white/[0.05] hover:text-forge-text"}`
+                    `flex items-center gap-3 rounded-md border-l-2 px-3 py-2.5 text-[13px] font-bold no-underline transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent ${isActive ? "border-forge-accent bg-forge-accent/[0.09] text-forge-text" : "border-transparent text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"}`
                   }
                 >
                   <Icon size={17} />
@@ -73,7 +73,7 @@ export function WorkspaceSidebar({
                   key={label}
                   to={`${to}?workspace=${workspaceId ?? ""}`}
                   onClick={onClose}
-                  className={({ isActive }) => `flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-semibold no-underline transition ${isActive ? "bg-forge-accent/[0.09] text-forge-text" : "text-forge-muted hover:bg-white/[0.05] hover:text-forge-text"}`}
+                  className={({ isActive }) => `flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-semibold no-underline transition ${isActive ? "bg-forge-accent/[0.09] text-forge-text" : "text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"}`}
                 >
                   <Icon size={17} />
                   {label}
@@ -98,7 +98,7 @@ export function WorkspaceSidebar({
           </div>
         )}
         <button
-          className="mt-auto flex items-center gap-3 border-t border-white/[0.07] px-3 pt-5 text-left text-[13px] font-bold text-forge-muted transition hover:text-forge-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
+          className="mt-auto flex items-center gap-3 border-t border-[var(--border)] px-3 pt-5 text-left text-[13px] font-bold text-forge-muted transition hover:text-forge-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
           onClick={onSignOut}
         >
           <LogOut size={17} />

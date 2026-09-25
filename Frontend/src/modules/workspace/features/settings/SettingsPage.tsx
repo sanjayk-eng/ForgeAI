@@ -43,7 +43,7 @@ export function SettingsPage() {
           Keep the workspace identity clear for everyone on the team.
         </p>
       </div>
-      <section className="max-w-[680px] border border-white/[0.09] bg-forge-panel/75 p-7">
+      <section className="max-w-[680px] border border-[var(--border)] bg-forge-panel/75 p-7">
         <h2 className="m-0 text-base">General</h2>
         <p className="mt-2 mb-7 text-sm text-forge-muted">
           Update the name used across ForgeAI.
