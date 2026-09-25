@@ -67,7 +67,7 @@ export function ProjectsPage() {
       ) : projects.length === 0 ? (
         <EmptyProjects onCreate={() => setCreateOpen(true)} />
       ) : (
-        <section className="grid gap-3" aria-busy={projectsQuery.isFetching}>{projects.map((project) => <ProjectCard key={project.id} project={project} accessToken={accessToken} workspaceId={workspaceId} onError={(message) => toast.pushError(message)} />)}<PaginationControls page={projectsQuery.data?.page ?? page} totalPages={projectsQuery.data?.total_pages ?? 0} total={projectsQuery.data?.total ?? 0} onPageChange={setPage} /></section>
+        <section className="grid gap-3" aria-busy={projectsQuery.isFetching}>{projects.map((project) => <ProjectCard key={project.id} project={project} accessToken={accessToken} workspaceId={workspaceId} onError={(message) => toast.pushError(message)} onDeleted={() => toast.pushSuccess("Project removed")} />)}<PaginationControls page={projectsQuery.data?.page ?? page} totalPages={projectsQuery.data?.total_pages ?? 0} total={projectsQuery.data?.total ?? 0} onPageChange={setPage} /></section>
       )}
 
       {createOpen && <CreateProjectDialog accessToken={accessToken} workspaceId={workspaceId} onClose={() => setCreateOpen(false)} />}

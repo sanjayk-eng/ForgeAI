@@ -65,12 +65,20 @@ func (handler *Handler) Update(c *gin.Context) {
 	if !bindAndValidate(c, &input) {
 		return
 	}
-	project, err := handler.service.Update(c.Request.Context(), c.Param("project_id"), input)
+	project, err := handler.service.Update(c.Request.Context(), c.Param("project_id"), userID(c), input)
 	if err != nil {
 		handler.writeError(c, err)
 		return
 	}
 	apierrors.Success(c, http.StatusOK, "project updated", project)
+}
+
+func (handler *Handler) Delete(c *gin.Context) {
+	if err := handler.service.Delete(c.Request.Context(), c.Param("project_id"), userID(c)); err != nil {
+		handler.writeError(c, err)
+		return
+	}
+	apierrors.Success(c, http.StatusOK, "project deleted", nil)
 }
 
 func (handler *Handler) ConnectRepository(c *gin.Context) {

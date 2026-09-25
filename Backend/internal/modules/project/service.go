@@ -2,6 +2,8 @@ package project
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -18,7 +20,8 @@ type Service interface {
 	ListByWorkspace(ctx context.Context, workspaceID string, query pagination.Query) (pagination.Result[Project], error)
 	FindByID(ctx context.Context, projectID string) (Project, error)
 	FindByWorkspaceSlug(ctx context.Context, workspaceID, slug string) (Project, error)
-	Update(ctx context.Context, projectID string, input UpdateProjectRequest) (Project, error)
+	Update(ctx context.Context, projectID, userID string, input UpdateProjectRequest) (Project, error)
+	Delete(ctx context.Context, projectID, userID string) error
 	UpdateRepositoryBranch(ctx context.Context, projectID, branch string) (ProjectRepository, error)
 	ConnectRepository(ctx context.Context, projectID string, input ConnectRepositoryRequest) (ProjectRepository, error)
 	SyncProject(ctx context.Context, projectID string) (Project, error)
@@ -113,21 +116,61 @@ func (service *service) FindByWorkspaceSlug(ctx context.Context, workspaceID, sl
 	return project, nil
 }
 
-func (service *service) Update(ctx context.Context, projectID string, input UpdateProjectRequest) (Project, error) {
+func (service *service) Update(ctx context.Context, projectID, userID string, input UpdateProjectRequest) (Project, error) {
 	projectID = strings.TrimSpace(projectID)
 	name := strings.TrimSpace(input.Name)
 	status := input.Status
 	if status == "" {
 		status = ProjectStatusActive
 	}
-	if service.db == nil || projectID == "" || name == "" {
+	if service.db == nil || projectID == "" || strings.TrimSpace(userID) == "" || name == "" {
 		return Project{}, ErrInvalidProjectInput
 	}
-	project, err := service.repo.Update(ctx, projectID, name, input.Description, string(status))
+	existing, err := service.repo.FindByID(ctx, projectID)
 	if err != nil {
 		return Project{}, ErrProjectNotFound
 	}
+	owner, err := service.isWorkspaceOwner(ctx, existing.WorkspaceID, userID)
+	if err != nil {
+		return Project{}, fmt.Errorf("check project owner: %w", err)
+	}
+	if !owner {
+		return Project{}, ErrWorkspaceOwnerRequired
+	}
+	project, err := service.repo.Update(ctx, projectID, name, input.Description, string(status))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Project{}, ErrProjectNotFound
+		}
+		return Project{}, fmt.Errorf("update project: %w", err)
+	}
 	return project, nil
+}
+
+func (service *service) Delete(ctx context.Context, projectID, userID string) error {
+	projectID = strings.TrimSpace(projectID)
+	userID = strings.TrimSpace(userID)
+	if service.db == nil || projectID == "" || userID == "" {
+		return ErrInvalidProjectInput
+	}
+	project, err := service.repo.FindByID(ctx, projectID)
+	if err != nil {
+		return ErrProjectNotFound
+	}
+	owner, err := service.isWorkspaceOwner(ctx, project.WorkspaceID, userID)
+	if err != nil {
+		return fmt.Errorf("check project owner: %w", err)
+	}
+	if !owner {
+		return ErrWorkspaceOwnerRequired
+	}
+	if err := service.repo.Delete(ctx, projectID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrProjectNotFound
+		}
+		return fmt.Errorf("delete project: %w", err)
+	}
+	return nil
 }
 
 func (service *service) UpdateRepositoryBranch(ctx context.Context, projectID, branch string) (ProjectRepository, error) {

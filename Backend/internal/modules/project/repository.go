@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -17,6 +18,7 @@ type ProjectRepositoryStore interface {
 	FindByID(ctx context.Context, projectID string) (Project, error)
 	FindByWorkspaceSlug(ctx context.Context, workspaceID, slug string) (Project, error)
 	Update(ctx context.Context, projectID, name string, description *string, status string) (Project, error)
+	Delete(ctx context.Context, projectID string) error
 	UpdateRepositoryBranch(ctx context.Context, projectID, branch string) (ProjectRepository, error)
 	ConnectRepository(ctx context.Context, tx *sqlx.Tx, projectID, workspaceID string, input ConnectRepositoryRequest) (ProjectRepository, error)
 	RepositoryExists(ctx context.Context, tx *sqlx.Tx, workspaceID string, githubRepositoryID int64) (bool, error)
@@ -183,6 +185,21 @@ func (repo *repository) Update(ctx context.Context, projectID, name string, desc
 		return Project{}, fmt.Errorf("update project: %w", err)
 	}
 	return row.project(), nil
+}
+
+func (repo *repository) Delete(ctx context.Context, projectID string) error {
+	result, err := repo.db.ExecContext(ctx, `DELETE FROM tbl_project WHERE id = $1`, projectID)
+	if err != nil {
+		return fmt.Errorf("delete project: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("check deleted project: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("delete project: %w", sql.ErrNoRows)
+	}
+	return nil
 }
 
 func (repo *repository) UpdateRepositoryBranch(ctx context.Context, projectID, branch string) (ProjectRepository, error) {

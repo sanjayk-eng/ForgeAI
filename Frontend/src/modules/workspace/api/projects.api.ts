@@ -127,3 +127,9 @@ export function syncAllProjects(accessToken: string, workspaceId: string) {
     { method: "POST" },
   );
 }
+
+export function deleteProject(accessToken: string, projectId: string) {
+  return authenticatedRequest<null>(accessToken, `/projects/${projectId}`, {
+    method: "DELETE",
+  });
+}
