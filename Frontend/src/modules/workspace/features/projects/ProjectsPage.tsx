@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Archive, Boxes, FolderGit2, Plus, RefreshCw, Search } from "lucide-react";
 import { useAuth } from "../../../auth/useAuth";
 import { useToast } from "../../../../shared/ui/useToast";
@@ -6,6 +7,7 @@ import { useWorkspaceId } from "../../hooks/useWorkspaceId";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { ImportGitHubRepositoriesDialog } from "./components/ImportGitHubRepositoriesDialog";
 import { ProjectCard } from "./components/ProjectCard";
+import { syncAllProjects } from "../../api/projects.api";
 import { useProjects, useRefreshProjects } from "./hooks/useProjects";
 import { PaginationControls } from "../../../../shared/ui/PaginationControls";
 import { useDebouncedValue } from "../../../../shared/hooks/useDebouncedValue";
@@ -22,6 +24,14 @@ export function ProjectsPage() {
   const debouncedSearch = useDebouncedValue(search);
   const projectsQuery = useProjects(accessToken, workspaceId, { page, perPage: 10, search: debouncedSearch });
   const refreshProjects = useRefreshProjects(workspaceId);
+  const syncAllMutation = useMutation({
+    mutationFn: () => syncAllProjects(accessToken, workspaceId),
+    onSuccess: (result) => {
+      toast.pushSuccess(`${result.triggered} project${result.triggered === 1 ? "" : "s"} queued for sync${result.failed ? `, ${result.failed} failed` : ""}`);
+      void refreshProjects();
+    },
+    onError: (error) => toast.pushError(error instanceof Error ? error.message : "Could not sync workspace projects"),
+  });
   const projects = projectsQuery.data?.items ?? [];
 
   return (
@@ -34,6 +44,7 @@ export function ProjectsPage() {
         </div>
         <div className="flex gap-2">
           <button className="grid size-11 place-items-center border border-white/[0.1] text-forge-muted transition hover:border-forge-accent/40 hover:text-forge-text disabled:opacity-50" onClick={() => void refreshProjects()} disabled={projectsQuery.isFetching} aria-label="Refresh projects" title="Refresh projects"><RefreshCw size={16} className={projectsQuery.isFetching ? "animate-spin" : ""} /></button>
+          <button className="inline-flex items-center gap-2 border border-forge-accent/35 px-4 py-3 text-xs font-extrabold text-forge-accent transition hover:bg-forge-accent/[0.08] disabled:opacity-50" onClick={() => syncAllMutation.mutate()} disabled={syncAllMutation.isPending}><RefreshCw size={16} className={syncAllMutation.isPending ? "animate-spin" : ""} /> Sync all</button>
           <button className="inline-flex items-center gap-2 border border-forge-accent/35 px-4 py-3 text-xs font-extrabold text-forge-accent transition hover:bg-forge-accent/[0.08]" onClick={() => setImportOpen(true)}><FolderGit2 size={16} /> Import GitHub</button>
           <button className="inline-flex items-center gap-2 bg-forge-accent px-4 py-3 text-xs font-extrabold text-forge-bg transition hover:bg-forge-accent-strong" onClick={() => setCreateOpen(true)}><Plus size={16} /> New project</button>
         </div>

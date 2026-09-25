@@ -38,7 +38,7 @@ export function ImportGitHubRepositoriesDialog({
       ),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ["projects", workspaceId] });
-      toast.pushSuccess(`${result.projects.length} project${result.projects.length === 1 ? "" : "s"} imported`);
+      toast.pushSuccess(`${result.projects.length} project${result.projects.length === 1 ? "" : "s"} imported${result.skipped ? `, ${result.skipped} already existed` : ""}`);
       onClose();
     },
     onError: (error) =>

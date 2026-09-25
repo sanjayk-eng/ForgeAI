@@ -22,6 +22,7 @@ type Service interface {
 	UpdateRepositoryBranch(ctx context.Context, projectID, branch string) (ProjectRepository, error)
 	ConnectRepository(ctx context.Context, projectID string, input ConnectRepositoryRequest) (ProjectRepository, error)
 	SyncProject(ctx context.Context, projectID string) (Project, error)
+	SyncWorkspaceProjects(ctx context.Context, workspaceID string) (SyncWorkspaceProjectsResponse, error)
 	ResolveRepository(ctx context.Context, repositoryURL string) (ResolvedRepository, error)
 	ListGitHubRepositories(ctx context.Context, workspaceID, userID string) (GitHubRepositoryCatalogResponse, error)
 	ImportGitHubRepositories(ctx context.Context, workspaceID, userID string, input ImportGitHubRepositoriesRequest) (ImportGitHubRepositoriesResponse, error)
@@ -72,7 +73,7 @@ func (service *service) Create(ctx context.Context, workspaceID, createdBy strin
 		}
 		if input.Repository != nil {
 			var repository ProjectRepository
-			repository, err = service.repo.ConnectRepository(ctx, tx, project.ID, *input.Repository)
+			repository, err = service.repo.ConnectRepository(ctx, tx, project.ID, workspaceID, *input.Repository)
 			project.Repository = &repository
 		}
 		return err
@@ -140,10 +141,14 @@ func (service *service) ConnectRepository(ctx context.Context, projectID string,
 	if service.db == nil || strings.TrimSpace(projectID) == "" || input.GitHubRepositoryID <= 0 || strings.TrimSpace(input.GitHubOwner) == "" || strings.TrimSpace(input.GitHubRepositoryName) == "" || strings.TrimSpace(input.RepositoryURL) == "" || strings.TrimSpace(input.DefaultBranch) == "" {
 		return ProjectRepository{}, ErrInvalidProjectInput
 	}
+	project, err := service.repo.FindByID(ctx, projectID)
+	if err != nil {
+		return ProjectRepository{}, ErrProjectNotFound
+	}
 	var repository ProjectRepository
-	err := appdatabase.WithTx(ctx, service.db, func(ctx context.Context, tx *sqlx.Tx) error {
+	err = appdatabase.WithTx(ctx, service.db, func(ctx context.Context, tx *sqlx.Tx) error {
 		var err error
-		repository, err = service.repo.ConnectRepository(ctx, tx, projectID, input)
+		repository, err = service.repo.ConnectRepository(ctx, tx, projectID, project.WorkspaceID, input)
 		return err
 	})
 	if err != nil {
@@ -160,6 +165,35 @@ func (service *service) SyncProject(ctx context.Context, projectID string) (Proj
 		return Project{}, err
 	}
 	return service.FindByID(ctx, projectID)
+}
+
+func (service *service) SyncWorkspaceProjects(ctx context.Context, workspaceID string) (SyncWorkspaceProjectsResponse, error) {
+	if service.sync == nil || strings.TrimSpace(workspaceID) == "" {
+		return SyncWorkspaceProjectsResponse{}, ErrInvalidProjectInput
+	}
+	result := SyncWorkspaceProjectsResponse{}
+	query := pagination.Query{Page: 1, PerPage: pagination.MaxPerPage}
+	for {
+		projects, err := service.repo.ListByWorkspace(ctx, workspaceID, query)
+		if err != nil {
+			return SyncWorkspaceProjectsResponse{}, err
+		}
+		for _, project := range projects.Items {
+			if project.Repository == nil {
+				continue
+			}
+			if err := service.sync.SyncProject(ctx, project.ID); err != nil {
+				result.Failed++
+				continue
+			}
+			result.Triggered++
+		}
+		if query.Page >= projects.TotalPages || projects.TotalPages == 0 {
+			break
+		}
+		query.Page++
+	}
+	return result, nil
 }
 
 func (service *service) ResolveRepository(ctx context.Context, repositoryURL string) (ResolvedRepository, error) {
@@ -249,16 +283,30 @@ func (service *service) ImportGitHubRepositories(ctx context.Context, workspaceI
 	}
 	result := ImportGitHubRepositoriesResponse{Projects: make([]Project, 0, len(input.Repositories))}
 	err = appdatabase.WithTx(ctx, service.db, func(ctx context.Context, tx *sqlx.Tx) error {
+		seen := make(map[int64]struct{}, len(input.Repositories))
 		for _, repository := range input.Repositories {
 			name := strings.TrimSpace(repository.GitHubRepositoryName)
 			if name == "" || repository.GitHubRepositoryID <= 0 {
 				return ErrInvalidProjectInput
 			}
-			project, err := service.repo.Create(ctx, tx, workspaceID, name, slugify(name), nil, string(ProjectTypeRepository), userID)
+			if _, duplicate := seen[repository.GitHubRepositoryID]; duplicate {
+				result.Skipped++
+				continue
+			}
+			seen[repository.GitHubRepositoryID] = struct{}{}
+			exists, err := service.repo.RepositoryExists(ctx, tx, workspaceID, repository.GitHubRepositoryID)
 			if err != nil {
 				return err
 			}
-			connected, err := service.repo.ConnectRepository(ctx, tx, project.ID, repository)
+			if exists {
+				result.Skipped++
+				continue
+			}
+			project, err := service.repo.Create(ctx, tx, workspaceID, name, slugify(repository.GitHubOwner+"-"+name), nil, string(ProjectTypeRepository), userID)
+			if err != nil {
+				return err
+			}
+			connected, err := service.repo.ConnectRepository(ctx, tx, project.ID, workspaceID, repository)
 			if err != nil {
 				return err
 			}

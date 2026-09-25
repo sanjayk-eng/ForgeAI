@@ -14,4 +14,5 @@ func RegisterRoutes(router gin.IRouter, handler *Handler) {
 	router.PATCH("/projects/:project_id/repository/branch", handler.UpdateRepositoryBranch)
 	router.POST("/projects/:project_id/repository", handler.ConnectRepository)
 	router.POST("/projects/:project_id/repository/sync", handler.Sync)
+	router.POST("/workspaces/:workspace_id/projects/sync", handler.SyncWorkspaceProjects)
 }

@@ -95,6 +95,15 @@ func (handler *Handler) Sync(c *gin.Context) {
 	apierrors.Success(c, http.StatusOK, "repository sync completed", project)
 }
 
+func (handler *Handler) SyncWorkspaceProjects(c *gin.Context) {
+	result, err := handler.service.SyncWorkspaceProjects(c.Request.Context(), c.Param("workspace_id"))
+	if err != nil {
+		handler.writeError(c, err)
+		return
+	}
+	apierrors.Success(c, http.StatusOK, "workspace project sync started", result)
+}
+
 func (handler *Handler) UpdateRepositoryBranch(c *gin.Context) {
 	var input UpdateRepositoryBranchRequest
 	if !bindAndValidate(c, &input) {

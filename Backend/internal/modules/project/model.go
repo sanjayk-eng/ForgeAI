@@ -106,6 +106,12 @@ type ImportGitHubRepositoriesRequest struct {
 
 type ImportGitHubRepositoriesResponse struct {
 	Projects []Project `json:"projects"`
+	Skipped  int       `json:"skipped"`
+}
+
+type SyncWorkspaceProjectsResponse struct {
+	Triggered int `json:"triggered"`
+	Failed    int `json:"failed"`
 }
 
 var (

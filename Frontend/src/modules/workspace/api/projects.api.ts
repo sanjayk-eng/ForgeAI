@@ -119,3 +119,11 @@ export function updateRepositoryBranch(accessToken: string, projectId: string, d
     body: JSON.stringify({ default_branch: defaultBranch }),
   });
 }
+
+export function syncAllProjects(accessToken: string, workspaceId: string) {
+  return authenticatedRequest<{ triggered: number; failed: number }>(
+    accessToken,
+    `/workspaces/${workspaceId}/projects/sync`,
+    { method: "POST" },
+  );
+}

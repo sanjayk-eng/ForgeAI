@@ -18,7 +18,8 @@ type ProjectRepositoryStore interface {
 	FindByWorkspaceSlug(ctx context.Context, workspaceID, slug string) (Project, error)
 	Update(ctx context.Context, projectID, name string, description *string, status string) (Project, error)
 	UpdateRepositoryBranch(ctx context.Context, projectID, branch string) (ProjectRepository, error)
-	ConnectRepository(ctx context.Context, tx *sqlx.Tx, projectID string, input ConnectRepositoryRequest) (ProjectRepository, error)
+	ConnectRepository(ctx context.Context, tx *sqlx.Tx, projectID, workspaceID string, input ConnectRepositoryRequest) (ProjectRepository, error)
+	RepositoryExists(ctx context.Context, tx *sqlx.Tx, workspaceID string, githubRepositoryID int64) (bool, error)
 	IsWorkspaceOwner(ctx context.Context, workspaceID, userID string) (bool, error)
 }
 
@@ -207,14 +208,14 @@ func (repo *repository) UpdateRepositoryBranch(ctx context.Context, projectID, b
 	return repository, nil
 }
 
-func (repo *repository) ConnectRepository(ctx context.Context, tx *sqlx.Tx, projectID string, input ConnectRepositoryRequest) (ProjectRepository, error) {
+func (repo *repository) ConnectRepository(ctx context.Context, tx *sqlx.Tx, projectID, workspaceID string, input ConnectRepositoryRequest) (ProjectRepository, error) {
 	var repository ProjectRepository
 	query := `
 		INSERT INTO tbl_project_repository (
-			project_id, github_repository_id, github_owner, github_repository_name,
+			project_id, workspace_id, github_repository_id, github_owner, github_repository_name,
 			repository_url, default_branch, sync_status_id
 		)
-		SELECT $1, $2, $3, $4, $5, $6, e.id
+		SELECT $1, $2, $3, $4, $5, $6, $7, e.id
 		FROM tbl_enum e
 		WHERE e.category = 'PROJECT_REPOSITORY_SYNC_STATUS'
 		  AND e.code = 'PENDING'
@@ -224,15 +225,27 @@ func (repo *repository) ConnectRepository(ctx context.Context, tx *sqlx.Tx, proj
 		          updated_at AS repository_updated_at`
 	var err error
 	if tx != nil {
-		err = tx.GetContext(ctx, &repository, query, projectID, input.GitHubRepositoryID, input.GitHubOwner, input.GitHubRepositoryName, input.RepositoryURL, input.DefaultBranch)
+		err = tx.GetContext(ctx, &repository, query, projectID, workspaceID, input.GitHubRepositoryID, input.GitHubOwner, input.GitHubRepositoryName, input.RepositoryURL, input.DefaultBranch)
 	} else {
-		err = repo.db.GetContext(ctx, &repository, query, projectID, input.GitHubRepositoryID, input.GitHubOwner, input.GitHubRepositoryName, input.RepositoryURL, input.DefaultBranch)
+		err = repo.db.GetContext(ctx, &repository, query, projectID, workspaceID, input.GitHubRepositoryID, input.GitHubOwner, input.GitHubRepositoryName, input.RepositoryURL, input.DefaultBranch)
 	}
 	if err != nil {
 		return ProjectRepository{}, fmt.Errorf("connect project repository: %w", err)
 	}
 	repository.SyncStatus = SyncStatusPending
 	return repository, nil
+}
+
+func (repo *repository) RepositoryExists(ctx context.Context, tx *sqlx.Tx, workspaceID string, githubRepositoryID int64) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM tbl_project_repository WHERE workspace_id = $1 AND github_repository_id = $2)`
+	var err error
+	if tx != nil {
+		err = tx.GetContext(ctx, &exists, query, workspaceID, githubRepositoryID)
+	} else {
+		err = repo.db.GetContext(ctx, &exists, query, workspaceID, githubRepositoryID)
+	}
+	return exists, err
 }
 
 func (repo *repository) ClaimRepositoryForSync(ctx context.Context, projectID string) (SyncTarget, error) {
