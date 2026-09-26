@@ -120,11 +120,19 @@ func runServer() error {
 		return fmt.Errorf("initialize GitHub repository provider: %w", err)
 	}
 	githubInspector, _ := githubProvider.(provider.GitHubRepositoryInspector)
+	
+	// Initialize GitHub client for project module
+	var githubClient projectmodule.GitHubClient
+	if githubInspector != nil {
+		// Import the github subpackage
+		githubClient = projectmodule.NewGitHubClient(githubInspector)
+	}
+	
 	projectmodule.LoadModule(projectmodule.ModuleConfig{
 		Router:        protectedRouter,
 		Database:      db,
 		Logger:        appLogger,
-		GitHubClient:  projectmodule.NewGitHubRepositoryClient(githubInspector),
+		GitHubClient:  githubClient,
 		GitHubAccount: authModule.Repository,
 		SyncContext:   emailContext,
 	})
