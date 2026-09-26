@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"ai-agent/internal/middleware"
 	"ai-agent/internal/shared/pagination"
 	appdatabase "ai-agent/pkg/database"
 
@@ -204,7 +205,11 @@ func (service *service) SyncProject(ctx context.Context, projectID string) (Proj
 	if service.sync == nil || strings.TrimSpace(projectID) == "" {
 		return Project{}, ErrInvalidProjectInput
 	}
-	if err := service.sync.SyncProject(ctx, projectID); err != nil {
+	accessToken := ""
+	if userID, ok := middleware.UserIDFromContext(ctx); ok && service.account != nil {
+		accessToken, _ = service.account.FindGitHubAccessToken(ctx, userID)
+	}
+	if err := service.sync.SyncProjectWithToken(ctx, projectID, accessToken); err != nil {
 		return Project{}, err
 	}
 	return service.FindByID(ctx, projectID)
@@ -249,7 +254,16 @@ func (service *service) ResolveRepository(ctx context.Context, repositoryURL str
 		return ResolvedRepository{}, ErrInvalidProjectInput
 	}
 	name := strings.TrimSuffix(parts[1], ".git")
-	repository, err := service.github.InspectRepository(ctx, parts[0], name)
+	var repository GitHubRepository
+	accessToken := ""
+	if userID, ok := middleware.UserIDFromContext(ctx); ok && service.account != nil {
+		accessToken, _ = service.account.FindGitHubAccessToken(ctx, userID)
+	}
+	if tokenClient, ok := service.github.(GitHubRepositoryTokenClient); ok {
+		repository, err = tokenClient.InspectRepositoryWithToken(ctx, parts[0], name, accessToken)
+	} else {
+		repository, err = service.github.InspectRepository(ctx, parts[0], name)
+	}
 	if err != nil {
 		return ResolvedRepository{}, fmt.Errorf("resolve GitHub repository: %w", err)
 	}

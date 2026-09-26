@@ -20,6 +20,14 @@ func NewGitHubProvider(config Config, httpClient *http.Client) *GitHubProvider {
 }
 
 func (provider *GitHubProvider) InspectRepository(ctx context.Context, owner, name string) (GitHubRepository, error) {
+	return provider.inspectRepository(ctx, owner, name, "")
+}
+
+func (provider *GitHubProvider) InspectRepositoryWithToken(ctx context.Context, owner, name, accessToken string) (GitHubRepository, error) {
+	return provider.inspectRepository(ctx, owner, name, accessToken)
+}
+
+func (provider *GitHubProvider) inspectRepository(ctx context.Context, owner, name, accessToken string) (GitHubRepository, error) {
 	var payload struct {
 		ID            int64  `json:"id"`
 		Name          string `json:"name"`
@@ -31,7 +39,7 @@ func (provider *GitHubProvider) InspectRepository(ctx context.Context, owner, na
 		} `json:"owner"`
 	}
 	endpoint := "https://api.github.com/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(name)
-	if err := getJSON(ctx, provider.httpClient, endpoint, "", &payload); err != nil {
+	if err := getJSON(ctx, provider.httpClient, endpoint, accessToken, &payload); err != nil {
 		return GitHubRepository{}, fmt.Errorf("inspect GitHub repository: %w", err)
 	}
 	if payload.ID <= 0 || payload.Owner.Login == "" || payload.Name == "" || payload.HTMLURL == "" || payload.DefaultBranch == "" {
@@ -41,7 +49,7 @@ func (provider *GitHubProvider) InspectRepository(ctx context.Context, owner, na
 		Name string `json:"name"`
 	}
 	branchesEndpoint := "https://api.github.com/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(name) + "/branches?per_page=100"
-	if err := getJSON(ctx, provider.httpClient, branchesEndpoint, "", &branchesPayload); err != nil {
+	if err := getJSON(ctx, provider.httpClient, branchesEndpoint, accessToken, &branchesPayload); err != nil {
 		return GitHubRepository{}, fmt.Errorf("inspect GitHub repository branches: %w", err)
 	}
 	branches := make([]string, 0, len(branchesPayload))

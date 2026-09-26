@@ -11,6 +11,10 @@ type GitHubRepositoryClient interface {
 	InspectRepository(ctx context.Context, owner, name string) (GitHubRepository, error)
 }
 
+type GitHubRepositoryTokenClient interface {
+	InspectRepositoryWithToken(ctx context.Context, owner, name, accessToken string) (GitHubRepository, error)
+}
+
 type GitHubRepositoryCatalog interface {
 	ListOrganizations(ctx context.Context, accessToken string) ([]string, error)
 	ListRepositories(ctx context.Context, accessToken, organization string) ([]GitHubRepository, error)
@@ -37,10 +41,24 @@ func NewGitHubRepositoryClient(client provider.GitHubRepositoryInspector) GitHub
 }
 
 func (client *githubRepositoryClient) InspectRepository(ctx context.Context, owner, name string) (GitHubRepository, error) {
+	return client.inspectRepository(ctx, owner, name, "")
+}
+
+func (client *githubRepositoryClient) InspectRepositoryWithToken(ctx context.Context, owner, name, accessToken string) (GitHubRepository, error) {
+	return client.inspectRepository(ctx, owner, name, accessToken)
+}
+
+func (client *githubRepositoryClient) inspectRepository(ctx context.Context, owner, name, accessToken string) (GitHubRepository, error) {
 	if client.provider == nil {
 		return GitHubRepository{}, fmt.Errorf("GitHub repository provider is not configured")
 	}
-	repository, err := client.provider.InspectRepository(ctx, owner, name)
+	var repository provider.GitHubRepository
+	var err error
+	if tokenClient, ok := client.provider.(provider.GitHubRepositoryTokenInspector); ok {
+		repository, err = tokenClient.InspectRepositoryWithToken(ctx, owner, name, accessToken)
+	} else {
+		repository, err = client.provider.InspectRepository(ctx, owner, name)
+	}
 	if err != nil {
 		return GitHubRepository{}, err
 	}

@@ -40,6 +40,14 @@ func NewSyncService(store SyncRepositoryStore, github GitHubRepositoryClient, lo
 }
 
 func (service *SyncService) SyncProject(ctx context.Context, projectID string) error {
+	return service.syncProject(ctx, projectID, "")
+}
+
+func (service *SyncService) SyncProjectWithToken(ctx context.Context, projectID, accessToken string) error {
+	return service.syncProject(ctx, projectID, accessToken)
+}
+
+func (service *SyncService) syncProject(ctx context.Context, projectID, accessToken string) error {
 	target, err := service.store.ClaimRepositoryForSync(ctx, projectID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -47,7 +55,7 @@ func (service *SyncService) SyncProject(ctx context.Context, projectID string) e
 		}
 		return fmt.Errorf("claim project repository: %w", err)
 	}
-	return service.syncTarget(ctx, target)
+	return service.syncTarget(ctx, target, accessToken)
 }
 
 func (service *SyncService) SyncNext(ctx context.Context) error {
@@ -58,7 +66,7 @@ func (service *SyncService) SyncNext(ctx context.Context) error {
 		}
 		return fmt.Errorf("claim next project repository: %w", err)
 	}
-	return service.syncTarget(ctx, target)
+	return service.syncTarget(ctx, target, "")
 }
 
 func (service *SyncService) Run(ctx context.Context) {
@@ -76,11 +84,17 @@ func (service *SyncService) Run(ctx context.Context) {
 	}
 }
 
-func (service *SyncService) syncTarget(ctx context.Context, target SyncTarget) error {
+func (service *SyncService) syncTarget(ctx context.Context, target SyncTarget, accessToken string) error {
 	if service.github == nil {
 		return fmt.Errorf("GitHub repository client is not configured")
 	}
-	repository, err := service.github.InspectRepository(ctx, target.Owner, target.Name)
+	var repository GitHubRepository
+	var err error
+	if tokenClient, ok := service.github.(GitHubRepositoryTokenClient); ok {
+		repository, err = tokenClient.InspectRepositoryWithToken(ctx, target.Owner, target.Name, accessToken)
+	} else {
+		repository, err = service.github.InspectRepository(ctx, target.Owner, target.Name)
+	}
 	if err != nil {
 		if markErr := service.store.MarkRepositorySyncFailed(ctx, target.ID); markErr != nil && service.log != nil {
 			service.log.Error(ctx, "mark project repository sync failed", "repository_id", target.ID, "error", markErr)

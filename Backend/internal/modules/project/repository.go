@@ -172,8 +172,8 @@ func (repo *repository) Update(ctx context.Context, projectID, name string, desc
 	query := `
 		WITH updated AS (
 			UPDATE tbl_project
-			SET name = $2,
-			    slug = regexp_replace(trim(lower($2)), '[^a-z0-9]+', '-', 'g'),
+			SET name = $2::varchar(255),
+			    slug = regexp_replace(trim(lower($2::varchar(255))), '[^a-z0-9]+', '-', 'g'),
 			    description = $3,
 			    status_id = (SELECT id FROM tbl_enum WHERE category = 'PROJECT_STATUS' AND code = $4),
 			    updated_at = NOW()
@@ -206,7 +206,7 @@ func (repo *repository) UpdateRepositoryBranch(ctx context.Context, projectID, b
 	var repository ProjectRepository
 	err := repo.db.GetContext(ctx, &repository, `
 		UPDATE tbl_project_repository
-		SET default_branch = $2,
+		SET default_branch = $2::varchar(255),
 		    sync_status_id = (
 			    SELECT id FROM tbl_enum
 			    WHERE category = 'PROJECT_REPOSITORY_SYNC_STATUS' AND code = 'PENDING'
@@ -314,14 +314,13 @@ func (repo *repository) MarkRepositorySynced(ctx context.Context, repositoryID s
 		SET github_owner = $2,
 		    github_repository_name = $3,
 		    repository_url = $4,
-		    default_branch = $5,
 		    sync_status_id = (
 			    SELECT id FROM tbl_enum
 			    WHERE category = 'PROJECT_REPOSITORY_SYNC_STATUS' AND code = 'SYNCED'
 		    ),
 		    last_synced_at = NOW(),
 		    updated_at = NOW()
-		WHERE id = $1`, repositoryID, repository.Owner, repository.Name, repository.URL, repository.DefaultBranch)
+		WHERE id = $1`, repositoryID, repository.Owner, repository.Name, repository.URL)
 	if err != nil {
 		return fmt.Errorf("mark repository synced: %w", err)
 	}
