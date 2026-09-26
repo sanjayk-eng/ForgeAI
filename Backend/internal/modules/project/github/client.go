@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -17,6 +18,7 @@ type Client interface {
 }
 
 type Catalog interface {
+	GetAccountLogin(ctx context.Context, accessToken string) (string, error)
 	ListOrganizations(ctx context.Context, accessToken string) ([]string, error)
 	ListRepositories(ctx context.Context, accessToken, organization string) ([]Repository, error)
 }
@@ -37,9 +39,13 @@ type RepositoryOption struct {
 }
 
 type CatalogResponse struct {
+	Account       string             `json:"account"`
 	Organizations []string           `json:"organizations"`
 	Repositories  []RepositoryOption `json:"repositories"`
+	Warning       string             `json:"warning,omitempty"`
 }
+
+const PersonalAccountOwner = "personal"
 
 type client struct {
 	provider provider.GitHubRepositoryInspector
@@ -125,7 +131,10 @@ func (c *client) ListOrganizations(ctx context.Context, accessToken string) ([]s
 
 	organizations, err := c.catalog.ListOrganizations(ctx, accessToken)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, provider.ErrGitHubOrganizationScopeRequired) {
+			return nil, fmt.Errorf("%w: %w", ErrGitHubAccountUnavailable, err)
+		}
+		return nil, fmt.Errorf("failed to fetch organizations from GitHub: %w", err)
 	}
 
 	result := make([]string, 0, len(organizations))
@@ -135,6 +144,13 @@ func (c *client) ListOrganizations(ctx context.Context, accessToken string) ([]s
 		}
 	}
 	return result, nil
+}
+
+func (c *client) GetAccountLogin(ctx context.Context, accessToken string) (string, error) {
+	if c.catalog == nil {
+		return "", fmt.Errorf("GitHub repository catalog is not configured")
+	}
+	return c.catalog.GetAccountLogin(ctx, accessToken)
 }
 
 func (c *client) ListRepositories(ctx context.Context, accessToken, organization string) ([]Repository, error) {

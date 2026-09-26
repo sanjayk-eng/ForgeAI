@@ -52,7 +52,7 @@ func (o *GitHubOrchestrator) ResolveRepository(ctx context.Context, repositoryUR
 	return o.githubClient.ResolveRepository(ctx, repositoryURL, accessToken)
 }
 
-func (o *GitHubOrchestrator) ListGitHubRepositories(ctx context.Context, workspaceID, userID string) (github.CatalogResponse, error) {
+func (o *GitHubOrchestrator) ListGitHubRepositories(ctx context.Context, workspaceID, userID, owner string) (github.CatalogResponse, error) {
 	if err := o.validateWorkspaceOwner(ctx, workspaceID, userID); err != nil {
 		return github.CatalogResponse{}, err
 	}
@@ -70,7 +70,7 @@ func (o *GitHubOrchestrator) ListGitHubRepositories(ctx context.Context, workspa
 		return github.CatalogResponse{}, fmt.Errorf("%w: %v", github.ErrGitHubAccountUnavailable, err)
 	}
 
-	return o.catalogSvc.ListRepositories(ctx, token)
+	return o.catalogSvc.ListRepositories(ctx, token, owner)
 }
 
 func (o *GitHubOrchestrator) ImportGitHubRepositories(ctx context.Context, workspaceID, userID string, input ImportGitHubRepositoriesInput) (ImportGitHubRepositoriesResponse, error) {

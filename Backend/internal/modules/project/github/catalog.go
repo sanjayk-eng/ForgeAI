@@ -15,7 +15,7 @@ var (
 )
 
 type CatalogService interface {
-	ListRepositories(ctx context.Context, accessToken string) (CatalogResponse, error)
+	ListRepositories(ctx context.Context, accessToken, owner string) (CatalogResponse, error)
 	ImportRepositories(ctx context.Context, workspaceID, userID string, repositories []repository.ConnectRepositoryRequest, projectRepo ProjectRepository, coreService CoreService) (ImportResponse, error)
 }
 
@@ -33,8 +33,8 @@ type ImportResponse struct {
 }
 
 type ImportedProject struct {
-	ID         string                         `json:"id"`
-	Name       string                         `json:"name"`
+	ID         string                       `json:"id"`
+	Name       string                       `json:"name"`
 	Repository repository.ProjectRepository `json:"repository"`
 }
 
@@ -46,51 +46,56 @@ func NewCatalogService(client Client) CatalogService {
 	return &catalogService{client: client}
 }
 
-func (s *catalogService) ListRepositories(ctx context.Context, accessToken string) (CatalogResponse, error) {
+func (s *catalogService) ListRepositories(ctx context.Context, accessToken, owner string) (CatalogResponse, error) {
 	catalog, ok := s.client.(Catalog)
 	if !ok {
 		return CatalogResponse{}, ErrGitHubCatalogUnavailable
 	}
 
-	organizations, err := catalog.ListOrganizations(ctx, accessToken)
-	if err != nil {
-		return CatalogResponse{}, err
-	}
-
 	result := CatalogResponse{
-		Organizations: organizations,
+		Organizations: []string{},
 		Repositories:  []RepositoryOption{},
 	}
 
-	seen := make(map[int64]bool)
+	if owner == "" {
+		account, err := catalog.GetAccountLogin(ctx, accessToken)
+		if err != nil {
+			return CatalogResponse{}, fmt.Errorf("failed to get GitHub account: %w", err)
+		}
+		organizations, err := catalog.ListOrganizations(ctx, accessToken)
+		if err != nil {
+			return CatalogResponse{}, fmt.Errorf("failed to list organizations: %w", err)
+		}
+		result.Account = account
+		result.Organizations = organizations
+		
+		// Add a warning if no organizations found
+		if len(organizations) == 0 {
+			result.Warning = "No organizations found. If you belong to organizations, try disconnecting and reconnecting your GitHub account to grant organization access permissions."
+		}
+		
+		return result, nil
+	}
 
-	// List personal repositories
-	personalRepositories, err := catalog.ListRepositories(ctx, accessToken, "")
+	account, err := catalog.GetAccountLogin(ctx, accessToken)
 	if err != nil {
 		return CatalogResponse{}, err
 	}
+	result.Account = account
 
-	for _, repo := range personalRepositories {
-		if seen[repo.ID] {
-			continue
-		}
-		seen[repo.ID] = true
-		result.Repositories = append(result.Repositories, toRepositoryOption(repo, "personal"))
+	organization := owner
+	repositoryOwner := owner
+	if owner == PersonalAccountOwner || owner == account {
+		organization = ""
+		repositoryOwner = account
 	}
 
-	// List organization repositories
-	for _, org := range organizations {
-		repositories, listErr := catalog.ListRepositories(ctx, accessToken, org)
-		if listErr != nil {
-			return CatalogResponse{}, listErr
-		}
-		for _, repo := range repositories {
-			if seen[repo.ID] {
-				continue
-			}
-			seen[repo.ID] = true
-			result.Repositories = append(result.Repositories, toRepositoryOption(repo, org))
-		}
+	repositories, err := catalog.ListRepositories(ctx, accessToken, organization)
+	if err != nil {
+		return CatalogResponse{}, err
+	}
+	for _, repo := range repositories {
+		result.Repositories = append(result.Repositories, toRepositoryOption(repo, repositoryOwner))
 	}
 
 	return result, nil

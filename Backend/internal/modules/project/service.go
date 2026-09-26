@@ -33,7 +33,7 @@ type Service interface {
 
 	// GitHub operations
 	ResolveRepository(ctx context.Context, repositoryURL string) (projectrepo.ResolvedRepository, error)
-	ListGitHubRepositories(ctx context.Context, workspaceID, userID string) (github.CatalogResponse, error)
+	ListGitHubRepositories(ctx context.Context, workspaceID, userID, owner string) (github.CatalogResponse, error)
 	ImportGitHubRepositories(ctx context.Context, workspaceID, userID string, input ImportGitHubRepositoriesRequest) (ImportGitHubRepositoriesResponse, error)
 }
 
@@ -102,7 +102,7 @@ func (s *service) ConnectRepository(ctx context.Context, projectID string, input
 	if err != nil {
 		return projectrepo.ProjectRepository{}, core.ErrProjectNotFound
 	}
-	
+
 	return s.repoService.ConnectRepository(ctx, nil, projectID, project.WorkspaceID, projectrepo.ConnectRepositoryRequest(input))
 }
 
@@ -122,8 +122,8 @@ func (s *service) ResolveRepository(ctx context.Context, repositoryURL string) (
 	return s.githubOrch.ResolveRepository(ctx, repositoryURL)
 }
 
-func (s *service) ListGitHubRepositories(ctx context.Context, workspaceID, userID string) (github.CatalogResponse, error) {
-	return s.githubOrch.ListGitHubRepositories(ctx, workspaceID, userID)
+func (s *service) ListGitHubRepositories(ctx context.Context, workspaceID, userID, owner string) (github.CatalogResponse, error) {
+	return s.githubOrch.ListGitHubRepositories(ctx, workspaceID, userID, owner)
 }
 
 func (s *service) ImportGitHubRepositories(ctx context.Context, workspaceID, userID string, input ImportGitHubRepositoriesRequest) (ImportGitHubRepositoriesResponse, error) {

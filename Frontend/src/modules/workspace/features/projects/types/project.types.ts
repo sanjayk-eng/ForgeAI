@@ -54,8 +54,10 @@ export type GitHubRepositoryOption = ProjectRepositoryInput & {
 };
 
 export type GitHubRepositoryCatalog = {
+  account: string;
   organizations: string[];
   repositories: GitHubRepositoryOption[];
+  warning?: string;
 };
 
 export type UpdateProjectInput = {

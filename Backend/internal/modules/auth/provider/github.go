@@ -66,10 +66,40 @@ func (provider *GitHubProvider) inspectRepository(ctx context.Context, owner, na
 
 func (provider *GitHubProvider) ListOrganizations(ctx context.Context, accessToken string) ([]GitHubOrganization, error) {
 	var payload []GitHubOrganization
-	if err := getJSON(ctx, provider.httpClient, "https://api.github.com/user/orgs?per_page=100", accessToken, &payload); err != nil {
+	headers, err := getJSONWithHeaders(ctx, provider.httpClient, "https://api.github.com/user/orgs?per_page=100", accessToken, &payload)
+	if err != nil {
 		return nil, fmt.Errorf("list GitHub organizations: %w", err)
 	}
+	
+	// Log the scopes for debugging
+	scopes := headers.Get("X-OAuth-Scopes")
+	fmt.Printf("DEBUG: GitHub OAuth Scopes: %q\n", scopes)
+	fmt.Printf("DEBUG: Organizations received: %d\n", len(payload))
+	
+	if !hasOAuthScope(scopes, "read:org") {
+		return nil, ErrGitHubOrganizationScopeRequired
+	}
 	return payload, nil
+}
+
+func hasOAuthScope(scopesHeader, requiredScope string) bool {
+	for _, scope := range strings.Split(scopesHeader, ",") {
+		if strings.EqualFold(strings.TrimSpace(scope), requiredScope) {
+			return true
+		}
+	}
+	return false
+}
+
+func (provider *GitHubProvider) GetAccountLogin(ctx context.Context, accessToken string) (string, error) {
+	var profile gitHubProfile
+	if err := getJSON(ctx, provider.httpClient, "https://api.github.com/user", accessToken, &profile); err != nil {
+		return "", fmt.Errorf("get GitHub account: %w", err)
+	}
+	if strings.TrimSpace(profile.Login) == "" {
+		return "", fmt.Errorf("GitHub account response is missing login")
+	}
+	return profile.Login, nil
 }
 
 func (provider *GitHubProvider) ListRepositories(ctx context.Context, accessToken, organization string) ([]GitHubRepository, error) {

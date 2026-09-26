@@ -158,7 +158,7 @@ func (h *Handler) ResolveRepository(c *gin.Context) {
 }
 
 func (h *Handler) ListGitHubRepositories(c *gin.Context) {
-	repositories, err := h.service.ListGitHubRepositories(c.Request.Context(), c.Param("workspace_id"), userID(c))
+	repositories, err := h.service.ListGitHubRepositories(c.Request.Context(), c.Param("workspace_id"), userID(c), c.Query("owner"))
 	if err != nil {
 		h.writeError(c, err)
 		return

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, GitBranch, Globe2, LoaderCircle, LockKeyhole, X } from "lucide-react";
 import { useToast } from "../../../../../shared/ui/useToast";
@@ -20,21 +20,26 @@ export function ImportGitHubRepositoriesDialog({
   workspaceId,
   onClose,
 }: ImportGitHubRepositoriesDialogProps) {
-  const [organization, setOrganization] = useState("all");
+  const [owner, setOwner] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const toast = useToast();
   const queryClient = useQueryClient();
-  const repositoriesQuery = useQuery({
-    queryKey: ["github-repositories", workspaceId],
+  const sourcesQuery = useQuery({
+    queryKey: ["github-repository-sources", workspaceId],
     queryFn: () => listGitHubRepositories(accessToken, workspaceId),
     enabled: Boolean(accessToken && workspaceId),
+  });
+  const repositoriesQuery = useQuery({
+    queryKey: ["github-repositories", workspaceId, owner],
+    queryFn: () => listGitHubRepositories(accessToken, workspaceId, owner),
+    enabled: Boolean(accessToken && workspaceId && owner),
   });
   const importMutation = useMutation({
     mutationFn: () =>
       importGitHubRepositories(
         accessToken,
         workspaceId,
-        (catalog?.repositories ?? []).filter((repository) => selected.has(repository.github_repository_id)),
+        (repositoriesQuery.data?.repositories ?? []).filter((repository) => selected.has(repository.github_repository_id)),
       ),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ["projects", workspaceId] });
@@ -45,14 +50,8 @@ export function ImportGitHubRepositoriesDialog({
       toast.pushError(error instanceof Error ? error.message : "Could not import repositories"),
   });
 
-  const catalog = repositoriesQuery.data;
-  const visibleRepositories = useMemo(
-    () =>
-      catalog?.repositories.filter(
-        (repository) => organization === "all" || repository.organization === organization,
-      ) ?? [],
-    [catalog, organization],
-  );
+  const sources = sourcesQuery.data;
+  const visibleRepositories = repositoriesQuery.data?.repositories ?? [];
   const allVisibleSelected =
     visibleRepositories.length > 0 &&
     visibleRepositories.every((repository) => selected.has(repository.github_repository_id));
@@ -78,7 +77,7 @@ export function ImportGitHubRepositoriesDialog({
   return (
     <div className="fixed inset-0 z-30 grid place-items-center bg-[var(--overlay)] p-5 backdrop-blur-md">
       <section className="relative flex max-h-[min(760px,calc(100vh-40px))] w-full max-w-[720px] flex-col rounded-xl border border-forge-accent/20 bg-forge-card shadow-2xl">
-        {(repositoriesQuery.isLoading || importMutation.isPending) && <LoadingOverlay message={importMutation.isPending ? "Importing repositories" : "Loading GitHub repositories"} />}
+        {(sourcesQuery.isLoading || repositoriesQuery.isFetching || importMutation.isPending) && <LoadingOverlay message={importMutation.isPending ? "Importing repositories" : "Loading GitHub repositories"} />}
         <header className="flex items-start justify-between gap-5 border-b border-white/[0.08] p-7">
           <div>
             <span className="mb-2 block font-mono text-[10px] uppercase tracking-[.12em] text-forge-accent">GitHub import</span>
@@ -88,18 +87,28 @@ export function ImportGitHubRepositoriesDialog({
           <button type="button" className="grid size-9 place-items-center rounded-md text-forge-muted hover:bg-[var(--surface-hover)]" onClick={onClose} aria-label="Close dialog"><X size={18} /></button>
         </header>
 
-        {repositoriesQuery.isLoading ? (
+        {sourcesQuery.isLoading ? (
           <div className="grid min-h-[280px] place-content-center gap-3 text-sm text-forge-muted"><LoaderCircle className="mx-auto animate-spin text-forge-accent" size={20} />Loading GitHub repositories</div>
-        ) : repositoriesQuery.isError ? (
-          <div className="m-7 border border-forge-signal/30 bg-forge-signal/[0.06] p-5 text-sm text-forge-soft">Could not load GitHub repositories. {repositoriesQuery.error instanceof Error ? repositoriesQuery.error.message : "Connect GitHub and try again."}</div>
+        ) : sourcesQuery.isError ? (
+          <div className="m-7 border border-forge-signal/30 bg-forge-signal/[0.06] p-5 text-sm text-forge-soft">Could not load GitHub accounts. {sourcesQuery.error instanceof Error ? sourcesQuery.error.message : "Connect GitHub and try again."}</div>
         ) : (
           <>
+            {sources?.warning && (
+              <div className="mx-7 mt-7 flex items-start gap-3 border border-yellow-500/30 bg-yellow-500/[0.06] p-4 text-sm text-yellow-200">
+                <svg className="mt-0.5 shrink-0" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 1L15 14H1L8 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                  <path d="M8 6V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="8" cy="11.5" r="0.75" fill="currentColor"/>
+                </svg>
+                <span>{sources.warning}</span>
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-3 border-b border-white/[0.08] p-5">
-              <label className="min-w-52 flex-1"><span className="label">Source</span><select className="input mt-2" value={organization} onChange={(event) => setOrganization(event.target.value)}><option value="all">All organizations and personal</option><option value="personal">Personal repositories</option>{catalog?.organizations.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+              <label className="min-w-52 flex-1"><span className="label">Account or organization</span><select className="input mt-2" value={owner} onChange={(event) => { setOwner(event.target.value); setSelected(new Set()); }}><option value="">Choose an account or organization</option>{sources?.account && <option value={sources.account}>{sources.account} (account)</option>}{sources?.organizations.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
               <button type="button" className="mt-5 inline-flex items-center gap-2 border border-white/[0.12] px-3 py-3 text-xs font-bold text-forge-soft hover:border-forge-accent/40" onClick={toggleVisible} disabled={visibleRepositories.length === 0}>{allVisibleSelected ? "Clear visible" : "Select visible"}</button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-5">
-              {visibleRepositories.length === 0 ? <p className="py-12 text-center text-sm text-forge-muted">No repositories found for this source.</p> : <div className="grid gap-2">{visibleRepositories.map((repository) => { const checked = selected.has(repository.github_repository_id); const VisibilityIcon = repository.private ? LockKeyhole : Globe2; return <button key={repository.github_repository_id} type="button" className={`flex items-center gap-3 border p-3 text-left transition ${checked ? "border-forge-accent/45 bg-forge-accent/[0.08]" : "border-white/[0.09] hover:border-white/20"}`} onClick={() => toggle(repository)}><span className={`grid size-7 shrink-0 place-items-center border ${checked ? "border-forge-accent bg-forge-accent text-forge-bg" : "border-white/[0.16] text-transparent"}`}><Check size={15} /></span><GitBranch size={16} className="shrink-0 text-forge-muted" /><span className="min-w-0 flex-1"><strong className="block truncate text-sm text-forge-soft">{repository.github_owner}/{repository.github_repository_name}</strong><span className="mt-1 flex items-center gap-1 text-xs text-forge-muted"><VisibilityIcon size={12} />{repository.private ? "Private" : "Public"} · {repository.organization === "personal" ? "Personal" : repository.organization} · {repository.default_branch}</span></span></button>; })}</div>}
+              {!owner ? <p className="py-12 text-center text-sm text-forge-muted">Choose an account or organization to load its repositories.</p> : repositoriesQuery.isError ? <p className="py-12 text-center text-sm text-forge-signal">Could not load repositories. {repositoriesQuery.error instanceof Error ? repositoriesQuery.error.message : "Try again."}</p> : repositoriesQuery.isLoading ? <div className="grid min-h-[180px] place-content-center gap-3 text-sm text-forge-muted"><LoaderCircle className="mx-auto animate-spin text-forge-accent" size={20} />Loading repositories</div> : visibleRepositories.length === 0 ? <p className="py-12 text-center text-sm text-forge-muted">No repositories found for this source.</p> : <div className="grid gap-2">{visibleRepositories.map((repository) => { const checked = selected.has(repository.github_repository_id); const VisibilityIcon = repository.private ? LockKeyhole : Globe2; return <button key={repository.github_repository_id} type="button" className={`flex items-center gap-3 border p-3 text-left transition ${checked ? "border-forge-accent/45 bg-forge-accent/[0.08]" : "border-white/[0.09] hover:border-white/20"}`} onClick={() => toggle(repository)}><span className={`grid size-7 shrink-0 place-items-center border ${checked ? "border-forge-accent bg-forge-accent text-forge-bg" : "border-white/[0.16] text-transparent"}`}><Check size={15} /></span><GitBranch size={16} className="shrink-0 text-forge-muted" /><span className="min-w-0 flex-1"><strong className="block truncate text-sm text-forge-soft">{repository.github_owner}/{repository.github_repository_name}</strong><span className="mt-1 flex items-center gap-1 text-xs text-forge-muted"><VisibilityIcon size={12} />{repository.private ? "Private" : "Public"} · {repository.organization} · {repository.default_branch}</span></span></button>; })}</div>}
             </div>
           </>
         )}
