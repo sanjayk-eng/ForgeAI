@@ -74,3 +74,10 @@ func (m *Module) OnProjectDeleted(ctx context.Context, projectID string) error {
 	}
 	return m.Worker.DeleteProject(ctx, projectID)
 }
+
+func (m *Module) OnProjectBranchUpdated(ctx context.Context, projectID string) error {
+	if m.Worker == nil {
+		return nil
+	}
+	return m.Worker.RefreshProjectBranch(ctx, projectID)
+}

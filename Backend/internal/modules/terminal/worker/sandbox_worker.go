@@ -199,6 +199,36 @@ func (w *SandboxWorker) handleProjectDeleted(ctx context.Context, projectID stri
 	}
 }
 
+func (w *SandboxWorker) RefreshProjectBranch(ctx context.Context, projectID string) error {
+	unlock := w.lockProject(projectID)
+	defer unlock()
+
+	sandbox, err := w.service.GetByProject(ctx, projectID)
+	if err != nil {
+		if errors.Is(err, domain.ErrSandboxNotFound) {
+			return nil
+		}
+		return err
+	}
+
+	if sandbox.Status == domain.StatusDestroyed {
+		return nil
+	}
+
+	if sandbox.Status != domain.StatusRunning {
+		return nil
+	}
+
+	if err := w.provisionFiles(ctx, sandbox, projectID); err != nil {
+		return err
+	}
+
+	if w.log != nil {
+		w.log.Info(ctx, "sandbox repository branch refreshed", "project_id", projectID, "sandbox_id", sandbox.ID)
+	}
+	return nil
+}
+
 func (w *SandboxWorker) DeleteProject(ctx context.Context, projectID string) error {
 	unlock := w.lockProject(projectID)
 	defer unlock()

@@ -14,11 +14,12 @@ import (
 
 // ProjectOrchestrator handles project + repository composite operations
 type ProjectOrchestrator struct {
-	db          *sqlx.DB
-	coreService core.Service
-	repoService projectrepo.Service
-	onCreate    func(ctx context.Context, projectID, userID string)
-	onDelete    func(ctx context.Context, projectID string) error
+	db              *sqlx.DB
+	coreService     core.Service
+	repoService     projectrepo.Service
+	onCreate        func(ctx context.Context, projectID, userID string)
+	onDelete        func(ctx context.Context, projectID string) error
+	onBranchUpdated func(ctx context.Context, projectID string) error
 }
 
 func NewProjectOrchestrator(db *sqlx.DB, coreService core.Service, repoService projectrepo.Service) *ProjectOrchestrator {
@@ -37,6 +38,10 @@ func (o *ProjectOrchestrator) SetOnDelete(fn func(ctx context.Context, projectID
 	o.onDelete = fn
 }
 
+func (o *ProjectOrchestrator) SetOnBranchUpdated(fn func(ctx context.Context, projectID string) error) {
+	o.onBranchUpdated = fn
+}
+
 func (o *ProjectOrchestrator) TriggerOnCreate(ctx context.Context, projectID, userID string) {
 	if o.onCreate != nil {
 		o.onCreate(ctx, projectID, userID)
@@ -46,6 +51,13 @@ func (o *ProjectOrchestrator) TriggerOnCreate(ctx context.Context, projectID, us
 func (o *ProjectOrchestrator) TriggerOnDelete(ctx context.Context, projectID string) error {
 	if o.onDelete != nil {
 		return o.onDelete(ctx, projectID)
+	}
+	return nil
+}
+
+func (o *ProjectOrchestrator) TriggerOnBranchUpdated(ctx context.Context, projectID string) error {
+	if o.onBranchUpdated != nil {
+		return o.onBranchUpdated(ctx, projectID)
 	}
 	return nil
 }

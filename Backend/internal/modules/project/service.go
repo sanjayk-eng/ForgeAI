@@ -38,6 +38,7 @@ type Service interface {
 	ImportGitHubRepositories(ctx context.Context, workspaceID, userID string, input ImportGitHubRepositoriesRequest) (ImportGitHubRepositoriesResponse, error)
 	SetOnCreate(fn func(ctx context.Context, projectID, userID string))
 	SetOnDelete(fn func(ctx context.Context, projectID string) error)
+	SetOnBranchUpdated(fn func(ctx context.Context, projectID string) error)
 }
 
 type service struct {
@@ -126,7 +127,16 @@ func (s *service) ConnectRepository(ctx context.Context, projectID string, input
 }
 
 func (s *service) UpdateRepositoryBranch(ctx context.Context, projectID, branch string) (projectrepo.ProjectRepository, error) {
-	return s.repoService.UpdateBranch(ctx, projectID, branch)
+	repository, err := s.repoService.UpdateBranch(ctx, projectID, branch)
+	if err != nil {
+		return projectrepo.ProjectRepository{}, err
+	}
+	if s.projectOrch != nil {
+		if err := s.projectOrch.TriggerOnBranchUpdated(ctx, projectID); err != nil {
+			return projectrepo.ProjectRepository{}, err
+		}
+	}
+	return repository, nil
 }
 
 func (s *service) SyncProject(ctx context.Context, projectID string) (orchestrator.ProjectWithRepository, error) {
@@ -173,5 +183,11 @@ func (s *service) SetOnCreate(fn func(ctx context.Context, projectID, userID str
 func (s *service) SetOnDelete(fn func(ctx context.Context, projectID string) error) {
 	if s.projectOrch != nil {
 		s.projectOrch.SetOnDelete(fn)
+	}
+}
+
+func (s *service) SetOnBranchUpdated(fn func(ctx context.Context, projectID string) error) {
+	if s.projectOrch != nil {
+		s.projectOrch.SetOnBranchUpdated(fn)
 	}
 }

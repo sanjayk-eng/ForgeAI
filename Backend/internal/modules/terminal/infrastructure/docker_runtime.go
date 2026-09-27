@@ -254,7 +254,15 @@ func (runtime *DockerRuntime) CloneRepository(ctx context.Context, volumeName, w
 
 	const script = `set -eu
 IFS= read -r token || token=""
-[ -e "$3/.forgeai-repository-cloned" ] && exit 0
+repo_mark="$3/.forgeai-repository-cloned"
+current_branch=""
+if [ -d "$3/.git" ]; then
+	current_branch=$(git -C "$3" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+fi
+if [ -e "$repo_mark" ] && [ -n "$current_branch" ] && [ "$2" = "$current_branch" ]; then
+	exit 0
+fi
+find "$3" -mindepth 1 -maxdepth 1 ! -name ".forgeai-repository-cloned" -exec rm -rf {} +
 clone_dir=$(mktemp -d)
 trap 'rm -rf "$clone_dir"' EXIT
 if [ -n "$token" ]; then
@@ -272,7 +280,7 @@ else
 	fi
 fi
 cp -a "$clone_dir/repo/." "$3/"
-: > "$3/.forgeai-repository-cloned"`
+: > "$repo_mark"`
 
 	commandContext, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

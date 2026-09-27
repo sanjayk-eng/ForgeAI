@@ -179,6 +179,7 @@ func runServer() error {
 
 	projectModule.ProjectService.SetOnCreate(terminalModule.OnProjectCreated)
 	projectModule.ProjectService.SetOnDelete(terminalModule.OnProjectDeleted)
+	projectModule.ProjectService.SetOnBranchUpdated(terminalModule.OnProjectBranchUpdated)
 	member.LoadModule(member.ModuleConfig{
 		Router:   protectedRouter,
 		Database: db,
