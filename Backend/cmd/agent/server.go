@@ -3,6 +3,7 @@ package main
 import (
 	"ai-agent/internal/config"
 	"ai-agent/internal/middleware"
+	agentmodule "ai-agent/internal/modules/agent"
 	"ai-agent/internal/modules/auth"
 	"ai-agent/internal/modules/auth/provider"
 	projectmodule "ai-agent/internal/modules/project"
@@ -169,6 +170,12 @@ func runServer() error {
 	defer terminalModule.Stop()
 
 	terminalmodule.RegisterRoutes(protectedRouter, terminalModule.Handler)
+	agentService := agentmodule.NewService(terminalModule.Service, agentmodule.Config{
+		BaseURL: settings.AIBaseURL,
+		APIKey:  settings.AIAPIKey,
+		Model:   settings.AIModel,
+	})
+	agentmodule.RegisterRoutes(protectedRouter, agentmodule.NewHandler(agentService))
 
 	projectModule.ProjectService.SetOnCreate(terminalModule.OnProjectCreated)
 	projectModule.ProjectService.SetOnDelete(terminalModule.OnProjectDeleted)

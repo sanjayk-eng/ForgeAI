@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { Archive, Boxes, FolderGit2, Plus, RefreshCw, Search } from "lucide-react";
 import { useAuth } from "../../../auth/useAuth";
@@ -14,6 +15,8 @@ import { useDebouncedValue } from "../../../../shared/hooks/useDebouncedValue";
 
 export function ProjectsPage() {
   const workspaceId = useWorkspaceId();
+  const [searchParams] = useSearchParams();
+  const enteringAgent = searchParams.get("agent") === "1";
   const { tokens } = useAuth();
   const accessToken = tokens?.access_token ?? "";
   const toast = useToast();
@@ -49,6 +52,16 @@ export function ProjectsPage() {
           <button className="inline-flex items-center gap-2 bg-forge-accent px-4 py-3 text-xs font-extrabold text-forge-bg transition hover:bg-forge-accent-strong" onClick={() => setCreateOpen(true)}><Plus size={16} /> New project</button>
         </div>
       </header>
+
+      {enteringAgent && (
+        <div className="flex items-start gap-3 border border-forge-accent/25 bg-forge-accent/[0.06] p-4" role="status">
+          <FolderGit2 size={16} className="mt-0.5 shrink-0 text-forge-accent" />
+          <div>
+            <p className="text-sm font-semibold text-forge-text">Choose a project to open its Agent panel</p>
+            <p className="mt-1 text-xs leading-5 text-forge-muted">The agent lives beside the project files and code, not on a separate workspace page.</p>
+          </div>
+        </div>
+      )}
 
       <section className="grid gap-3 sm:grid-cols-3">
         <Summary icon={Boxes} label="Total projects" value={projects.length} />

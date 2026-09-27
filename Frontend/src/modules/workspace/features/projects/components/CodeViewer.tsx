@@ -52,7 +52,7 @@ export function CodeViewer({
         <span className="truncate font-medium">{fileName ?? filePath}</span>
         <span className="hidden truncate text-xs text-forge-muted sm:block">{filePath}</span>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto bg-forge-bg py-4 font-mono text-[13px] leading-6 selection:bg-forge-accent/25">
+      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-contain bg-forge-bg py-4 font-mono text-[13px] leading-6 selection:bg-forge-accent/25">
         <div className="min-w-max pr-8">
           {lines.map((line, index) => (
             <div key={index} className="flex min-h-6 whitespace-pre">

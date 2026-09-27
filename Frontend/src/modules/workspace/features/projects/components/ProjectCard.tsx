@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Edit3, FolderGit2, LoaderCircle, RefreshCw, Trash2 } from "lucide-react";
+import { Bot, CheckCircle2, Edit3, FolderGit2, LoaderCircle, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteProject, resolveRepository, syncProject, updateRepositoryBranch } from "../../../api/projects.api";
@@ -56,6 +56,9 @@ export function ProjectCard({
   const handleOpenProject = () => {
     navigate(`/workspace/projects/${project.id}?workspace=${encodeURIComponent(workspaceId)}`);
   };
+  const handleOpenAgent = () => {
+    navigate(`/workspace/projects/${project.id}?workspace=${encodeURIComponent(workspaceId)}&panel=agent`);
+  };
 
   return (
     <article className={`relative overflow-hidden border bg-forge-panel/70 p-5 transition sm:p-6 ${syncing ? "border-sky-300/35" : "border-[var(--border)] hover:border-forge-accent/25"}`}>
@@ -73,6 +76,7 @@ export function ProjectCard({
           </div>
         </button>
         <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.08em]">
+          <button type="button" className="inline-flex h-7 items-center gap-1.5 border border-forge-accent/25 px-2 text-forge-accent transition hover:bg-forge-accent/[0.08]" onClick={handleOpenAgent} aria-label={`Open agent for ${project.name}`} title="Open project agent"><Bot size={13} /> Agent</button>
           {sandbox && <SandboxStatus status={sandbox.status} showLabel={false} />}
           {!sandbox && !sandboxLoading && <span className="text-xs text-forge-muted">Setting up...</span>}
           <span className="border border-[var(--border)] px-2 py-1 text-forge-muted">{project.type}</span>

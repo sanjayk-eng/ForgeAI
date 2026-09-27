@@ -1,15 +1,17 @@
-import { ArrowLeft, Loader2 } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Bot, FileText, Loader2, X } from "lucide-react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../auth/useAuth";
 import { useWorkspaceId } from "../../hooks/useWorkspaceId";
 import { useSandbox } from "./hooks/useSandbox";
 import { SandboxStatus } from "./components/SandboxStatus";
 import { FileTree } from "./components/FileTree";
 import { CodeViewer } from "./components/CodeViewer";
+import { AgentPanel } from "./components/AgentPanel";
 import { useState } from "react";
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const workspaceId = useWorkspaceId();
   const navigate = useNavigate();
   const { tokens } = useAuth();
@@ -18,11 +20,19 @@ export function ProjectDetailPage() {
   const { sandbox, isLoading, error } = useSandbox(accessToken, projectId ?? null, true);
   const sandboxStatus = typeof sandbox?.status === "string" ? sandbox.status : null;
   const [selectedFile, setSelectedFile] = useState<{ name: string; path: string } | null>(null);
+  const activePanel = searchParams.get("panel") === "agent" ? "agent" : "files";
   const workspaceLabel = workspaceId || "workspace";
   const projectLabel = projectId || "project";
 
   if (!workspaceId || !projectId) {
     return <div>Invalid project</div>;
+  }
+
+  function selectPanel(panel: "files" | "agent") {
+    const nextParams = new URLSearchParams(searchParams);
+    if (panel === "agent") nextParams.set("panel", "agent");
+    else nextParams.delete("panel");
+    setSearchParams(nextParams, { replace: true });
   }
 
   return (
@@ -43,6 +53,14 @@ export function ProjectDetailPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            aria-pressed={activePanel === "agent"}
+            onClick={() => selectPanel(activePanel === "agent" ? "files" : "agent")}
+            className={`inline-flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition ${activePanel === "agent" ? "border-forge-accent/40 bg-forge-accent/[0.1] text-forge-accent" : "border-[var(--border)] text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"}`}
+          >
+            <Bot size={14} /> Agent
+          </button>
           <div className="rounded-md border border-[var(--border)] bg-forge-panel px-3 py-1.5 text-[11px] font-medium text-forge-muted">
             {workspaceLabel}
           </div>
@@ -50,10 +68,10 @@ export function ProjectDetailPage() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-[270px] shrink-0 flex-col border-r border-[var(--border)] bg-forge-panel p-0">
-          <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-3 text-xs font-semibold text-forge-text">
-            Files
+          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--border)] bg-[var(--surface-subtle)] px-4 text-xs font-semibold text-forge-text">
+            <FileText size={14} className="text-forge-muted" /> Files
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
@@ -112,6 +130,23 @@ export function ProjectDetailPage() {
             )}
           </div>
         </main>
+        {activePanel === "agent" && (
+          <aside className="flex w-[340px] shrink-0 flex-col border-l border-[var(--border)] bg-forge-panel shadow-[-12px_0_32px_rgba(0,0,0,.08)] max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-20 max-lg:w-[min(360px,calc(100vw-40px))]">
+            <div className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--border)] px-4">
+              <span className="flex items-center gap-2 text-xs font-semibold text-forge-text"><Bot size={15} className="text-forge-accent" /> Agent</span>
+              <button type="button" onClick={() => selectPanel("files")} aria-label="Close agent panel" className="grid size-7 place-items-center rounded text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"><X size={15} /></button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <AgentPanel
+                projectName={projectLabel}
+                selectedFile={selectedFile?.name ?? null}
+                accessToken={accessToken}
+                sandboxId={sandbox?.id ?? null}
+                sandboxStatus={sandboxStatus}
+              />
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
 	"strings"
 	"time"
 
@@ -225,6 +226,21 @@ func (service *Service) ValidateProjectAccess(ctx context.Context, userID, proje
 	return err
 }
 
+func (service *Service) ValidateSandboxAccess(ctx context.Context, userID, sandboxID string) error {
+	sandbox, err := service.Get(ctx, sandboxID)
+	if err != nil {
+		return err
+	}
+	allowed, err := service.store.CanAccessWorkspace(ctx, sandbox.WorkspaceID, strings.TrimSpace(userID))
+	if err != nil {
+		return fmt.Errorf("check sandbox workspace access: %w", err)
+	}
+	if !allowed {
+		return domain.ErrSandboxAccessDenied
+	}
+	return nil
+}
+
 func (service *Service) workspaceForUser(ctx context.Context, userID, projectID string) (string, error) {
 	userID = strings.TrimSpace(userID)
 	projectID = strings.TrimSpace(projectID)
@@ -276,6 +292,32 @@ func (service *Service) ReadFile(ctx context.Context, sandboxID, path string) (s
 		return "", fmt.Errorf("sandbox must be RUNNING to read files")
 	}
 	return service.runtime.ReadFile(ctx, sandbox.ContainerID, path)
+}
+
+func (service *Service) WriteFile(ctx context.Context, sandboxID, relativePath, content string) error {
+	sandbox, err := service.Get(ctx, sandboxID)
+	if err != nil {
+		return err
+	}
+	if sandbox.Status != domain.StatusRunning {
+		return fmt.Errorf("sandbox must be RUNNING to write files")
+	}
+	if strings.Contains(relativePath, "\\") || strings.HasPrefix(relativePath, "/") {
+		return domain.ErrInvalidSandbox
+	}
+	cleanPath := path.Clean(relativePath)
+	if cleanPath == "." || cleanPath == ".." || strings.HasPrefix(cleanPath, "../") || strings.Contains(cleanPath, "/.git/") || cleanPath == ".git" {
+		return domain.ErrInvalidSandbox
+	}
+	workspaceRoot := path.Clean(sandbox.WorkspacePath)
+	fullPath := path.Join(workspaceRoot, cleanPath)
+	if !strings.HasPrefix(fullPath, workspaceRoot+"/") {
+		return domain.ErrInvalidSandbox
+	}
+	if len(content) > 512*1024 {
+		return fmt.Errorf("file content exceeds the write limit")
+	}
+	return service.runtime.WriteFile(ctx, sandbox.ContainerID, fullPath, content)
 }
 
 func (service *Service) CloneRepository(ctx context.Context, sandboxID, repositoryURL, branch, accessToken string) error {

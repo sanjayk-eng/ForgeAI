@@ -51,6 +51,7 @@ type Runtime interface {
 	Execute(ctx context.Context, containerID, command string, timeoutSeconds int) (ExecutionResult, error)
 	ListFiles(ctx context.Context, containerID, path string) ([]FileEntry, error)
 	ReadFile(ctx context.Context, containerID, path string) (string, error)
+	WriteFile(ctx context.Context, containerID, path, content string) error
 	CloneRepository(ctx context.Context, volumeName, workspacePath, helperImage, repositoryURL, branch, accessToken string, timeout time.Duration) error
 }
 
@@ -218,6 +219,28 @@ func (runtime *DockerRuntime) ReadFile(ctx context.Context, containerID, path st
 		return "", fmt.Errorf("read file: %w", err)
 	}
 	return output, nil
+}
+
+func (runtime *DockerRuntime) WriteFile(ctx context.Context, containerID, path, content string) error {
+	if strings.TrimSpace(containerID) == "" || strings.TrimSpace(path) == "" {
+		return fmt.Errorf("container id and file path are required")
+	}
+	commandContext, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	command := exec.CommandContext(commandContext, runtime.binary,
+		"exec", "-i", containerID, "sh", "-lc",
+		`mkdir -p "$(dirname "$1")" && cat > "$1"`, "sh", path,
+	)
+	command.Stdin = strings.NewReader(content)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+	if err := command.Run(); err != nil {
+		diagnostic := strings.TrimSpace(strings.Join([]string{stderr.String(), stdout.String()}, "\n"))
+		return fmt.Errorf("write file: %w: %s", err, diagnostic)
+	}
+	return nil
 }
 
 func (runtime *DockerRuntime) CloneRepository(ctx context.Context, volumeName, workspacePath, helperImage, repositoryURL, branch, accessToken string, timeout time.Duration) error {

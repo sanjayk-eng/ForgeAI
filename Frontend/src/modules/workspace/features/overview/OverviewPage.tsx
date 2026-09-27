@@ -20,8 +20,8 @@ const modules = [
   {
     icon: Bot,
     name: "Agent workspace",
-    detail: "Run and organize agent workflows",
-    state: "Ready",
+    detail: "Connect a model to start AI workflows",
+    state: "Setup required",
   },
   {
     icon: FolderGit2,

@@ -20,6 +20,9 @@ type Config struct {
 	ResendAPIKey    string
 	ResendFromEmail string
 	FrontendURL     string
+	AIBaseURL       string
+	AIAPIKey        string
+	AIModel         string
 	JWTAccessTTL    time.Duration
 	JWTRefreshTTL   time.Duration
 	CORSOrigins     string
@@ -47,6 +50,9 @@ const (
 	envResendAPIKey    = "RESEND_API_KEY"
 	envResendFromEmail = "RESEND_FROM_EMAIL"
 	envFrontendURL     = "FRONTEND_URL"
+	envAIBaseURL       = "AI_BASE_URL"
+	envAIAPIKey        = "AI_API_KEY"
+	envAIModel         = "AI_MODEL"
 	envJWTAccessTTL    = "JWT_ACCESS_TTL"
 	envJWTRefreshTTL   = "JWT_REFRESH_TTL"
 	envCORSOrigins     = "CORS_ALLOWED_ORIGINS"
@@ -64,6 +70,8 @@ const (
 	defaultLogFormat     = "json"
 	defaultLogSource     = true
 	defaultFrontendURL   = "http://localhost:5173"
+	defaultAIBaseURL     = "https://api.openai.com/v1"
+	defaultAIModel       = "gpt-4.1-mini"
 )
 
 var (
