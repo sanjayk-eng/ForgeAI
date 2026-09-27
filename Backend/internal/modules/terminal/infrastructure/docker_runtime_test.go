@@ -41,3 +41,37 @@ func TestIsMissingDockerResource(t *testing.T) {
 		t.Fatal("permission errors must not be ignored")
 	}
 }
+
+func TestHostWorkspacePath(t *testing.T) {
+	path := hostWorkspacePath("forgeai-workspace-abc123")
+	if path == "" {
+		t.Fatal("host workspace path should not be empty")
+	}
+	if !strings.Contains(path, "forgeai-workspace-abc123") {
+		t.Fatalf("expected host workspace path to include volume name, got %q", path)
+	}
+	if !strings.Contains(path, "forgeai-workspaces") {
+		t.Fatalf("expected host workspace path to live under forgeai-workspaces, got %q", path)
+	}
+}
+
+func TestParseListFilesIgnoresSummaryHeader(t *testing.T) {
+	emptyEntries := parseListFiles("total 0\n", "/workspace")
+	if len(emptyEntries) != 0 {
+		t.Fatalf("expected empty directory listing to produce no entries, got %#v", emptyEntries)
+	}
+
+	entries := parseListFiles("total 2\n-rw-r--r--    1 root     root             0 2026-09-27 09:32:08 +0000 .forgeai-repository-cloned\ndrwxr-xr-x    1 root     root          4096 2026-09-27 09:32:05 +0000 .git/\n-rw-r--r--    1 root     root            32 2026-09-27 09:32:05 +0000 README.md\n", "/workspace")
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 real entries, got %d: %#v", len(entries), entries)
+	}
+	if entries[0].Name != ".forgeai-repository-cloned" || entries[1].Name != ".git" || entries[2].Name != "README.md" {
+		t.Fatalf("unexpected parsed entries: %#v", entries)
+	}
+	if !entries[0].IsDirectory && entries[1].IsDirectory != true && entries[2].IsDirectory {
+		t.Fatalf("unexpected directory flags: %#v", entries)
+	}
+	if entries[0].Path != "/workspace/.forgeai-repository-cloned" || entries[1].Path != "/workspace/.git" || entries[2].Path != "/workspace/README.md" {
+		t.Fatalf("unexpected entry paths: %#v", entries)
+	}
+}

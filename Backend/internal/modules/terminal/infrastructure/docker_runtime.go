@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +33,14 @@ type ExecutionResult struct {
 	Command  string
 }
 
+type FileEntry struct {
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	IsDirectory bool   `json:"is_directory"`
+	Size        int64  `json:"size,omitempty"`
+	ModifiedAt  string `json:"modified_at,omitempty"`
+}
+
 type Runtime interface {
 	CreateVolume(ctx context.Context, name string) error
 	RemoveVolume(ctx context.Context, name string) error
@@ -39,6 +49,8 @@ type Runtime interface {
 	StopContainer(ctx context.Context, containerID string) error
 	RemoveContainer(ctx context.Context, containerID string) error
 	Execute(ctx context.Context, containerID, command string, timeoutSeconds int) (ExecutionResult, error)
+	ListFiles(ctx context.Context, containerID, path string) ([]FileEntry, error)
+	ReadFile(ctx context.Context, containerID, path string) (string, error)
 	CloneRepository(ctx context.Context, volumeName, workspacePath, helperImage, repositoryURL, branch, accessToken string, timeout time.Duration) error
 }
 
@@ -53,22 +65,33 @@ func NewDockerRuntime(binary string) *DockerRuntime {
 	return &DockerRuntime{binary: binary}
 }
 
+func hostWorkspacePath(name string) string {
+	root := filepath.Join(os.TempDir(), "forgeai-workspaces")
+	_ = os.MkdirAll(root, 0o755)
+	return filepath.Join(root, name)
+}
+
 func (runtime *DockerRuntime) CreateVolume(ctx context.Context, name string) error {
-	_, err := runtime.run(ctx, "volume", "create", "--label", "com.forgeai.managed=true", name)
-	return err
+	hostPath := hostWorkspacePath(name)
+	if err := os.MkdirAll(hostPath, 0o755); err != nil {
+		return fmt.Errorf("prepare host workspace path %s: %w", hostPath, err)
+	}
+	return nil
 }
 
 func (runtime *DockerRuntime) RemoveVolume(ctx context.Context, name string) error {
-	_, err := runtime.run(ctx, "volume", "rm", "--force", name)
-	if isMissingDockerResource(err, "volume") {
-		return nil
+	hostPath := hostWorkspacePath(name)
+	if err := os.RemoveAll(hostPath); err != nil {
+		return fmt.Errorf("remove host workspace path %s: %w", hostPath, err)
 	}
-	return err
+	return nil
 }
 
 func (runtime *DockerRuntime) CreateContainer(ctx context.Context, spec ContainerSpec) (string, error) {
+	hostPath := hostWorkspacePath(spec.VolumeName)
+	localMount := fmt.Sprintf("type=bind,src=%s,dst=%s", hostPath, spec.WorkspacePath)
 	args := []string{"create", "--quiet", "--name", spec.Name, "--label", "com.forgeai.managed=true"}
-	args = append(args, "--mount", "type=volume,src="+spec.VolumeName+",dst="+spec.WorkspacePath)
+	args = append(args, "--mount", localMount)
 	args = append(args, "--workdir", spec.WorkspacePath, "--network", spec.NetworkMode)
 	if spec.ReadOnlyRootFS {
 		args = append(args, "--read-only")
@@ -134,6 +157,69 @@ func (runtime *DockerRuntime) Execute(ctx context.Context, containerID, command 
 	return result, err
 }
 
+func parseListFiles(output, path string) []FileEntry {
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	entries := make([]FileEntry, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "total ") {
+			continue
+		}
+		fields := strings.Fields(trimmed)
+		if len(fields) == 0 {
+			continue
+		}
+		name := fields[len(fields)-1]
+		isDir := strings.HasSuffix(name, "/")
+		name = strings.TrimSuffix(name, "/")
+		if name == "." || name == ".." {
+			continue
+		}
+		entryPath := strings.TrimRight(path, "/") + "/" + name
+		if path == "/" {
+			entryPath = "/" + name
+		}
+		entries = append(entries, FileEntry{
+			Name:        name,
+			Path:        entryPath,
+			IsDirectory: isDir,
+		})
+	}
+	return entries
+}
+
+func (runtime *DockerRuntime) ListFiles(ctx context.Context, containerID, path string) ([]FileEntry, error) {
+	if strings.TrimSpace(containerID) == "" {
+		return nil, fmt.Errorf("container id is required")
+	}
+	if strings.TrimSpace(path) == "" {
+		path = "/workspace"
+	}
+	commandContext, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	output, err := runtime.run(commandContext, "exec", containerID, "sh", "-lc", `ls -A1p --full-time "$1"`, "sh", path)
+	if err != nil {
+		return nil, fmt.Errorf("list files: %w", err)
+	}
+	return parseListFiles(output, path), nil
+}
+
+func (runtime *DockerRuntime) ReadFile(ctx context.Context, containerID, path string) (string, error) {
+	if strings.TrimSpace(containerID) == "" {
+		return "", fmt.Errorf("container id is required")
+	}
+	if strings.TrimSpace(path) == "" {
+		return "", fmt.Errorf("file path is required")
+	}
+	commandContext, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	output, err := runtime.run(commandContext, "exec", containerID, "sh", "-lc", `sed -n '1,250p' "$1"`, "sh", path)
+	if err != nil {
+		return "", fmt.Errorf("read file: %w", err)
+	}
+	return output, nil
+}
+
 func (runtime *DockerRuntime) CloneRepository(ctx context.Context, volumeName, workspacePath, helperImage, repositoryURL, branch, accessToken string, timeout time.Duration) error {
 	parsedURL, err := url.ParseRequestURI(repositoryURL)
 	if err != nil || parsedURL.Scheme != "https" || parsedURL.Host != "github.com" || parsedURL.User != nil {
@@ -167,10 +253,11 @@ cp -a "$clone_dir/repo/." "$3/"
 
 	commandContext, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	hostPath := hostWorkspacePath(volumeName)
 	command := exec.CommandContext(commandContext, runtime.binary,
 		"run", "--rm", "-i", "--network", "bridge",
 		"--label", "com.forgeai.managed=true",
-		"--mount", "type=volume,src="+volumeName+",dst="+workspacePath,
+		"--mount", "type=bind,src="+hostPath+",dst="+workspacePath,
 		"--entrypoint", "sh", helperImage,
 		"-c", script, "sh", repositoryURL, branch, workspacePath,
 	)

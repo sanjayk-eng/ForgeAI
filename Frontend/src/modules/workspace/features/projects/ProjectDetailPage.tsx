@@ -1,9 +1,12 @@
-import { ArrowLeft, Loader2, Terminal as TerminalIcon, FolderGit2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../../auth/useAuth";
 import { useWorkspaceId } from "../../hooks/useWorkspaceId";
 import { useSandbox } from "./hooks/useSandbox";
 import { SandboxStatus } from "./components/SandboxStatus";
+import { FileTree } from "./components/FileTree";
+import { CodeViewer } from "./components/CodeViewer";
+import { useState } from "react";
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
@@ -14,6 +17,7 @@ export function ProjectDetailPage() {
 
   const { sandbox, isLoading, error } = useSandbox(accessToken, projectId ?? null, true);
   const sandboxStatus = typeof sandbox?.status === "string" ? sandbox.status : null;
+  const [selectedFile, setSelectedFile] = useState<{ name: string; path: string } | null>(null);
 
   if (!workspaceId || !projectId) {
     return <div>Invalid project</div>;
@@ -51,7 +55,7 @@ export function ProjectDetailPage() {
             File Explorer
           </h2>
           {sandboxStatus === "RUNNING" ? (
-            <FileTree />
+            <FileTree onSelect={(file) => setSelectedFile({ name: file.name, path: file.path })} />
           ) : (
             <div className="text-xs text-forge-muted">
               {isLoading && "Loading files..."}
@@ -62,9 +66,9 @@ export function ProjectDetailPage() {
         </aside>
 
         <main className="flex flex-1 flex-col">
-          <div className="flex-1 bg-[var(--background)] p-6">
+          <div className="flex-1 bg-[var(--background)] p-0">
             {sandboxStatus === "RUNNING" ? (
-              <TerminalView />
+              <CodeViewer sandboxId={sandbox?.id ?? null} filePath={selectedFile?.path ?? null} fileName={selectedFile?.name ?? null} />
             ) : (
               <div className="flex h-full items-center justify-center">
                 <div className="text-center">
@@ -106,44 +110,3 @@ export function ProjectDetailPage() {
   );
 }
 
-function FileTree() {
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2 rounded px-2 py-1.5 text-xs text-forge-text hover:bg-[var(--surface-hover)]">
-        <FolderGit2 size={14} />
-        <span>/workspace</span>
-      </div>
-      <div className="ml-4 space-y-1 text-xs text-forge-muted">
-        <div className="px-2 py-1">Loading files...</div>
-      </div>
-    </div>
-  );
-}
-
-function TerminalView() {
-  return (
-    <div className="flex h-full flex-col rounded border border-[var(--border)] bg-black/90 font-mono text-sm">
-      <div className="flex items-center gap-2 border-b border-gray-700/50 bg-gray-800/50 px-4 py-2">
-        <TerminalIcon size={14} className="text-emerald-400" />
-        <span className="text-xs text-gray-300">Terminal</span>
-      </div>
-      <div className="flex-1 overflow-auto p-4">
-        <div className="text-gray-400">
-          <div className="mb-2">
-            <span className="text-emerald-400">✓</span> Container ready
-          </div>
-          <div className="mb-2">
-            <span className="text-emerald-400">✓</span> Workspace mounted at /workspace
-          </div>
-          <div className="mb-4">
-            <span className="text-emerald-400">✓</span> Repository cloned
-          </div>
-          <div className="flex gap-2">
-            <span className="text-sky-400">$</span>
-            <span className="animate-pulse">_</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}

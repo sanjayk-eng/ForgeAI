@@ -3,6 +3,7 @@ package terminal
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"ai-agent/internal/middleware"
 	"ai-agent/internal/modules/terminal/domain"
@@ -49,6 +50,49 @@ func (h *Handler) GetSandboxByProject(c *gin.Context) {
 	apierrors.Success(c, http.StatusOK, "sandbox fetched", sandbox)
 }
 
+func (h *Handler) ListSandboxFiles(c *gin.Context) {
+	sandboxID := c.Param("sandbox_id")
+	if sandboxID == "" {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "sandbox_id is required", nil)
+		return
+	}
+	path := strings.TrimSpace(c.Query("path"))
+	if path == "" {
+		path = "/workspace"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
+	entries, err := h.module.Service.ListFiles(c.Request.Context(), sandboxID, path)
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+	apierrors.Success(c, http.StatusOK, "files fetched", gin.H{"files": entries})
+}
+
+func (h *Handler) ReadSandboxFile(c *gin.Context) {
+	sandboxID := c.Param("sandbox_id")
+	if sandboxID == "" {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "sandbox_id is required", nil)
+		return
+	}
+	filePath := c.Param("path")
+	if filePath == "" {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "path is required", nil)
+		return
+	}
+	filePath = "/" + strings.TrimPrefix(filePath, "/")
+
+	content, err := h.module.Service.ReadFile(c.Request.Context(), sandboxID, filePath)
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+	apierrors.Success(c, http.StatusOK, "file fetched", gin.H{"path": filePath, "content": content})
+}
+
 func (h *Handler) writeError(c *gin.Context, err error) {
 	status := http.StatusInternalServerError
 	code, message := apierrors.CodeOf(err)
@@ -67,6 +111,8 @@ func (h *Handler) writeError(c *gin.Context, err error) {
 
 func RegisterRoutes(router gin.IRouter, handler *Handler) {
 	router.GET("/projects/:project_id/sandbox", handler.GetSandboxByProject)
+	router.GET("/sandboxes/:sandbox_id/files", handler.ListSandboxFiles)
+	router.GET("/sandboxes/:sandbox_id/files/*path", handler.ReadSandboxFile)
 }
 
 func userID(c *gin.Context) string {

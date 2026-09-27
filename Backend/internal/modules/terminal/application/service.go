@@ -256,6 +256,28 @@ func (service *Service) Execute(ctx context.Context, sandboxID, command string) 
 	return service.runtime.Execute(ctx, sandbox.ContainerID, command, int(service.policy.CommandTimeout.Seconds()))
 }
 
+func (service *Service) ListFiles(ctx context.Context, sandboxID, path string) ([]infrastructure.FileEntry, error) {
+	sandbox, err := service.Get(ctx, sandboxID)
+	if err != nil {
+		return nil, err
+	}
+	if sandbox.Status != domain.StatusRunning {
+		return nil, fmt.Errorf("sandbox must be RUNNING to list files")
+	}
+	return service.runtime.ListFiles(ctx, sandbox.ContainerID, path)
+}
+
+func (service *Service) ReadFile(ctx context.Context, sandboxID, path string) (string, error) {
+	sandbox, err := service.Get(ctx, sandboxID)
+	if err != nil {
+		return "", err
+	}
+	if sandbox.Status != domain.StatusRunning {
+		return "", fmt.Errorf("sandbox must be RUNNING to read files")
+	}
+	return service.runtime.ReadFile(ctx, sandbox.ContainerID, path)
+}
+
 func (service *Service) CloneRepository(ctx context.Context, sandboxID, repositoryURL, branch, accessToken string) error {
 	sandbox, err := service.Get(ctx, sandboxID)
 	if err != nil {
