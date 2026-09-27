@@ -149,10 +149,18 @@ func (w *SandboxWorker) handleProjectCreated(ctx context.Context, projectID, use
 
 	sandbox, err := w.service.GetByProject(ctx, projectID)
 	if err == nil && sandbox.ID != "" {
-		if w.log != nil {
-			w.log.Info(ctx, "sandbox already exists", "project_id", projectID)
+		if sandbox.Status != domain.StatusFailed {
+			if w.log != nil {
+				w.log.Info(ctx, "sandbox already exists", "project_id", projectID)
+			}
+			return
 		}
-		return
+		if _, err := w.service.Destroy(ctx, sandbox.ID); err != nil {
+			if w.log != nil {
+				w.log.Error(ctx, "failed sandbox cleanup failed", "sandbox_id", sandbox.ID, "error", err)
+			}
+			return
+		}
 	}
 
 	sandbox, err = w.service.Create(ctx, userID, projectID)

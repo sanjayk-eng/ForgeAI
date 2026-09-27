@@ -62,7 +62,7 @@ func (runtime *DockerRuntime) RemoveVolume(ctx context.Context, name string) err
 }
 
 func (runtime *DockerRuntime) CreateContainer(ctx context.Context, spec ContainerSpec) (string, error) {
-	args := []string{"create", "--name", spec.Name, "--label", "com.forgeai.managed=true"}
+	args := []string{"create", "--quiet", "--name", spec.Name, "--label", "com.forgeai.managed=true"}
 	args = append(args, "--mount", "type=volume,src="+spec.VolumeName+",dst="+spec.WorkspacePath)
 	args = append(args, "--workdir", spec.WorkspacePath, "--network", spec.NetworkMode)
 	if spec.ReadOnlyRootFS {
@@ -90,11 +90,7 @@ func (runtime *DockerRuntime) CreateContainer(ctx context.Context, spec Containe
 	if err != nil {
 		return "", err
 	}
-	containerID := strings.TrimSpace(output)
-	if containerID == "" {
-		return "", fmt.Errorf("docker returned an empty container ID")
-	}
-	return containerID, nil
+	return parseContainerID(output)
 }
 
 func (runtime *DockerRuntime) StartContainer(ctx context.Context, containerID string) error {
@@ -128,11 +124,24 @@ func (runtime *DockerRuntime) Execute(ctx context.Context, containerID, command 
 
 func (runtime *DockerRuntime) run(ctx context.Context, args ...string) (string, error) {
 	command := exec.CommandContext(ctx, runtime.binary, args...)
-	var output bytes.Buffer
-	command.Stdout = &output
-	command.Stderr = &output
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
 	if err := command.Run(); err != nil {
-		return output.String(), fmt.Errorf("docker %s: %w: %s", args[0], err, strings.TrimSpace(output.String()))
+		diagnostic := strings.TrimSpace(strings.Join([]string{stderr.String(), stdout.String()}, "\n"))
+		return stdout.String(), fmt.Errorf("docker %s: %w: %s", args[0], err, diagnostic)
 	}
-	return output.String(), nil
+	return stdout.String(), nil
+}
+
+func parseContainerID(output string) (string, error) {
+	containerID := strings.TrimSpace(output)
+	if containerID == "" {
+		return "", fmt.Errorf("docker returned an empty container ID")
+	}
+	if len(containerID) > 255 || strings.ContainsAny(containerID, "\r\n") {
+		return "", fmt.Errorf("docker returned an invalid container ID")
+	}
+	return containerID, nil
 }

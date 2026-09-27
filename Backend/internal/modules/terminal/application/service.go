@@ -190,8 +190,12 @@ func (service *Service) Destroy(ctx context.Context, sandboxID string) (domain.S
 	if err := service.store.TransitionStatus(ctx, sandbox.ID, sandbox.Status, domain.StatusDestroying); err != nil {
 		return domain.Sandbox{}, err
 	}
-	if sandbox.ContainerID != "" {
-		if err := service.runtime.RemoveContainer(ctx, sandbox.ContainerID); err != nil {
+	containerID := sandbox.ContainerID
+	if containerID == "" {
+		containerID = sandbox.ContainerName
+	}
+	if containerID != "" {
+		if err := service.runtime.RemoveContainer(ctx, containerID); err != nil {
 			_ = service.store.TransitionStatus(ctx, sandbox.ID, domain.StatusDestroying, domain.StatusFailed)
 			_ = service.store.SetLastError(ctx, sandbox.ID, fmt.Sprintf("destroy sandbox container: %v", err))
 			return domain.Sandbox{}, fmt.Errorf("destroy sandbox container: %w", err)

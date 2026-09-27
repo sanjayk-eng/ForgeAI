@@ -13,6 +13,7 @@ export function ProjectDetailPage() {
   const accessToken = tokens?.access_token ?? null;
 
   const { sandbox, isLoading, error } = useSandbox(accessToken, projectId ?? null, true);
+  const sandboxStatus = typeof sandbox?.status === "string" ? sandbox.status : null;
 
   if (!workspaceId || !projectId) {
     return <div>Invalid project</div>;
@@ -34,7 +35,7 @@ export function ProjectDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {sandbox && <SandboxStatus status={sandbox.status} />}
+          {sandboxStatus && <SandboxStatus status={sandboxStatus} />}
           {isLoading && (
             <div className="flex items-center gap-2 text-xs text-forge-muted">
               <Loader2 size={14} className="animate-spin" />
@@ -49,20 +50,20 @@ export function ProjectDetailPage() {
           <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-forge-soft">
             File Explorer
           </h2>
-          {sandbox?.status === "RUNNING" ? (
+          {sandboxStatus === "RUNNING" ? (
             <FileTree />
           ) : (
             <div className="text-xs text-forge-muted">
               {isLoading && "Loading files..."}
               {!isLoading && !sandbox && "Environment is being set up..."}
-              {sandbox && `Environment ${sandbox.status.toLowerCase()}`}
+              {sandboxStatus && `Environment ${sandboxStatus.toLowerCase()}`}
             </div>
           )}
         </aside>
 
         <main className="flex flex-1 flex-col">
           <div className="flex-1 bg-[var(--background)] p-6">
-            {sandbox?.status === "RUNNING" ? (
+            {sandboxStatus === "RUNNING" ? (
               <TerminalView />
             ) : (
               <div className="flex h-full items-center justify-center">
@@ -79,18 +80,21 @@ export function ProjectDetailPage() {
                       <p className="mt-2 text-xs text-forge-muted">Please try again</p>
                     </>
                   )}
-                  {!isLoading && sandbox && (
+                  {!isLoading && sandbox && sandboxStatus && (
                     <>
                       <div className="text-forge-accent">
-                        <SandboxStatus status={sandbox.status} showLabel={false} className="justify-center" />
+                        <SandboxStatus status={sandboxStatus} showLabel={false} className="justify-center" />
                       </div>
                       <p className="mt-4 text-sm text-forge-muted">
-                        Environment is {sandbox.status.toLowerCase()}
+                        Environment is {sandboxStatus.toLowerCase()}
                       </p>
-                      {sandbox.status === "FAILED" && sandbox.last_error && (
+                      {sandboxStatus === "FAILED" && sandbox.last_error && (
                         <p className="mt-2 text-xs text-forge-signal">{sandbox.last_error}</p>
                       )}
                     </>
+                  )}
+                  {!isLoading && sandbox && !sandboxStatus && (
+                    <div className="text-forge-signal">Environment status is unavailable</div>
                   )}
                 </div>
               </div>
