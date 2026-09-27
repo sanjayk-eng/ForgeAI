@@ -8,11 +8,13 @@ export function TreeNode({
   sandboxId,
   accessToken,
   onSelect,
+  selectedPath,
 }: {
   file: FileEntry;
   sandboxId: string;
   accessToken: string;
   onSelect?: (file: FileEntry) => void;
+  selectedPath?: string | null;
 }) {
   const [expanded, setExpanded] = useState(true);
 
@@ -30,10 +32,11 @@ export function TreeNode({
       <button
         type="button"
         onClick={() => onSelect?.(file)}
-        className="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-[var(--surface-hover)]"
+        aria-current={selectedPath === file.path ? "true" : undefined}
+        className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left transition hover:bg-[var(--surface-hover)] hover:text-forge-text ${selectedPath === file.path ? "bg-forge-accent/15 text-forge-text" : "text-forge-soft"}`}
       >
-        <FileIcon size={14} />
-        <span className="text-forge-muted">{file.name}</span>
+        <FileIcon size={14} className="shrink-0 text-forge-muted" />
+        <span className="truncate">{file.name}</span>
       </button>
     );
   }
@@ -42,20 +45,20 @@ export function TreeNode({
     <div className="space-y-1">
       <button
         type="button"
-        className="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-[var(--surface-hover)]"
+        className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-forge-soft transition hover:bg-[var(--surface-hover)] hover:text-forge-text"
         onClick={() => setExpanded((value) => !value)}
       >
-        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-        <FolderGit2 size={14} className="text-forge-text" />
-        <span className="text-forge-text">{file.name}</span>
+        {expanded ? <ChevronDown size={12} className="text-forge-muted" /> : <ChevronRight size={12} className="text-forge-muted" />}
+        <FolderGit2 size={14} className="shrink-0 text-forge-muted" />
+        <span className="truncate font-medium">{file.name}</span>
       </button>
 
       {expanded && (
         <div className="ml-4 space-y-1 border-l border-[var(--border)] pl-2">
-          {isLoading && <div className="px-2 py-1">Loading files...</div>}
-          {!isLoading && error && <div className="px-2 py-1 text-forge-signal">Unable to load files</div>}
+          {isLoading && <div className="px-2 py-1 text-xs text-forge-muted">Loading files...</div>}
+          {!isLoading && error && <div className="px-2 py-1 text-xs text-forge-signal">Unable to load files</div>}
           {!isLoading && !error && children.map((child) => (
-            <TreeNode key={child.path} file={child} sandboxId={sandboxId} accessToken={accessToken} onSelect={onSelect} />
+            <TreeNode key={child.path} file={child} sandboxId={sandboxId} accessToken={accessToken} onSelect={onSelect} selectedPath={selectedPath} />
           ))}
         </div>
       )}

@@ -18,55 +18,62 @@ export function ProjectDetailPage() {
   const { sandbox, isLoading, error } = useSandbox(accessToken, projectId ?? null, true);
   const sandboxStatus = typeof sandbox?.status === "string" ? sandbox.status : null;
   const [selectedFile, setSelectedFile] = useState<{ name: string; path: string } | null>(null);
+  const workspaceLabel = workspaceId || "workspace";
+  const projectLabel = projectId || "project";
 
   if (!workspaceId || !projectId) {
     return <div>Invalid project</div>;
   }
 
   return (
-    <div className="flex h-screen flex-col bg-[var(--background)]">
-      <header className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-6 py-4">
-        <div className="flex items-center gap-4">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-forge-bg text-forge-text">
+      <header className="flex shrink-0 items-center justify-between border-b border-[var(--border)] bg-forge-bg px-4 py-3">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(`/workspace/projects?workspace=${encodeURIComponent(workspaceId)}`)}
-            className="grid size-9 place-items-center border border-[var(--border)] text-forge-muted transition hover:border-forge-accent/40 hover:text-forge-text"
+            aria-label="Back to projects"
+            className="grid size-8 place-items-center rounded-md border border-[var(--border)] bg-forge-panel text-forge-muted transition hover:bg-[var(--surface-hover)] hover:text-forge-text"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={15} />
           </button>
-          <div>
-            <h1 className="text-lg font-bold text-forge-text">Project Environment</h1>
-            <p className="text-xs text-forge-muted">/{projectId.substring(0, 8)}</p>
+          <div className="flex items-center gap-2">
+            <div className="grid size-7 place-items-center rounded-md bg-forge-accent text-[11px] font-bold text-[var(--primary-foreground)]">F</div>
+            <div className="text-sm font-semibold text-forge-text">{projectLabel}</div>
           </div>
         </div>
+
         <div className="flex items-center gap-3">
+          <div className="rounded-md border border-[var(--border)] bg-forge-panel px-3 py-1.5 text-[11px] font-medium text-forge-muted">
+            {workspaceLabel}
+          </div>
           {sandboxStatus && <SandboxStatus status={sandboxStatus} />}
-          {isLoading && (
-            <div className="flex items-center gap-2 text-xs text-forge-muted">
-              <Loader2 size={14} className="animate-spin" />
-              Checking environment...
-            </div>
-          )}
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="w-64 border-r border-[var(--border)] bg-[var(--surface)] p-4">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-forge-soft">
-            File Explorer
-          </h2>
-          {sandboxStatus === "RUNNING" ? (
-            <FileTree onSelect={(file) => setSelectedFile({ name: file.name, path: file.path })} />
-          ) : (
-            <div className="text-xs text-forge-muted">
-              {isLoading && "Loading files..."}
-              {!isLoading && !sandbox && "Environment is being set up..."}
-              {sandboxStatus && `Environment ${sandboxStatus.toLowerCase()}`}
-            </div>
-          )}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <aside className="flex w-[270px] shrink-0 flex-col border-r border-[var(--border)] bg-forge-panel p-0">
+          <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-3 text-xs font-semibold text-forge-text">
+            Files
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+            {sandboxStatus === "RUNNING" ? (
+              <FileTree
+                selectedPath={selectedFile?.path}
+                onSelect={(file) => setSelectedFile({ name: file.name, path: file.path })}
+              />
+            ) : (
+              <div className="text-xs text-forge-muted">
+                {isLoading && "Loading files..."}
+                {!isLoading && !sandbox && "Environment is being set up..."}
+                {sandboxStatus && `Environment ${sandboxStatus.toLowerCase()}`}
+              </div>
+            )}
+          </div>
         </aside>
 
-        <main className="flex flex-1 flex-col">
-          <div className="flex-1 bg-[var(--background)] p-0">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-forge-bg">
+          <div className="flex min-h-0 flex-1 bg-forge-bg p-0">
             {sandboxStatus === "RUNNING" ? (
               <CodeViewer sandboxId={sandbox?.id ?? null} filePath={selectedFile?.path ?? null} fileName={selectedFile?.name ?? null} />
             ) : (

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { Outlet, useSearchParams } from "react-router-dom";
+import { Outlet, useLocation, useSearchParams } from "react-router-dom";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { useAuth } from "../auth/useAuth";
 import { listWorkspaces } from "./api/workspace.api";
@@ -11,6 +11,8 @@ import { WorkspaceSidebar } from "./components/WorkspaceSidebar";
 import { useWorkspaceStore } from "./workspaceStore";
 
 export function WorkspaceLayout() {
+  const { pathname } = useLocation();
+  const isProjectDetail = /^\/workspace\/projects\/[^/]+$/.test(pathname);
   const { user, tokens, signOut } = useAuth();
   const [params, setParams] = useSearchParams();
   const mobileOpen = useWorkspaceStore((state) => state.mobileNavigationOpen);
@@ -69,8 +71,8 @@ export function WorkspaceLayout() {
           onClose={closeMobileNavigation}
           onSignOut={signOut}
         />
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-[calc(100%-32px)] max-w-[1180px] py-8 sm:w-[calc(100%-64px)] sm:py-11 lg:w-[calc(100%-96px)]">
+        <main className={`min-h-0 min-w-0 flex-1 ${isProjectDetail ? "overflow-hidden" : "overflow-y-auto"}`}>
+          <div className={isProjectDetail ? "h-full min-h-0 w-full max-w-none" : "mx-auto w-[calc(100%-32px)] max-w-[1180px] py-8 sm:w-[calc(100%-64px)] sm:py-11 lg:w-[calc(100%-96px)]"}>
             {query.isLoading ? (
               <LoadingState />
             ) : selected ? (

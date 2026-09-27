@@ -6,7 +6,13 @@ import { listFiles, type FileEntry } from "../../../api/sandbox.api";
 import { useSandbox } from "../hooks/useSandbox";
 import { TreeNode } from "./TreeNode";
 
-export function FileTree({ onSelect }: { onSelect?: (file: FileEntry) => void }) {
+export function FileTree({
+  onSelect,
+  selectedPath,
+}: {
+  onSelect?: (file: FileEntry) => void;
+  selectedPath?: string | null;
+}) {
   const { tokens } = useAuth();
   const { projectId } = useParams();
   const { sandbox } = useSandbox(tokens?.access_token ?? null, projectId ?? null, false);
@@ -26,17 +32,17 @@ export function FileTree({ onSelect }: { onSelect?: (file: FileEntry) => void })
   const files = data?.files ?? [];
 
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2 rounded px-2 py-1.5 text-xs text-forge-text hover:bg-[var(--surface-hover)]">
-        <FolderGit2 size={14} />
-        <span>/workspace</span>
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-forge-text">
+        <FolderGit2 size={14} className="text-forge-muted" />
+        <span className="font-medium">workspace</span>
       </div>
-      <div className="ml-4 space-y-1 text-xs text-forge-muted">
-        {isLoading && <div className="px-2 py-1">Loading files...</div>}
-        {!isLoading && error && <div className="px-2 py-1 text-forge-signal">Unable to load files</div>}
-        {!isLoading && !error && files.length === 0 && <div className="px-2 py-1">No files found</div>}
+      <div className="space-y-1 text-sm text-forge-soft">
+        {isLoading && <div className="px-2 py-1 text-xs text-forge-muted">Loading files...</div>}
+        {!isLoading && error && <div className="px-2 py-1 text-xs text-forge-signal">Unable to load files</div>}
+        {!isLoading && !error && files.length === 0 && <div className="px-2 py-1 text-xs text-forge-muted">No files found</div>}
         {!isLoading && !error && files.map((file) => (
-          <TreeNode key={file.path} file={file} sandboxId={sandbox?.id ?? ""} accessToken={tokens?.access_token ?? ""} onSelect={onSelect} />
+          <TreeNode key={file.path} file={file} sandboxId={sandbox?.id ?? ""} accessToken={tokens?.access_token ?? ""} onSelect={onSelect} selectedPath={selectedPath} />
         ))}
       </div>
     </div>
