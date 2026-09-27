@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -17,15 +18,20 @@ type ProjectEvent struct {
 }
 
 type SandboxWorker struct {
-	service     *application.Service
-	projectRepo ProjectRepository
-	events      chan ProjectEvent
-	log         logger.Logger
-	wg          sync.WaitGroup
-	stopOnce    sync.Once
-	stopChan    chan struct{}
-	creatingMu  sync.Mutex
-	creating    map[string]struct{}
+	service        *application.Service
+	projectRepo    ProjectRepository
+	events         chan ProjectEvent
+	log            logger.Logger
+	wg             sync.WaitGroup
+	stopOnce       sync.Once
+	stopChan       chan struct{}
+	projectLocksMu sync.Mutex
+	projectLocks   map[string]*projectOperationLock
+}
+
+type projectOperationLock struct {
+	mutex sync.Mutex
+	refs  int
 }
 
 type ProjectRepository interface {
@@ -35,22 +41,24 @@ type ProjectRepository interface {
 type Project struct {
 	ID         string
 	Type       string
+	UserID     string
 	Repository *Repository
 }
 
 type Repository struct {
-	URL    string
-	Branch string
+	URL         string
+	Branch      string
+	AccessToken string
 }
 
 func NewSandboxWorker(service *application.Service, projectRepo ProjectRepository, log logger.Logger) *SandboxWorker {
 	return &SandboxWorker{
-		service:     service,
-		projectRepo: projectRepo,
-		events:      make(chan ProjectEvent, 100),
-		log:         log,
-		stopChan:    make(chan struct{}),
-		creating:    make(map[string]struct{}),
+		service:      service,
+		projectRepo:  projectRepo,
+		events:       make(chan ProjectEvent, 100),
+		log:          log,
+		stopChan:     make(chan struct{}),
+		projectLocks: make(map[string]*projectOperationLock),
 	}
 }
 
@@ -134,22 +142,17 @@ func (w *SandboxWorker) handleEvent(ctx context.Context, workerID int, event Pro
 }
 
 func (w *SandboxWorker) handleProjectCreated(ctx context.Context, projectID, userID string) {
-	w.creatingMu.Lock()
-	if _, exists := w.creating[projectID]; exists {
-		w.creatingMu.Unlock()
-		return
-	}
-	w.creating[projectID] = struct{}{}
-	w.creatingMu.Unlock()
-	defer func() {
-		w.creatingMu.Lock()
-		delete(w.creating, projectID)
-		w.creatingMu.Unlock()
-	}()
+	unlock := w.lockProject(projectID)
+	defer unlock()
 
 	sandbox, err := w.service.GetByProject(ctx, projectID)
 	if err == nil && sandbox.ID != "" {
 		if sandbox.Status != domain.StatusFailed {
+			if sandbox.Status == domain.StatusRunning {
+				if err := w.provisionFiles(ctx, sandbox, projectID); err != nil && w.log != nil {
+					w.log.Warn(ctx, "file provisioning failed", "sandbox_id", sandbox.ID, "error", err)
+				}
+			}
 			if w.log != nil {
 				w.log.Info(ctx, "sandbox already exists", "project_id", projectID)
 			}
@@ -191,18 +194,50 @@ func (w *SandboxWorker) handleProjectCreated(ctx context.Context, projectID, use
 }
 
 func (w *SandboxWorker) handleProjectDeleted(ctx context.Context, projectID string) {
+	if err := w.DeleteProject(ctx, projectID); err != nil && w.log != nil {
+		w.log.Error(ctx, "sandbox destruction failed", "project_id", projectID, "error", err)
+	}
+}
+
+func (w *SandboxWorker) DeleteProject(ctx context.Context, projectID string) error {
+	unlock := w.lockProject(projectID)
+	defer unlock()
+
 	sandbox, err := w.service.GetByProject(ctx, projectID)
 	if err != nil {
-		return
+		if errors.Is(err, domain.ErrSandboxNotFound) {
+			return nil
+		}
+		return err
 	}
 
 	if sandbox.Status == domain.StatusDestroyed {
-		return
+		return nil
 	}
 
 	_, err = w.service.Destroy(ctx, sandbox.ID)
-	if err != nil && w.log != nil {
-		w.log.Error(ctx, "sandbox destruction failed", "sandbox_id", sandbox.ID, "error", err)
+	return err
+}
+
+func (w *SandboxWorker) lockProject(projectID string) func() {
+	w.projectLocksMu.Lock()
+	lock := w.projectLocks[projectID]
+	if lock == nil {
+		lock = &projectOperationLock{}
+		w.projectLocks[projectID] = lock
+	}
+	lock.refs++
+	w.projectLocksMu.Unlock()
+
+	lock.mutex.Lock()
+	return func() {
+		lock.mutex.Unlock()
+		w.projectLocksMu.Lock()
+		lock.refs--
+		if lock.refs == 0 {
+			delete(w.projectLocks, projectID)
+		}
+		w.projectLocksMu.Unlock()
 	}
 }
 
@@ -223,15 +258,5 @@ func (w *SandboxWorker) provisionFiles(ctx context.Context, sandbox domain.Sandb
 	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	installGit := "command -v git >/dev/null 2>&1 || apk add --no-cache git"
-	if _, err := w.service.Execute(timeoutCtx, sandbox.ID, installGit); err != nil {
-		return err
-	}
-
-	cloneCmd := "git clone --depth 1 --branch " + project.Repository.Branch + " " + project.Repository.URL + " ."
-	if _, err := w.service.Execute(timeoutCtx, sandbox.ID, cloneCmd); err != nil {
-		return err
-	}
-
-	return nil
+	return w.service.CloneRepository(timeoutCtx, sandbox.ID, project.Repository.URL, project.Repository.Branch, project.Repository.AccessToken)
 }

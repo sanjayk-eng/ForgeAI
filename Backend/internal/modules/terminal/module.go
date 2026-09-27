@@ -13,11 +13,11 @@ import (
 )
 
 type ModuleConfig struct {
-	Database      *sqlx.DB
-	Logger        logger.Logger
-	DockerBinary  string
-	PolicyPath    string
-	ProjectRepo   worker.ProjectRepository
+	Database     *sqlx.DB
+	Logger       logger.Logger
+	DockerBinary string
+	PolicyPath   string
+	ProjectRepo  worker.ProjectRepository
 }
 
 type Module struct {
@@ -68,11 +68,9 @@ func (m *Module) OnProjectCreated(ctx context.Context, projectID, userID string)
 	}
 }
 
-func (m *Module) OnProjectDeleted(ctx context.Context, projectID string) {
-	if m.Worker != nil {
-		m.Worker.Publish(worker.ProjectEvent{
-			Type:      "project.deleted",
-			ProjectID: projectID,
-		})
+func (m *Module) OnProjectDeleted(ctx context.Context, projectID string) error {
+	if m.Worker == nil {
+		return nil
 	}
+	return m.Worker.DeleteProject(ctx, projectID)
 }

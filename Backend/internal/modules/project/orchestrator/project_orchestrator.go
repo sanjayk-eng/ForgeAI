@@ -18,7 +18,7 @@ type ProjectOrchestrator struct {
 	coreService core.Service
 	repoService projectrepo.Service
 	onCreate    func(ctx context.Context, projectID, userID string)
-	onDelete    func(ctx context.Context, projectID string)
+	onDelete    func(ctx context.Context, projectID string) error
 }
 
 func NewProjectOrchestrator(db *sqlx.DB, coreService core.Service, repoService projectrepo.Service) *ProjectOrchestrator {
@@ -33,7 +33,7 @@ func (o *ProjectOrchestrator) SetOnCreate(fn func(ctx context.Context, projectID
 	o.onCreate = fn
 }
 
-func (o *ProjectOrchestrator) SetOnDelete(fn func(ctx context.Context, projectID string)) {
+func (o *ProjectOrchestrator) SetOnDelete(fn func(ctx context.Context, projectID string) error) {
 	o.onDelete = fn
 }
 
@@ -43,10 +43,11 @@ func (o *ProjectOrchestrator) TriggerOnCreate(ctx context.Context, projectID, us
 	}
 }
 
-func (o *ProjectOrchestrator) TriggerOnDelete(ctx context.Context, projectID string) {
+func (o *ProjectOrchestrator) TriggerOnDelete(ctx context.Context, projectID string) error {
 	if o.onDelete != nil {
-		o.onDelete(ctx, projectID)
+		return o.onDelete(ctx, projectID)
 	}
+	return nil
 }
 
 type ProjectWithRepository struct {

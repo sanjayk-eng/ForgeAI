@@ -147,6 +147,7 @@ func runServer() error {
 	projectAdapter := terminalworker.NewProjectAdapter(
 		projectModule.CoreService,
 		projectModule.RepoService,
+		authModule.Repository,
 	)
 	policyPath, err := sandboxPolicyPath()
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -38,6 +39,7 @@ type Runtime interface {
 	StopContainer(ctx context.Context, containerID string) error
 	RemoveContainer(ctx context.Context, containerID string) error
 	Execute(ctx context.Context, containerID, command string, timeoutSeconds int) (ExecutionResult, error)
+	CloneRepository(ctx context.Context, volumeName, workspacePath, helperImage, repositoryURL, branch, accessToken string, timeout time.Duration) error
 }
 
 type DockerRuntime struct {
@@ -58,6 +60,9 @@ func (runtime *DockerRuntime) CreateVolume(ctx context.Context, name string) err
 
 func (runtime *DockerRuntime) RemoveVolume(ctx context.Context, name string) error {
 	_, err := runtime.run(ctx, "volume", "rm", "--force", name)
+	if isMissingDockerResource(err, "volume") {
+		return nil
+	}
 	return err
 }
 
@@ -105,7 +110,14 @@ func (runtime *DockerRuntime) StopContainer(ctx context.Context, containerID str
 
 func (runtime *DockerRuntime) RemoveContainer(ctx context.Context, containerID string) error {
 	_, err := runtime.run(ctx, "rm", "--force", containerID)
+	if isMissingDockerResource(err, "container") {
+		return nil
+	}
 	return err
+}
+
+func isMissingDockerResource(err error, resource string) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "no such "+strings.ToLower(resource))
 }
 
 func (runtime *DockerRuntime) Execute(ctx context.Context, containerID, command string, timeoutSeconds int) (ExecutionResult, error) {
@@ -120,6 +132,58 @@ func (runtime *DockerRuntime) Execute(ctx context.Context, containerID, command 
 		result.ExitCode = 1
 	}
 	return result, err
+}
+
+func (runtime *DockerRuntime) CloneRepository(ctx context.Context, volumeName, workspacePath, helperImage, repositoryURL, branch, accessToken string, timeout time.Duration) error {
+	parsedURL, err := url.ParseRequestURI(repositoryURL)
+	if err != nil || parsedURL.Scheme != "https" || parsedURL.Host != "github.com" || parsedURL.User != nil {
+		return fmt.Errorf("clone repository: only HTTPS GitHub URLs are allowed")
+	}
+	if strings.TrimSpace(volumeName) == "" || strings.TrimSpace(workspacePath) == "" || strings.TrimSpace(helperImage) == "" || timeout <= 0 {
+		return fmt.Errorf("clone repository: volume, workspace, helper image, and positive timeout are required")
+	}
+
+	const script = `set -eu
+IFS= read -r token || token=""
+[ -e "$3/.forgeai-repository-cloned" ] && exit 0
+clone_dir=$(mktemp -d)
+trap 'rm -rf "$clone_dir"' EXIT
+if [ -n "$token" ]; then
+	auth=$(printf 'x-access-token:%s' "$token" | base64 | tr -d '\n')
+	if [ -n "$2" ]; then
+		git -c "http.extraheader=AUTHORIZATION: basic $auth" clone --depth 1 --branch "$2" -- "$1" "$clone_dir/repo"
+	else
+		git -c "http.extraheader=AUTHORIZATION: basic $auth" clone --depth 1 -- "$1" "$clone_dir/repo"
+	fi
+else
+	if [ -n "$2" ]; then
+		git clone --depth 1 --branch "$2" -- "$1" "$clone_dir/repo"
+	else
+		git clone --depth 1 -- "$1" "$clone_dir/repo"
+	fi
+fi
+cp -a "$clone_dir/repo/." "$3/"
+: > "$3/.forgeai-repository-cloned"`
+
+	commandContext, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	command := exec.CommandContext(commandContext, runtime.binary,
+		"run", "--rm", "-i", "--network", "bridge",
+		"--label", "com.forgeai.managed=true",
+		"--mount", "type=volume,src="+volumeName+",dst="+workspacePath,
+		"--entrypoint", "sh", helperImage,
+		"-c", script, "sh", repositoryURL, branch, workspacePath,
+	)
+	command.Stdin = strings.NewReader(accessToken + "\n")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+	if err := command.Run(); err != nil {
+		diagnostic := strings.TrimSpace(strings.Join([]string{stderr.String(), stdout.String()}, "\n"))
+		return fmt.Errorf("clone GitHub repository: %w: %s", err, diagnostic)
+	}
+	return nil
 }
 
 func (runtime *DockerRuntime) run(ctx context.Context, args ...string) (string, error) {

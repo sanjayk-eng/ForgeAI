@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"fmt"
 
 	"ai-agent/internal/modules/project/core"
 	"ai-agent/internal/modules/project/github"
@@ -36,7 +37,7 @@ type Service interface {
 	ListGitHubRepositories(ctx context.Context, workspaceID, userID, owner string) (github.CatalogResponse, error)
 	ImportGitHubRepositories(ctx context.Context, workspaceID, userID string, input ImportGitHubRepositoriesRequest) (ImportGitHubRepositoriesResponse, error)
 	SetOnCreate(fn func(ctx context.Context, projectID, userID string))
-	SetOnDelete(fn func(ctx context.Context, projectID string))
+	SetOnDelete(fn func(ctx context.Context, projectID string) error)
 }
 
 type service struct {
@@ -96,8 +97,21 @@ func (s *service) Update(ctx context.Context, projectID, userID string, input Up
 }
 
 func (s *service) Delete(ctx context.Context, projectID, userID string) error {
+	project, err := s.core.FindByID(ctx, projectID)
+	if err != nil {
+		return core.ErrProjectNotFound
+	}
+	owner, err := s.core.IsWorkspaceOwner(ctx, project.WorkspaceID, userID)
+	if err != nil {
+		return fmt.Errorf("check project owner: %w", err)
+	}
+	if !owner {
+		return core.ErrWorkspaceOwnerRequired
+	}
 	if s.projectOrch != nil {
-		s.projectOrch.TriggerOnDelete(ctx, projectID)
+		if err := s.projectOrch.TriggerOnDelete(ctx, projectID); err != nil {
+			return fmt.Errorf("clean up project sandbox: %w", err)
+		}
 	}
 	return s.core.Delete(ctx, projectID, userID)
 }
@@ -156,7 +170,7 @@ func (s *service) SetOnCreate(fn func(ctx context.Context, projectID, userID str
 	}
 }
 
-func (s *service) SetOnDelete(fn func(ctx context.Context, projectID string)) {
+func (s *service) SetOnDelete(fn func(ctx context.Context, projectID string) error) {
 	if s.projectOrch != nil {
 		s.projectOrch.SetOnDelete(fn)
 	}

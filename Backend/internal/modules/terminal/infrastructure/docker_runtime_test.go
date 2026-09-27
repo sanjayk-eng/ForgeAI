@@ -1,6 +1,7 @@
 package infrastructure
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -29,5 +30,14 @@ func TestParseContainerID(t *testing.T) {
 				t.Fatalf("parseContainerID() = %q, want %q", got, test.wantID)
 			}
 		})
+	}
+}
+
+func TestIsMissingDockerResource(t *testing.T) {
+	if !isMissingDockerResource(errors.New("Error response from daemon: No such container: sandbox"), "container") {
+		t.Fatal("expected missing container to be treated as already removed")
+	}
+	if isMissingDockerResource(errors.New("permission denied"), "container") {
+		t.Fatal("permission errors must not be ignored")
 	}
 }

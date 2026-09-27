@@ -38,7 +38,7 @@ func (h *Handler) GetSandboxByProject(c *gin.Context) {
 		h.writeError(c, err)
 		return
 	}
-	if sandbox.Status == domain.StatusFailed && c.Query("ensure") == "true" {
+	if c.Query("ensure") == "true" && (sandbox.Status == domain.StatusFailed || sandbox.Status == domain.StatusRunning) {
 		if accessErr := h.module.Service.ValidateProjectAccess(c.Request.Context(), userID(c), projectID); accessErr != nil {
 			h.writeError(c, accessErr)
 			return

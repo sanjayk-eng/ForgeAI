@@ -10,12 +10,18 @@ import (
 type ProjectAdapter struct {
 	coreService projectcore.Service
 	repoService projectrepo.Service
+	tokenStore  GitHubTokenStore
 }
 
-func NewProjectAdapter(coreService projectcore.Service, repoService projectrepo.Service) *ProjectAdapter {
+type GitHubTokenStore interface {
+	FindGitHubAccessToken(ctx context.Context, userID string) (string, error)
+}
+
+func NewProjectAdapter(coreService projectcore.Service, repoService projectrepo.Service, tokenStore GitHubTokenStore) *ProjectAdapter {
 	return &ProjectAdapter{
 		coreService: coreService,
 		repoService: repoService,
+		tokenStore:  tokenStore,
 	}
 }
 
@@ -26,8 +32,9 @@ func (a *ProjectAdapter) FindByID(ctx context.Context, projectID string) (Projec
 	}
 
 	project := Project{
-		ID:   coreProject.ID,
-		Type: string(coreProject.Type),
+		ID:     coreProject.ID,
+		Type:   string(coreProject.Type),
+		UserID: coreProject.CreatedBy,
 	}
 
 	if coreProject.Type == projectcore.ProjectTypeRepository {
@@ -36,6 +43,9 @@ func (a *ProjectAdapter) FindByID(ctx context.Context, projectID string) (Projec
 			project.Repository = &Repository{
 				URL:    repo.RepositoryURL,
 				Branch: repo.DefaultBranch,
+			}
+			if a.tokenStore != nil {
+				project.Repository.AccessToken, _ = a.tokenStore.FindGitHubAccessToken(ctx, coreProject.CreatedBy)
 			}
 		}
 	}

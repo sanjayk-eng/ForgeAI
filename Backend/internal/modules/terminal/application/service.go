@@ -255,3 +255,14 @@ func (service *Service) Execute(ctx context.Context, sandboxID, command string) 
 	}
 	return service.runtime.Execute(ctx, sandbox.ContainerID, command, int(service.policy.CommandTimeout.Seconds()))
 }
+
+func (service *Service) CloneRepository(ctx context.Context, sandboxID, repositoryURL, branch, accessToken string) error {
+	sandbox, err := service.Get(ctx, sandboxID)
+	if err != nil {
+		return err
+	}
+	if sandbox.Status != domain.StatusRunning {
+		return fmt.Errorf("sandbox must be RUNNING to clone a repository")
+	}
+	return service.runtime.CloneRepository(ctx, sandbox.VolumeName, sandbox.WorkspacePath, service.policy.GitImage, repositoryURL, branch, accessToken, 5*time.Minute)
+}

@@ -18,6 +18,7 @@ type Service interface {
 	ListByWorkspace(ctx context.Context, workspaceID string, query pagination.Query) (pagination.Result[Project], error)
 	FindByID(ctx context.Context, projectID string) (Project, error)
 	FindByWorkspaceSlug(ctx context.Context, workspaceID, slug string) (Project, error)
+	IsWorkspaceOwner(ctx context.Context, workspaceID, userID string) (bool, error)
 	Update(ctx context.Context, projectID, userID string, input UpdateProjectRequest) (Project, error)
 	Delete(ctx context.Context, projectID, userID string) error
 }
@@ -75,6 +76,10 @@ func (s *service) FindByWorkspaceSlug(ctx context.Context, workspaceID, slug str
 		return Project{}, ErrProjectNotFound
 	}
 	return project, nil
+}
+
+func (s *service) IsWorkspaceOwner(ctx context.Context, workspaceID, userID string) (bool, error) {
+	return s.repo.IsWorkspaceOwner(ctx, workspaceID, userID)
 }
 
 func (s *service) Update(ctx context.Context, projectID, userID string, input UpdateProjectRequest) (Project, error) {
