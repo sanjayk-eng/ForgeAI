@@ -166,11 +166,8 @@ func (service *Service) projectContext(ctx context.Context, sandboxID string) (s
 			continue
 		}
 		if len(content) > maxFileContextLength {
-			runes := []rune(content)
-			for len(string(runes)) > maxFileContextLength {
-				runes = runes[:len(runes)*maxFileContextLength/len(string(runes))]
-			}
-			content = string(runes) + "\n[truncated]"
+			const marker = "\n[truncated]"
+			content = truncateUTF8(content, maxFileContextLength-len(marker)) + marker
 		}
 		if len(content) > remaining {
 			content = content[:remaining]
@@ -197,13 +194,24 @@ func skipContextEntry(name string, isDirectory bool) bool {
 	if base == "" || base == ".git" || base == "node_modules" || base == "vendor" || base == ".next" || base == "dist" || base == "build" || base == "target" || base == ".venv" || base == "coverage" {
 		return true
 	}
-	if isDirectory {
-		return false
-	}
 	if strings.HasPrefix(base, ".env") || strings.Contains(base, "secret") || strings.Contains(base, "credential") {
 		return true
 	}
+	if isDirectory {
+		return false
+	}
 	return strings.HasSuffix(base, ".pem") || strings.HasSuffix(base, ".key") || strings.HasSuffix(base, ".p12") || strings.HasSuffix(base, ".pfx")
+}
+
+func truncateUTF8(value string, maxBytes int) string {
+	if len(value) <= maxBytes {
+		return value
+	}
+	cut := maxBytes
+	for cut > 0 && !utf8.RuneStart(value[cut]) {
+		cut--
+	}
+	return value[:cut]
 }
 
 func (service *Service) completeTask(ctx context.Context, prompt, projectContext string) (modelTaskResult, error) {

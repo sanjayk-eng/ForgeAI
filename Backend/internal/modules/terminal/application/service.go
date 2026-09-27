@@ -306,8 +306,13 @@ func (service *Service) WriteFile(ctx context.Context, sandboxID, relativePath, 
 		return domain.ErrInvalidSandbox
 	}
 	cleanPath := path.Clean(relativePath)
-	if cleanPath == "." || cleanPath == ".." || strings.HasPrefix(cleanPath, "../") || strings.Contains(cleanPath, "/.git/") || cleanPath == ".git" {
+	if cleanPath == "." || cleanPath == ".." || strings.HasPrefix(cleanPath, "../") {
 		return domain.ErrInvalidSandbox
+	}
+	for _, segment := range strings.Split(cleanPath, "/") {
+		if strings.EqualFold(segment, ".git") {
+			return domain.ErrInvalidSandbox
+		}
 	}
 	workspaceRoot := path.Clean(sandbox.WorkspacePath)
 	fullPath := path.Join(workspaceRoot, cleanPath)
