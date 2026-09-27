@@ -71,7 +71,7 @@ export function OverviewPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 self-start border border-forge-accent/20 px-3 py-2 font-mono text-[10px] uppercase tracking-[.1em] text-forge-accent lg:self-auto">
-          <span className="size-1.5 bg-forge-accent shadow-[0_0_9px_#c6f36a]" />
+          <span className="size-1.5 bg-forge-accent shadow-[0_0_9px_rgba(86,159,255,.6)]" />
           Operational
         </div>
       </header>
@@ -206,7 +206,7 @@ export function OverviewPage() {
                   </p>
                 </div>
                 <span
-                  className={`shrink-0 font-mono text-[10px] ${state === "Ready" ? "text-[#bde986]" : "text-forge-muted"}`}
+                  className={`shrink-0 font-mono text-[10px] ${state === "Ready" ? "text-forge-accent" : "text-forge-muted"}`}
                 >
                   {state}
                 </span>

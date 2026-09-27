@@ -126,7 +126,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
               conversations.
             </p>
             <button
-              className="group mt-7 inline-flex items-center gap-2 rounded-md bg-forge-accent px-4 py-3 text-xs font-extrabold text-forge-bg transition hover:bg-[#d7ff82] focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
+              className="group mt-7 inline-flex items-center gap-2 rounded-md bg-forge-accent px-4 py-3 text-xs font-extrabold text-forge-bg transition hover:bg-forge-accent-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
               onClick={onCreate}
             >
               Create workspace

@@ -28,7 +28,7 @@ export function CodeViewer({
 
   if (!filePath || !sandboxId) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-forge-muted">
+      <div className="flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-3 text-center text-sm text-forge-muted">
         <Code2 size={28} strokeWidth={1.5} />
         <span>Select a file to view its contents</span>
       </div>
