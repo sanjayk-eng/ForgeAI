@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Outlet, useSearchParams } from "react-router-dom";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { useAuth } from "../auth/useAuth";
@@ -36,6 +37,13 @@ export function WorkspaceLayout() {
   const selected =
     workspaces.find((item) => item.id === params.get("workspace")) ??
     workspaces[0];
+
+  useEffect(() => {
+    if (query.isLoading || query.isError || !selected) return;
+    if (params.get("workspace") !== selected.id) {
+      setParams({ workspace: selected.id }, { replace: true });
+    }
+  }, [params, query.isError, query.isLoading, selected, setParams]);
 
   function selectWorkspace(workspace: Workspace) {
     setParams({ workspace: workspace.id });

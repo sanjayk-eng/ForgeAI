@@ -11,6 +11,7 @@ import { MembersPage } from "../modules/workspace/features/members/MembersPage";
 import { SettingsPage } from "../modules/workspace/features/settings/SettingsPage";
 import { AcceptInvitePage } from "../modules/workspace/features/invites/AcceptInvitePage";
 import { ProjectsPage } from "../modules/workspace/features/projects/ProjectsPage";
+import { ProjectDetailPage } from "../modules/workspace/features/projects/ProjectDetailPage";
 
 export const router = createBrowserRouter([
   {
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <OverviewPage /> },
           { path: "projects", element: <ProjectsPage /> },
+          { path: "projects/:projectId", element: <ProjectDetailPage /> },
           { path: "members", element: <MembersPage /> },
           { path: "settings", element: <SettingsPage /> },
         ],

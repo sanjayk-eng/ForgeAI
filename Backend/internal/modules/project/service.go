@@ -35,6 +35,8 @@ type Service interface {
 	ResolveRepository(ctx context.Context, repositoryURL string) (projectrepo.ResolvedRepository, error)
 	ListGitHubRepositories(ctx context.Context, workspaceID, userID, owner string) (github.CatalogResponse, error)
 	ImportGitHubRepositories(ctx context.Context, workspaceID, userID string, input ImportGitHubRepositoriesRequest) (ImportGitHubRepositoriesResponse, error)
+	SetOnCreate(fn func(ctx context.Context, projectID, userID string))
+	SetOnDelete(fn func(ctx context.Context, projectID string))
 }
 
 type service struct {
@@ -94,6 +96,9 @@ func (s *service) Update(ctx context.Context, projectID, userID string, input Up
 }
 
 func (s *service) Delete(ctx context.Context, projectID, userID string) error {
+	if s.projectOrch != nil {
+		s.projectOrch.TriggerOnDelete(ctx, projectID)
+	}
 	return s.core.Delete(ctx, projectID, userID)
 }
 
@@ -133,9 +138,26 @@ func (s *service) ImportGitHubRepositories(ctx context.Context, workspaceID, use
 	if err != nil {
 		return ImportGitHubRepositoriesResponse{}, err
 	}
+	for _, project := range result.Projects {
+		if s.projectOrch != nil {
+			s.projectOrch.TriggerOnCreate(ctx, project.ID, userID)
+		}
+	}
 
 	return ImportGitHubRepositoriesResponse{
 		Projects: result.Projects,
 		Skipped:  result.Skipped,
 	}, nil
+}
+
+func (s *service) SetOnCreate(fn func(ctx context.Context, projectID, userID string)) {
+	if s.projectOrch != nil {
+		s.projectOrch.SetOnCreate(fn)
+	}
+}
+
+func (s *service) SetOnDelete(fn func(ctx context.Context, projectID string)) {
+	if s.projectOrch != nil {
+		s.projectOrch.SetOnDelete(fn)
+	}
 }

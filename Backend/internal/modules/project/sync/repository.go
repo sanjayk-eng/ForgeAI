@@ -44,13 +44,14 @@ func (repo *repository) claimRepository(ctx context.Context, projectID string) (
 
 	query := `
 		WITH candidate AS (
-			SELECT pr.id
+			SELECT pr.id, p.created_by AS user_id
 			FROM tbl_project_repository pr
+			JOIN tbl_project p ON p.id = pr.project_id
 			JOIN tbl_enum status_enum ON status_enum.id = pr.sync_status_id
 			WHERE status_enum.category = 'PROJECT_REPOSITORY_SYNC_STATUS'
 			  AND status_enum.code IN ('PENDING', 'FAILED')` + filter + `
 			ORDER BY pr.created_at
-			FOR UPDATE SKIP LOCKED
+			FOR UPDATE OF pr SKIP LOCKED
 			LIMIT 1
 		), claimed AS (
 			UPDATE tbl_project_repository pr
@@ -60,9 +61,9 @@ func (repo *repository) claimRepository(ctx context.Context, projectID string) (
 			), updated_at = NOW()
 			FROM candidate
 			WHERE pr.id = candidate.id
-			RETURNING pr.id, pr.github_owner, pr.github_repository_name
+			RETURNING pr.id, pr.github_owner, pr.github_repository_name, candidate.user_id
 		)
-		SELECT id, github_owner, github_repository_name FROM claimed`
+		SELECT id, user_id, github_owner, github_repository_name FROM claimed`
 
 	if err := repo.db.GetContext(ctx, &target, query, args...); err != nil {
 		return SyncTarget{}, err

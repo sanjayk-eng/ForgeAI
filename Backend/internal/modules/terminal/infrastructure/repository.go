@@ -70,13 +70,13 @@ func (repository *Repository) Create(ctx context.Context, sandbox domain.Sandbox
 	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO tbl_sandbox_container (sandbox_id, source_type, config)
-		VALUES ($1, 'docker', jsonb_build_object('name', $2, 'image', $3, 'image_used', $4))`, sandbox.ID, sandbox.ContainerName, sandbox.Image, sandbox.ImageActual); err != nil {
+		VALUES ($1, 'docker', jsonb_build_object('name', $2::text, 'image', $3::text, 'image_used', $4::text))`, sandbox.ID, sandbox.ContainerName, sandbox.Image, sandbox.ImageActual); err != nil {
 		return "", fmt.Errorf("create sandbox container state: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE tbl_sandbox
-		SET volume_config = jsonb_build_object('name', $2, 'mount_path', $3),
-		    resource_limit = jsonb_build_object('cpu_shares', $4, 'memory_bytes', $5, 'pids_limit', $6)
+		SET volume_config = jsonb_build_object('name', $2::text, 'mount_path', $3::text),
+		    resource_limit = jsonb_build_object('cpu_shares', $4::bigint, 'memory_bytes', $5::bigint, 'pids_limit', $6::bigint)
 		WHERE id = $1`, sandbox.ID, sandbox.VolumeName, sandbox.WorkspacePath, sandbox.Limits.CPUShares, sandbox.Limits.MemoryBytes, sandbox.Limits.PidsLimit); err != nil {
 		return "", fmt.Errorf("create sandbox configuration: %w", err)
 	}
@@ -143,7 +143,7 @@ func (repository *Repository) find(ctx context.Context, suffix string, args ...a
 	err := repository.db.GetContext(ctx, &row, `
 		SELECT s.id, s.workspace_id, s.project_id, status_enum.code AS status,
 		       c.source_id AS container_id, c.config AS container_config,
-		       s.volume_config, s.resource_limit, s.last_error
+		       s.volume_config, s.resource_limit, COALESCE(s.last_error, '') AS last_error
 		FROM tbl_sandbox s
 		JOIN tbl_enum status_enum ON status_enum.id = s.status_id
 		JOIN tbl_sandbox_container c ON c.sandbox_id = s.id `+suffix, args...)

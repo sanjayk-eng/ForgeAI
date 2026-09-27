@@ -13,6 +13,7 @@ export type ProjectRepository = {
   default_branch: string;
   sync_status: SyncStatus;
   last_synced_at?: string;
+  updated_at: string;
 };
 
 export type Project = {

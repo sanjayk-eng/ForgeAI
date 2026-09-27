@@ -14,17 +14,23 @@ import (
 type Service struct {
 	repo     Repository
 	github   github.Client
+	tokens   GitHubTokenStore
 	log      logger.Logger
 	interval time.Duration
 }
 
-func NewService(repo Repository, githubClient github.Client, log logger.Logger, interval time.Duration) *Service {
+type GitHubTokenStore interface {
+	FindGitHubAccessToken(ctx context.Context, userID string) (string, error)
+}
+
+func NewService(repo Repository, githubClient github.Client, tokens GitHubTokenStore, log logger.Logger, interval time.Duration) *Service {
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
 	return &Service{
 		repo:     repo,
 		github:   githubClient,
+		tokens:   tokens,
 		log:      log,
 		interval: interval,
 	}
@@ -79,6 +85,13 @@ func (s *Service) Run(ctx context.Context) {
 func (s *Service) syncTarget(ctx context.Context, target SyncTarget, accessToken string) error {
 	if s.github == nil {
 		return fmt.Errorf("GitHub repository client is not configured")
+	}
+	if accessToken == "" && s.tokens != nil && target.UserID != "" {
+		if token, err := s.tokens.FindGitHubAccessToken(ctx, target.UserID); err == nil {
+			accessToken = token
+		} else if s.log != nil {
+			s.log.Warn(ctx, "GitHub token unavailable for repository sync; trying unauthenticated access", "user_id", target.UserID, "error", err)
+		}
 	}
 
 	var repo github.Repository

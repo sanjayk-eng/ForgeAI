@@ -39,16 +39,9 @@ func (service *Service) Create(ctx context.Context, userID, projectID string) (d
 	if userID == "" || projectID == "" || service.store == nil || service.runtime == nil {
 		return domain.Sandbox{}, domain.ErrInvalidSandbox
 	}
-	workspaceID, err := service.store.FindProjectWorkspace(ctx, projectID)
+	workspaceID, err := service.workspaceForUser(ctx, userID, projectID)
 	if err != nil {
 		return domain.Sandbox{}, err
-	}
-	allowed, err := service.store.CanAccessWorkspace(ctx, workspaceID, userID)
-	if err != nil {
-		return domain.Sandbox{}, fmt.Errorf("check sandbox workspace access: %w", err)
-	}
-	if !allowed {
-		return domain.Sandbox{}, fmt.Errorf("sandbox workspace access denied")
 	}
 	if active, err := service.store.FindActiveByProject(ctx, projectID); err == nil && active.ID != "" {
 		return domain.Sandbox{}, domain.ErrSandboxExists
@@ -216,6 +209,38 @@ func (service *Service) Destroy(ctx context.Context, sandboxID string) (domain.S
 	return sandbox, nil
 }
 
+func (service *Service) GetByProject(ctx context.Context, projectID string) (domain.Sandbox, error) {
+	if strings.TrimSpace(projectID) == "" {
+		return domain.Sandbox{}, domain.ErrInvalidSandbox
+	}
+	return service.store.FindActiveByProject(ctx, projectID)
+}
+
+func (service *Service) ValidateProjectAccess(ctx context.Context, userID, projectID string) error {
+	_, err := service.workspaceForUser(ctx, userID, projectID)
+	return err
+}
+
+func (service *Service) workspaceForUser(ctx context.Context, userID, projectID string) (string, error) {
+	userID = strings.TrimSpace(userID)
+	projectID = strings.TrimSpace(projectID)
+	if userID == "" || projectID == "" || service.store == nil {
+		return "", domain.ErrInvalidSandbox
+	}
+	workspaceID, err := service.store.FindProjectWorkspace(ctx, projectID)
+	if err != nil {
+		return "", err
+	}
+	allowed, err := service.store.CanAccessWorkspace(ctx, workspaceID, userID)
+	if err != nil {
+		return "", fmt.Errorf("check sandbox workspace access: %w", err)
+	}
+	if !allowed {
+		return "", domain.ErrSandboxAccessDenied
+	}
+	return workspaceID, nil
+}
+
 func (service *Service) Execute(ctx context.Context, sandboxID, command string) (infrastructure.ExecutionResult, error) {
 	sandbox, err := service.Get(ctx, sandboxID)
 	if err != nil {
@@ -224,5 +249,5 @@ func (service *Service) Execute(ctx context.Context, sandboxID, command string) 
 	if sandbox.Status != domain.StatusRunning {
 		return infrastructure.ExecutionResult{}, fmt.Errorf("sandbox must be RUNNING to execute commands")
 	}
-	return service.runtime.Execute(ctx, sandbox.ContainerID, command, service.policy.CommandTimeout)
+	return service.runtime.Execute(ctx, sandbox.ContainerID, command, int(service.policy.CommandTimeout.Seconds()))
 }

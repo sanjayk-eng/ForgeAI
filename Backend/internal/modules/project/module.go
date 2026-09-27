@@ -51,7 +51,7 @@ func LoadModule(config ModuleConfig) *Module {
 	// Initialize services
 	coreService := core.NewService(config.Database, coreRepo)
 	repoService := projectrepo.NewService(config.Database, repoRepo)
-	syncService := sync.NewService(syncRepo, config.GitHubClient, config.Logger, config.SyncInterval)
+	syncService := sync.NewService(syncRepo, config.GitHubClient, config.GitHubAccount, config.Logger, config.SyncInterval)
 
 	// Initialize GitHub catalog service
 	var catalogSvc github.CatalogService
@@ -61,7 +61,7 @@ func LoadModule(config ModuleConfig) *Module {
 
 	// Initialize orchestrators
 	projectOrch := orchestrator.NewProjectOrchestrator(config.Database, coreService, repoService)
-	
+
 	githubOrch := orchestrator.NewGitHubOrchestrator(
 		config.Database,
 		coreRepo,
@@ -70,7 +70,7 @@ func LoadModule(config ModuleConfig) *Module {
 		catalogSvc,
 		config.GitHubAccount,
 	)
-	
+
 	syncOrch := orchestrator.NewSyncOrchestrator(
 		syncService,
 		projectOrch,

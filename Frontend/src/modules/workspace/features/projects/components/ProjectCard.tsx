@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Edit3, FolderGit2, LoaderCircle, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { deleteProject, resolveRepository, syncProject, updateRepositoryBranch } from "../../../api/projects.api";
+import { useSandbox } from "../hooks/useSandbox";
 import type { Project } from "../types/project.types";
 import { EditProjectDialog } from "./EditProjectDialog";
+import { SandboxStatus } from "./SandboxStatus";
 
 const syncStyles = {
   PENDING: "text-amber-200",
@@ -25,9 +28,11 @@ export function ProjectCard({
   onError: (message: string) => void;
   onDeleted: () => void;
 }) {
+  const navigate = useNavigate();
   const repository = project.repository;
   const [editOpen, setEditOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { sandbox, isLoading: sandboxLoading } = useSandbox(accessToken, project.id);
   const syncMutation = useMutation({
     mutationFn: () => syncProject(accessToken, project.id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["projects", workspaceId] }),
@@ -48,11 +53,33 @@ export function ProjectCard({
     deleteMutation.mutate();
   }
 
+  const handleOpenProject = () => {
+    navigate(`/workspace/projects/${project.id}?workspace=${encodeURIComponent(workspaceId)}`);
+  };
+
   return (
     <article className={`relative overflow-hidden border bg-forge-panel/70 p-5 transition sm:p-6 ${syncing ? "border-sky-300/35" : "border-[var(--border)] hover:border-forge-accent/25"}`}>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-        <div className="flex min-w-0 items-start gap-3"><span className={`grid size-10 shrink-0 place-items-center border bg-forge-accent/[0.07] text-forge-accent ${syncing ? "animate-pulse border-sky-300/40 text-sky-200" : "border-forge-accent/20"}`}><FolderGit2 size={19} /></span><div className="min-w-0"><h2 className="truncate text-base font-bold text-forge-text">{project.name}</h2><p className="mt-1 font-mono text-[11px] text-forge-muted">/{project.slug}</p></div></div>
-        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.08em]"><span className="border border-[var(--border)] px-2 py-1 text-forge-muted">{project.type}</span>{repository && <span className={`inline-flex items-center gap-1 ${syncStyles[repository.sync_status]}`}>{syncing && <RefreshCw size={11} className="animate-spin" />}{repository.sync_status === "SYNCED" && <CheckCircle2 size={11} />}{repository.sync_status}</span>}<button type="button" className="grid size-7 place-items-center border border-[var(--border)] text-forge-muted transition hover:border-forge-accent/40 hover:text-forge-text" onClick={() => setEditOpen(true)} aria-label={`Edit ${project.name}`} title="Edit project"><Edit3 size={13} /></button><button type="button" className="grid size-7 place-items-center border border-[var(--border)] text-forge-muted transition hover:border-forge-signal/50 hover:text-forge-signal disabled:cursor-not-allowed disabled:opacity-50" onClick={remove} disabled={deleteMutation.isPending} aria-label={`Remove ${project.name}`} title="Remove project"><Trash2 size={13} /></button></div>
+        <button
+          onClick={handleOpenProject}
+          className="flex min-w-0 items-start gap-3 text-left hover:opacity-80 transition"
+        >
+          <span className={`grid size-10 shrink-0 place-items-center border bg-forge-accent/[0.07] text-forge-accent ${syncing ? "animate-pulse border-sky-300/40 text-sky-200" : "border-forge-accent/20"}`}>
+            <FolderGit2 size={19} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-bold text-forge-text">{project.name}</h2>
+            <p className="mt-1 font-mono text-[11px] text-forge-muted">/{project.slug}</p>
+          </div>
+        </button>
+        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.08em]">
+          {sandbox && <SandboxStatus status={sandbox.status} showLabel={false} />}
+          {!sandbox && !sandboxLoading && <span className="text-xs text-forge-muted">Setting up...</span>}
+          <span className="border border-[var(--border)] px-2 py-1 text-forge-muted">{project.type}</span>
+          {repository && <span className={`inline-flex items-center gap-1 ${syncStyles[repository.sync_status]}`}>{syncing && <RefreshCw size={11} className="animate-spin" />}{repository.sync_status === "SYNCED" && <CheckCircle2 size={11} />}{repository.sync_status}</span>}
+          <button type="button" className="grid size-7 place-items-center border border-[var(--border)] text-forge-muted transition hover:border-forge-accent/40 hover:text-forge-text" onClick={() => setEditOpen(true)} aria-label={`Edit ${project.name}`} title="Edit project"><Edit3 size={13} /></button>
+          <button type="button" className="grid size-7 place-items-center border border-[var(--border)] text-forge-muted transition hover:border-forge-signal/50 hover:text-forge-signal disabled:cursor-not-allowed disabled:opacity-50" onClick={remove} disabled={deleteMutation.isPending} aria-label={`Remove ${project.name}`} title="Remove project"><Trash2 size={13} /></button>
+        </div>
       </div>
       {project.description && <p className="mt-5 max-w-2xl text-sm leading-6 text-forge-muted">{project.description}</p>}
       {repository ? <RepositoryFooter accessToken={accessToken} repository={repository} syncing={syncing} onSync={() => syncMutation.mutate()} onError={onError} /> : <div className="mt-5 border-t border-[var(--border)] pt-4 text-xs text-forge-muted">Empty project · repository can be connected later</div>}

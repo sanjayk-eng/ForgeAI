@@ -3,9 +3,10 @@ package sync
 import "errors"
 
 type SyncTarget struct {
-	ID    string `db:"id"`
-	Owner string `db:"github_owner"`
-	Name  string `db:"github_repository_name"`
+	ID     string `db:"id"`
+	UserID string `db:"user_id"`
+	Owner  string `db:"github_owner"`
+	Name   string `db:"github_repository_name"`
 }
 
 type WorkspaceProjectsSyncResponse struct {

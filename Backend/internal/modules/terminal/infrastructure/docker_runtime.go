@@ -37,7 +37,7 @@ type Runtime interface {
 	StartContainer(ctx context.Context, containerID string) error
 	StopContainer(ctx context.Context, containerID string) error
 	RemoveContainer(ctx context.Context, containerID string) error
-	Execute(ctx context.Context, containerID, command string, timeout time.Duration) (ExecutionResult, error)
+	Execute(ctx context.Context, containerID, command string, timeoutSeconds int) (ExecutionResult, error)
 }
 
 type DockerRuntime struct {
@@ -112,11 +112,11 @@ func (runtime *DockerRuntime) RemoveContainer(ctx context.Context, containerID s
 	return err
 }
 
-func (runtime *DockerRuntime) Execute(ctx context.Context, containerID, command string, timeout time.Duration) (ExecutionResult, error) {
-	if strings.TrimSpace(command) == "" || timeout <= 0 {
+func (runtime *DockerRuntime) Execute(ctx context.Context, containerID, command string, timeoutSeconds int) (ExecutionResult, error) {
+	if strings.TrimSpace(command) == "" || timeoutSeconds <= 0 {
 		return ExecutionResult{}, fmt.Errorf("command and timeout are required")
 	}
-	commandContext, cancel := context.WithTimeout(ctx, timeout)
+	commandContext, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
 	defer cancel()
 	output, err := runtime.run(commandContext, "exec", containerID, "sh", "-lc", command)
 	result := ExecutionResult{Output: output, ExitCode: 0, Command: command}

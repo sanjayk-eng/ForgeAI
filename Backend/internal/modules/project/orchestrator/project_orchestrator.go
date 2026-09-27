@@ -17,6 +17,8 @@ type ProjectOrchestrator struct {
 	db          *sqlx.DB
 	coreService core.Service
 	repoService projectrepo.Service
+	onCreate    func(ctx context.Context, projectID, userID string)
+	onDelete    func(ctx context.Context, projectID string)
 }
 
 func NewProjectOrchestrator(db *sqlx.DB, coreService core.Service, repoService projectrepo.Service) *ProjectOrchestrator {
@@ -24,6 +26,26 @@ func NewProjectOrchestrator(db *sqlx.DB, coreService core.Service, repoService p
 		db:          db,
 		coreService: coreService,
 		repoService: repoService,
+	}
+}
+
+func (o *ProjectOrchestrator) SetOnCreate(fn func(ctx context.Context, projectID, userID string)) {
+	o.onCreate = fn
+}
+
+func (o *ProjectOrchestrator) SetOnDelete(fn func(ctx context.Context, projectID string)) {
+	o.onDelete = fn
+}
+
+func (o *ProjectOrchestrator) TriggerOnCreate(ctx context.Context, projectID, userID string) {
+	if o.onCreate != nil {
+		o.onCreate(ctx, projectID, userID)
+	}
+}
+
+func (o *ProjectOrchestrator) TriggerOnDelete(ctx context.Context, projectID string) {
+	if o.onDelete != nil {
+		o.onDelete(ctx, projectID)
 	}
 }
 
@@ -67,6 +89,8 @@ func (o *ProjectOrchestrator) Create(ctx context.Context, workspaceID, createdBy
 	if err != nil {
 		return ProjectWithRepository{}, fmt.Errorf("create project: %w", err)
 	}
+
+	o.TriggerOnCreate(ctx, result.ID, createdBy)
 
 	return result, nil
 }
