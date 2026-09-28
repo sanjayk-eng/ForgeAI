@@ -4,7 +4,9 @@ import (
 	"context"
 
 	"ai-agent/internal/modules/terminal/application"
-	"ai-agent/internal/modules/terminal/infrastructure"
+	"ai-agent/internal/modules/terminal/infrastructure/docker"
+	terminalgithub "ai-agent/internal/modules/terminal/infrastructure/github"
+	terminalpostgres "ai-agent/internal/modules/terminal/infrastructure/postgres"
 	"ai-agent/internal/modules/terminal/policy"
 	"ai-agent/internal/modules/terminal/worker"
 	"ai-agent/internal/shared/logger"
@@ -32,9 +34,12 @@ func LoadModule(config ModuleConfig) (*Module, error) {
 		return nil, err
 	}
 
-	runtime := infrastructure.NewDockerRuntime(config.DockerBinary)
-	repo := infrastructure.NewRepository(config.Database)
-	service := application.NewService(repo, runtime, sandboxPolicy)
+	dockerCLI := docker.NewDockerCLI(config.DockerBinary)
+	runtime := docker.NewDockerRuntimeWithCLI(dockerCLI)
+	files := docker.NewDockerFileStore(dockerCLI)
+	repositoryCloner := terminalgithub.NewGitHubRepositoryCloner(dockerCLI)
+	repo := terminalpostgres.NewRepository(config.Database)
+	service := application.NewService(repo, runtime, files, repositoryCloner, sandboxPolicy)
 	sandboxWorker := worker.NewSandboxWorker(service, config.ProjectRepo, config.Logger)
 
 	module := &Module{

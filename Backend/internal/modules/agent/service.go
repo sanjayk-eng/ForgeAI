@@ -14,7 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"ai-agent/internal/modules/terminal/infrastructure"
+	terminalapp "ai-agent/internal/modules/terminal/application"
 )
 
 const (
@@ -36,7 +36,7 @@ var (
 
 type SandboxService interface {
 	ValidateSandboxAccess(ctx context.Context, userID, sandboxID string) error
-	ListFiles(ctx context.Context, sandboxID, dir string) ([]infrastructure.FileEntry, error)
+	ListFiles(ctx context.Context, sandboxID, dir string) ([]terminalapp.FileEntry, error)
 	ReadFile(ctx context.Context, sandboxID, path string) (string, error)
 	WriteFile(ctx context.Context, sandboxID, relativePath, content string) error
 }
@@ -128,7 +128,7 @@ func isLoopbackHost(host string) bool {
 
 func (service *Service) projectContext(ctx context.Context, sandboxID string) (string, error) {
 	directories := []string{"/workspace"}
-	files := make([]infrastructure.FileEntry, 0, maxContextFiles)
+	files := make([]terminalapp.FileEntry, 0, maxContextFiles)
 	for index := 0; index < len(directories) && len(files) < maxContextFiles; index++ {
 		entries, err := service.sandbox.ListFiles(ctx, sandboxID, directories[index])
 		if err != nil {

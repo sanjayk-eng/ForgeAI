@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"ai-agent/internal/modules/terminal/infrastructure"
+	terminalapp "ai-agent/internal/modules/terminal/application"
 )
 
 func TestValidateChangePath(t *testing.T) {
@@ -42,7 +42,7 @@ func TestValidateChangePath(t *testing.T) {
 
 func TestRunTaskReadsProjectAndAppliesChanges(t *testing.T) {
 	sandbox := &fakeSandbox{
-		files: map[string][]infrastructure.FileEntry{
+		files: map[string][]terminalapp.FileEntry{
 			"/workspace": {
 				{Name: ".env", Path: "/workspace/.env"},
 				{Name: ".git", Path: "/workspace/.git", IsDirectory: true},
@@ -106,7 +106,7 @@ func TestRunTaskRejectsInaccessibleSandbox(t *testing.T) {
 }
 
 type fakeSandbox struct {
-	files       map[string][]infrastructure.FileEntry
+	files       map[string][]terminalapp.FileEntry
 	contents    map[string]string
 	writes      map[string]string
 	accessError error
@@ -116,7 +116,7 @@ func (sandbox *fakeSandbox) ValidateSandboxAccess(context.Context, string, strin
 	return sandbox.accessError
 }
 
-func (sandbox *fakeSandbox) ListFiles(_ context.Context, _ string, dir string) ([]infrastructure.FileEntry, error) {
+func (sandbox *fakeSandbox) ListFiles(_ context.Context, _ string, dir string) ([]terminalapp.FileEntry, error) {
 	return sandbox.files[dir], nil
 }
 

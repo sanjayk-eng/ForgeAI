@@ -5,16 +5,15 @@ import (
 	"testing"
 
 	"ai-agent/internal/modules/terminal/domain"
-	"ai-agent/internal/modules/terminal/infrastructure"
 	"ai-agent/internal/modules/terminal/policy"
 )
 
 func TestWriteFileConfinesPathsToWorkspace(t *testing.T) {
 	runtime := &fileWriteRuntime{}
 	service := &Service{
-		store:   fileWriteStore{},
-		runtime: runtime,
-		policy:  policy.Sandbox{},
+		store:  fileWriteStore{},
+		files:  runtime,
+		policy: policy.Sandbox{},
 	}
 
 	for _, path := range []string{"../outside.txt", "src/../../outside.txt", "/etc/passwd", "src/.git/config"} {
@@ -43,7 +42,7 @@ func (fileWriteStore) FindByID(context.Context, string) (domain.Sandbox, error) 
 }
 
 type fileWriteRuntime struct {
-	infrastructure.Runtime
+	FileStore
 	path    string
 	content string
 }

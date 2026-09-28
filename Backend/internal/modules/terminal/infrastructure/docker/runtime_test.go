@@ -1,4 +1,4 @@
-package infrastructure
+package docker
 
 import (
 	"errors"
@@ -43,7 +43,7 @@ func TestIsMissingDockerResource(t *testing.T) {
 }
 
 func TestHostWorkspacePath(t *testing.T) {
-	path := hostWorkspacePath("forgeai-workspace-abc123")
+	path := HostWorkspacePath("forgeai-workspace-abc123")
 	if path == "" {
 		t.Fatal("host workspace path should not be empty")
 	}

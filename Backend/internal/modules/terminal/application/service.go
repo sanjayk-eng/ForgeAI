@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"ai-agent/internal/modules/terminal/domain"
-	"ai-agent/internal/modules/terminal/infrastructure"
 	"ai-agent/internal/modules/terminal/policy"
 )
 
@@ -25,13 +24,21 @@ type Store interface {
 }
 
 type Service struct {
-	store   Store
-	runtime infrastructure.Runtime
-	policy  policy.Sandbox
+	store            Store
+	runtime          Runtime
+	files            FileStore
+	repositoryCloner RepositoryCloner
+	policy           policy.Sandbox
 }
 
-func NewService(store Store, runtime infrastructure.Runtime, sandboxPolicy policy.Sandbox) *Service {
-	return &Service{store: store, runtime: runtime, policy: sandboxPolicy}
+func NewService(store Store, runtime Runtime, files FileStore, repositoryCloner RepositoryCloner, sandboxPolicy policy.Sandbox) *Service {
+	return &Service{
+		store:            store,
+		runtime:          runtime,
+		files:            files,
+		repositoryCloner: repositoryCloner,
+		policy:           sandboxPolicy,
+	}
 }
 
 func (service *Service) Create(ctx context.Context, userID, projectID string) (domain.Sandbox, error) {
@@ -72,7 +79,7 @@ func (service *Service) Create(ctx context.Context, userID, projectID string) (d
 	if err := service.runtime.CreateVolume(ctx, volumeName); err != nil {
 		return fail(fmt.Errorf("create sandbox volume: %w", err))
 	}
-	containerID, err := service.runtime.CreateContainer(ctx, infrastructure.ContainerSpec{
+	containerID, err := service.runtime.CreateContainer(ctx, ContainerSpec{
 		Name: containerName, Image: service.policy.Image, VolumeName: volumeName,
 		WorkspacePath: service.policy.WorkspacePath, NetworkMode: service.policy.NetworkMode,
 		ReadOnlyRootFS: service.policy.ReadOnlyRootFS, NoNewPrivileges: service.policy.NoNewPrivileges,
@@ -261,18 +268,18 @@ func (service *Service) workspaceForUser(ctx context.Context, userID, projectID 
 	return workspaceID, nil
 }
 
-func (service *Service) Execute(ctx context.Context, sandboxID, command string) (infrastructure.ExecutionResult, error) {
+func (service *Service) Execute(ctx context.Context, sandboxID, command string) (ExecutionResult, error) {
 	sandbox, err := service.Get(ctx, sandboxID)
 	if err != nil {
-		return infrastructure.ExecutionResult{}, err
+		return ExecutionResult{}, err
 	}
 	if sandbox.Status != domain.StatusRunning {
-		return infrastructure.ExecutionResult{}, fmt.Errorf("sandbox must be RUNNING to execute commands")
+		return ExecutionResult{}, fmt.Errorf("sandbox must be RUNNING to execute commands")
 	}
 	return service.runtime.Execute(ctx, sandbox.ContainerID, command, int(service.policy.CommandTimeout.Seconds()))
 }
 
-func (service *Service) ListFiles(ctx context.Context, sandboxID, path string) ([]infrastructure.FileEntry, error) {
+func (service *Service) ListFiles(ctx context.Context, sandboxID, path string) ([]FileEntry, error) {
 	sandbox, err := service.Get(ctx, sandboxID)
 	if err != nil {
 		return nil, err
@@ -280,7 +287,7 @@ func (service *Service) ListFiles(ctx context.Context, sandboxID, path string) (
 	if sandbox.Status != domain.StatusRunning {
 		return nil, fmt.Errorf("sandbox must be RUNNING to list files")
 	}
-	return service.runtime.ListFiles(ctx, sandbox.ContainerID, path)
+	return service.files.ListFiles(ctx, sandbox.ContainerID, path)
 }
 
 func (service *Service) ReadFile(ctx context.Context, sandboxID, path string) (string, error) {
@@ -291,7 +298,7 @@ func (service *Service) ReadFile(ctx context.Context, sandboxID, path string) (s
 	if sandbox.Status != domain.StatusRunning {
 		return "", fmt.Errorf("sandbox must be RUNNING to read files")
 	}
-	return service.runtime.ReadFile(ctx, sandbox.ContainerID, path)
+	return service.files.ReadFile(ctx, sandbox.ContainerID, path)
 }
 
 func (service *Service) WriteFile(ctx context.Context, sandboxID, relativePath, content string) error {
@@ -322,7 +329,7 @@ func (service *Service) WriteFile(ctx context.Context, sandboxID, relativePath, 
 	if len(content) > 512*1024 {
 		return fmt.Errorf("file content exceeds the write limit")
 	}
-	return service.runtime.WriteFile(ctx, sandbox.ContainerID, fullPath, content)
+	return service.files.WriteFile(ctx, sandbox.ContainerID, fullPath, content)
 }
 
 func (service *Service) CloneRepository(ctx context.Context, sandboxID, repositoryURL, branch, accessToken string) error {
@@ -333,5 +340,5 @@ func (service *Service) CloneRepository(ctx context.Context, sandboxID, reposito
 	if sandbox.Status != domain.StatusRunning {
 		return fmt.Errorf("sandbox must be RUNNING to clone a repository")
 	}
-	return service.runtime.CloneRepository(ctx, sandbox.VolumeName, sandbox.WorkspacePath, service.policy.GitImage, repositoryURL, branch, accessToken, 5*time.Minute)
+	return service.repositoryCloner.CloneRepository(ctx, sandbox.VolumeName, sandbox.WorkspacePath, service.policy.GitImage, repositoryURL, branch, accessToken, 5*time.Minute)
 }

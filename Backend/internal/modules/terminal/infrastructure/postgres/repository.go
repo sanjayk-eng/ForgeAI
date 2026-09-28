@@ -1,4 +1,4 @@
-package infrastructure
+package postgres
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"ai-agent/internal/modules/terminal/application"
 	"ai-agent/internal/modules/terminal/domain"
 
 	"github.com/jmoiron/sqlx"
@@ -191,3 +192,5 @@ func requireOneRow(result sql.Result, resource string) error {
 	}
 	return nil
 }
+
+var _ application.Store = (*Repository)(nil)
