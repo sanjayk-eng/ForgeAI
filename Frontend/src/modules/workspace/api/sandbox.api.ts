@@ -61,6 +61,50 @@ export function readFile(accessToken: string, sandboxId: string, path: string) {
   );
 }
 
+export function saveFile(accessToken: string, sandboxId: string, path: string, content: string) {
+  return authenticatedRequest<{ path: string }>(
+    accessToken,
+    `/sandboxes/${sandboxId}/files/save`,
+    {
+      method: "POST",
+      body: JSON.stringify({ path, content }),
+    },
+  );
+}
+
+export function createFileOrDirectory(accessToken: string, sandboxId: string, path: string, type: "file" | "directory") {
+  return authenticatedRequest<{ path: string }>(
+    accessToken,
+    `/sandboxes/${sandboxId}/files/create`,
+    {
+      method: "POST",
+      body: JSON.stringify({ path, type }),
+    },
+  );
+}
+
+export function deletePath(accessToken: string, sandboxId: string, path: string) {
+  return authenticatedRequest<{ path: string }>(
+    accessToken,
+    `/sandboxes/${sandboxId}/files`,
+    {
+      method: "DELETE",
+      body: JSON.stringify({ path }),
+    },
+  );
+}
+
+export function renamePath(accessToken: string, sandboxId: string, oldPath: string, newPath: string) {
+  return authenticatedRequest<{ old_path: string; new_path: string }>(
+    accessToken,
+    `/sandboxes/${sandboxId}/files/rename`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ old_path: oldPath, new_path: newPath }),
+    },
+  );
+}
+
 export interface AgentStatus {
   configured: boolean;
   model?: string;
@@ -92,4 +136,63 @@ export interface FileEntry {
   is_directory: boolean;
   size?: number;
   modified_at?: string;
+}
+
+export interface GitStatusPayload {
+  branch: string;
+  is_dirty: boolean;
+  modified: string[];
+  staged: string[];
+  untracked: string[];
+}
+
+export interface GitDiffEntry {
+  path: string;
+  old_path?: string;
+  content: string;
+  status: string;
+}
+
+export interface GitStatusResponse {
+  status: GitStatusPayload;
+}
+
+export interface GitDiffResponse {
+  files: GitDiffEntry[];
+}
+
+export async function getGitStatus(accessToken: string, sandboxId: string) {
+  return authenticatedRequest<GitStatusResponse>(
+    accessToken,
+    `/sandboxes/${sandboxId}/git/status`,
+  );
+}
+
+export async function getGitDiff(accessToken: string, sandboxId: string) {
+  return authenticatedRequest<GitDiffResponse>(
+    accessToken,
+    `/sandboxes/${sandboxId}/git/diff`,
+  );
+}
+
+export async function commitGitChanges(accessToken: string, sandboxId: string, message: string, all = true) {
+  return authenticatedRequest<{ message: string; hash: string }>(
+    accessToken,
+    `/sandboxes/${sandboxId}/git/commit`,
+    {
+      method: "POST",
+      body: JSON.stringify({ message, all }),
+    },
+  );
+}
+
+export async function pushGitChanges(accessToken: string, sandboxId: string, remote?: string, branch?: string) {
+  return authenticatedRequest<{ message: string; status: string }>(
+    accessToken,
+    `/sandboxes/${sandboxId}/git/push`,
+    {
+      method: "POST",
+      body: JSON.stringify({ remote, branch }),
+    },
+  );
 }

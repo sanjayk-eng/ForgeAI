@@ -1,13 +1,20 @@
-import { ArrowLeft, Bot, FileText, Loader2, X } from "lucide-react";
+import { ArrowLeft, Bot, Code2, FileText, FolderGit2, Loader2 } from "lucide-react";
+import { lazy, Suspense, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../auth/useAuth";
 import { useWorkspaceId } from "../../hooks/useWorkspaceId";
 import { useSandbox } from "./hooks/useSandbox";
 import { SandboxStatus } from "./components/SandboxStatus";
-import { FileTree } from "./components/FileTree";
-import { CodeViewer } from "./components/CodeViewer";
+import { FileExplorer } from "./components/files/FileExplorer";
 import { AgentPanel } from "./components/AgentPanel";
-import { useState } from "react";
+import { GitPanel } from "./components/GitPanel";
+import { ProjectSidePanel } from "./components/ProjectSidePanel";
+
+const CodeEditor = lazy(() =>
+  import("./components/files/CodeEditor").then(({ CodeEditor: component }) => ({
+    default: component,
+  })),
+);
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
@@ -20,7 +27,8 @@ export function ProjectDetailPage() {
   const { sandbox, isLoading, error } = useSandbox(accessToken, projectId ?? null, true);
   const sandboxStatus = typeof sandbox?.status === "string" ? sandbox.status : null;
   const [selectedFile, setSelectedFile] = useState<{ name: string; path: string } | null>(null);
-  const activePanel = searchParams.get("panel") === "agent" ? "agent" : "files";
+  const panelParam = searchParams.get("panel");
+  const activePanel = panelParam === "agent" || panelParam === "git" ? panelParam : "files";
   const workspaceLabel = workspaceId || "workspace";
   const projectLabel = projectId || "project";
 
@@ -28,9 +36,10 @@ export function ProjectDetailPage() {
     return <div>Invalid project</div>;
   }
 
-  function selectPanel(panel: "files" | "agent") {
+  function selectPanel(panel: "files" | "agent" | "git") {
     const nextParams = new URLSearchParams(searchParams);
     if (panel === "agent") nextParams.set("panel", "agent");
+    else if (panel === "git") nextParams.set("panel", "git");
     else nextParams.delete("panel");
     setSearchParams(nextParams, { replace: true });
   }
@@ -61,6 +70,14 @@ export function ProjectDetailPage() {
           >
             <Bot size={14} /> Agent
           </button>
+          <button
+            type="button"
+            aria-pressed={activePanel === "git"}
+            onClick={() => selectPanel(activePanel === "git" ? "files" : "git")}
+            className={`inline-flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition ${activePanel === "git" ? "border-forge-accent/40 bg-forge-accent/[0.1] text-forge-accent" : "border-[var(--border)] text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"}`}
+          >
+            <FolderGit2 size={14} /> Git
+          </button>
           <div className="rounded-md border border-[var(--border)] bg-forge-panel px-3 py-1.5 text-[11px] font-medium text-forge-muted">
             {workspaceLabel}
           </div>
@@ -76,9 +93,26 @@ export function ProjectDetailPage() {
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
             {sandboxStatus === "RUNNING" ? (
-              <FileTree
+              <FileExplorer
+                key={sandbox?.id ?? ""}
+                accessToken={accessToken ?? ""}
+                sandboxId={sandbox?.id ?? ""}
                 selectedPath={selectedFile?.path}
                 onSelect={(file) => setSelectedFile({ name: file.name, path: file.path })}
+                onPathChanged={(oldPath, newPath) => {
+                  setSelectedFile((current) => {
+                    if (!current || (current.path !== oldPath && !current.path.startsWith(`${oldPath}/`))) return current;
+                    const path = `${newPath}${current.path.slice(oldPath.length)}`;
+                    return { name: path.split("/").at(-1) ?? current.name, path };
+                  });
+                }}
+                onPathDeleted={(path) => {
+                  setSelectedFile((current) =>
+                    current && (current.path === path || current.path.startsWith(`${path}/`))
+                      ? null
+                      : current,
+                  );
+                }}
               />
             ) : (
               <div className="text-xs text-forge-muted">
@@ -91,9 +125,25 @@ export function ProjectDetailPage() {
         </aside>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-forge-bg">
-          <div className="flex min-h-0 flex-1 bg-forge-bg p-0">
+          <div className="flex min-h-0 min-w-0 flex-1 bg-forge-bg p-0">
             {sandboxStatus === "RUNNING" ? (
-              <CodeViewer sandboxId={sandbox?.id ?? null} filePath={selectedFile?.path ?? null} fileName={selectedFile?.name ?? null} />
+              selectedFile ? (
+                <Suspense
+                  fallback={<div className="p-4 text-sm text-forge-muted">Loading editor...</div>}
+                >
+                  <CodeEditor
+                    accessToken={accessToken}
+                    sandboxId={sandbox?.id ?? null}
+                    filePath={selectedFile.path}
+                    fileName={selectedFile.name}
+                  />
+                </Suspense>
+              ) : (
+                <div className="flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-3 text-center text-sm text-forge-muted">
+                  <Code2 size={28} strokeWidth={1.5} />
+                  <span>Select a file to view its contents</span>
+                </div>
+              )
             ) : (
               <div className="flex h-full items-center justify-center">
                 <div className="text-center">
@@ -131,21 +181,32 @@ export function ProjectDetailPage() {
           </div>
         </main>
         {activePanel === "agent" && (
-          <aside className="flex w-[340px] shrink-0 flex-col border-l border-[var(--border)] bg-forge-panel shadow-[-12px_0_32px_rgba(0,0,0,.08)] max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-20 max-lg:w-[min(360px,calc(100vw-40px))]">
-            <div className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--border)] px-4">
-              <span className="flex items-center gap-2 text-xs font-semibold text-forge-text"><Bot size={15} className="text-forge-accent" /> Agent</span>
-              <button type="button" onClick={() => selectPanel("files")} aria-label="Close agent panel" className="grid size-7 place-items-center rounded text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"><X size={15} /></button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <AgentPanel
-                projectName={projectLabel}
-                selectedFile={selectedFile?.name ?? null}
-                accessToken={accessToken}
-                sandboxId={sandbox?.id ?? null}
-                sandboxStatus={sandboxStatus}
-              />
-            </div>
-          </aside>
+          <ProjectSidePanel
+            title="Agent"
+            icon={<Bot size={15} className="text-forge-accent" />}
+            onClose={() => selectPanel("files")}
+          >
+            <AgentPanel
+              projectName={projectLabel}
+              selectedFile={selectedFile?.name ?? null}
+              accessToken={accessToken}
+              sandboxId={sandbox?.id ?? null}
+              sandboxStatus={sandboxStatus}
+            />
+          </ProjectSidePanel>
+        )}
+        {activePanel === "git" && (
+          <ProjectSidePanel
+            title="Git"
+            icon={<FolderGit2 size={15} className="text-forge-accent" />}
+            onClose={() => selectPanel("files")}
+          >
+            <GitPanel
+              accessToken={accessToken}
+              sandboxId={sandbox?.id ?? null}
+              projectName={projectLabel}
+            />
+          </ProjectSidePanel>
         )}
       </div>
     </div>
