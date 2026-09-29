@@ -63,11 +63,14 @@ func (repo *repository) FindGitHubAccessToken(ctx context.Context, userID string
 		FROM tbl_oauth_account oa
 		JOIN tbl_enum e ON e.id = oa.provider_id
 		WHERE oa.user_id = $1 AND e.category = 'AUTH_PROVIDER' AND e.code = 'GITHUB'`, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrGitHubAccountNotConnected
+	}
 	if err != nil {
 		return "", fmt.Errorf("find GitHub access token: %w", err)
 	}
 	if strings.TrimSpace(accessToken) == "" {
-		return "", fmt.Errorf("GitHub account is not connected")
+		return "", ErrGitHubAccountNotConnected
 	}
 	return accessToken, nil
 }

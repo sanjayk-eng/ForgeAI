@@ -3,6 +3,7 @@ import { listProjects } from "../../../api/projects.api";
 import type { PageParams } from "../../../../../shared/api/pagination";
 
 export const projectsQueryKey = (workspaceId: string) => ["projects", workspaceId];
+const syncPollingTimeoutMs = 60_000;
 
 export function useProjects(accessToken: string, workspaceId: string, params: PageParams = {}) {
   return useQuery({
@@ -11,8 +12,16 @@ export function useProjects(accessToken: string, workspaceId: string, params: Pa
     enabled: Boolean(accessToken && workspaceId),
     placeholderData: keepPreviousData,
     refetchInterval: (query) => {
-      const active = query.state.data?.items.some((project) =>
-        ["PENDING", "SYNCING"].includes(project.repository?.sync_status ?? ""),
+      const now = Date.now();
+      const active = query.state.data?.items.some((project) => {
+        const repository = project.repository;
+        if (!repository || !["PENDING", "SYNCING"].includes(repository.sync_status)) {
+          return false;
+        }
+
+        const statusUpdatedAt = Date.parse(repository.updated_at);
+        return Number.isFinite(statusUpdatedAt) && now - statusUpdatedAt < syncPollingTimeoutMs;
+      }
       );
       return active ? 1500 : false;
     },

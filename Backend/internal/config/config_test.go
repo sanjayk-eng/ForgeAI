@@ -17,6 +17,9 @@ func TestLoadFromEnvUsesDefaults(t *testing.T) {
 	if config.LogLevel != zapcore.InfoLevel || config.LogFormat != "json" || !config.LogSource {
 		t.Fatalf("unexpected logging defaults: %+v", config)
 	}
+	if config.AIBaseURL != defaultAIBaseURL || config.AIModel != defaultAIModel || config.AIAPIKey != "" {
+		t.Fatalf("unexpected AI defaults: %+v", config)
+	}
 }
 
 func TestLoadFromEnvParsesValues(t *testing.T) {
@@ -24,6 +27,7 @@ func TestLoadFromEnvParsesValues(t *testing.T) {
 		"APP_ENV": "production", "HOST": "0.0.0.0", "PORT": "9090",
 		"DATABASE_URL": "postgres://localhost/forgeai", "LOG_LEVEL": "debug",
 		"LOG_FORMAT": "text", "LOG_SOURCE": "false",
+		envAIBaseURL: "https://llm.example/v1", envAIAPIKey: "configured-test-key", envAIModel: "code-model",
 	}
 	config, err := loadFromEnv(func(key string) string { return values[key] })
 	if err != nil {
@@ -31,6 +35,9 @@ func TestLoadFromEnvParsesValues(t *testing.T) {
 	}
 	if config.Port != 9090 || config.LogLevel != zapcore.DebugLevel || config.LogFormat != "text" || config.LogSource {
 		t.Fatalf("unexpected parsed config: %+v", config)
+	}
+	if config.AIBaseURL != values[envAIBaseURL] || config.AIAPIKey != values[envAIAPIKey] || config.AIModel != values[envAIModel] {
+		t.Fatalf("unexpected AI config: %+v", config)
 	}
 }
 

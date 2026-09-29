@@ -1,5 +1,5 @@
 import { Bot, FolderGit2, LayoutDashboard, LogOut, MessagesSquare, Plus, Settings, Users, X } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 const items = [
   { label: "Overview", to: "/workspace", icon: LayoutDashboard, end: true },
@@ -8,7 +8,7 @@ const items = [
 ];
 
 const modules = [
-  { label: "Agent workspace", icon: Bot },
+  { label: "Agent workspace", to: "/workspace/projects", query: "agent=1", icon: Bot },
   { label: "Projects", to: "/workspace/projects", icon: FolderGit2 },
   { label: "Conversations", icon: MessagesSquare },
 ];
@@ -28,6 +28,9 @@ export function WorkspaceSidebar({
   onClose: () => void;
   onSignOut: () => void;
 }) {
+  const location = useLocation();
+  const agentMode = location.search.includes("agent=1") || location.search.includes("panel=agent");
+
   return (
     <>
       <aside
@@ -68,12 +71,15 @@ export function WorkspaceSidebar({
               Modules
             </span>
             <div className="grid gap-1 text-[13px] font-semibold text-forge-muted">
-              {modules.map(({ label, to, icon: Icon }) => to ? (
+              {modules.map(({ label, to, query, icon: Icon }) => to ? (
                 <NavLink
                   key={label}
-                  to={`${to}?workspace=${workspaceId ?? ""}`}
+                  to={`${to}?workspace=${workspaceId ?? ""}${query ? `&${query}` : ""}`}
                   onClick={onClose}
-                  className={({ isActive }) => `flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-semibold no-underline transition ${isActive ? "bg-forge-accent/[0.09] text-forge-text" : "text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"}`}
+                  className={({ isActive }) => {
+                    const selected = isActive && (label === "Agent workspace" ? agentMode : !agentMode);
+                    return `flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-semibold no-underline transition ${selected ? "bg-forge-accent/[0.09] text-forge-text" : "text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"}`;
+                  }}
                 >
                   <Icon size={17} />
                   {label}

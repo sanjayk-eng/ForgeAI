@@ -3,9 +3,13 @@ package main
 import (
 	"ai-agent/internal/config"
 	"ai-agent/internal/middleware"
+	agentmodule "ai-agent/internal/modules/agent"
 	"ai-agent/internal/modules/auth"
 	"ai-agent/internal/modules/auth/provider"
+	gitmodule "ai-agent/internal/modules/git"
 	projectmodule "ai-agent/internal/modules/project"
+	terminalmodule "ai-agent/internal/modules/terminal"
+	terminalworker "ai-agent/internal/modules/terminal/worker"
 	workspaceinvite "ai-agent/internal/modules/workspaces/invite"
 	member "ai-agent/internal/modules/workspaces/member"
 	workspacecore "ai-agent/internal/modules/workspaces/workspace"
@@ -15,6 +19,11 @@ import (
 	appjwt "ai-agent/pkg/jwt"
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -120,14 +129,66 @@ func runServer() error {
 		return fmt.Errorf("initialize GitHub repository provider: %w", err)
 	}
 	githubInspector, _ := githubProvider.(provider.GitHubRepositoryInspector)
-	projectmodule.LoadModule(projectmodule.ModuleConfig{
+
+	// Initialize GitHub client for project module
+	var githubClient projectmodule.GitHubClient
+	if githubInspector != nil {
+		// Import the github subpackage
+		githubClient = projectmodule.NewGitHubClient(githubInspector)
+	}
+
+	projectModule := projectmodule.LoadModule(projectmodule.ModuleConfig{
 		Router:        protectedRouter,
 		Database:      db,
 		Logger:        appLogger,
-		GitHubClient:  projectmodule.NewGitHubRepositoryClient(githubInspector),
+		GitHubClient:  githubClient,
 		GitHubAccount: authModule.Repository,
 		SyncContext:   emailContext,
 	})
+
+	projectAdapter := terminalworker.NewProjectAdapter(
+		projectModule.CoreService,
+		projectModule.RepoService,
+		authModule.Repository,
+	)
+	policyPath, err := sandboxPolicyPath()
+	if err != nil {
+		return fmt.Errorf("initialize terminal module: %w", err)
+	}
+
+	terminalModule, err := terminalmodule.LoadModule(terminalmodule.ModuleConfig{
+		Database:     db,
+		Logger:       appLogger,
+		DockerBinary: "docker",
+		PolicyPath:   policyPath,
+		ProjectRepo:  projectAdapter,
+	})
+	if err != nil {
+		return fmt.Errorf("initialize terminal module: %w", err)
+	}
+
+	terminalModule.Start(emailContext, 3)
+	defer terminalModule.Stop()
+
+	gitmodule.LoadModule(gitmodule.ModuleConfig{
+		Router:          protectedRouter,
+		WorkspaceRoot:   "/workspace",
+		SandboxExecutor: terminalModule.Service,
+		SandboxAccess:   terminalModule.Service,
+		GitHubAccounts:  authModule.Repository,
+	})
+
+	terminalmodule.RegisterRoutes(protectedRouter, terminalModule.Handler)
+	agentService := agentmodule.NewService(terminalModule.Service, agentmodule.Config{
+		BaseURL: settings.AIBaseURL,
+		APIKey:  settings.AIAPIKey,
+		Model:   settings.AIModel,
+	})
+	agentmodule.RegisterRoutes(protectedRouter, agentmodule.NewHandler(agentService))
+
+	projectModule.ProjectService.SetOnCreate(terminalModule.OnProjectCreated)
+	projectModule.ProjectService.SetOnDelete(terminalModule.OnProjectDeleted)
+	projectModule.ProjectService.SetOnBranchUpdated(terminalModule.OnProjectBranchUpdated)
 	member.LoadModule(member.ModuleConfig{
 		Router:   protectedRouter,
 		Database: db,
@@ -146,5 +207,54 @@ func runServer() error {
 
 	address := fmt.Sprintf("%s:%d", settings.Host, settings.Port)
 	appLogger.With("component", "agent", "environment", settings.AppEnv).Info(context.Background(), "HTTP server started", "address", address)
-	return engine.Run(address)
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		if err := engine.Run(address); err != nil {
+			appLogger.Error(context.Background(), "server error", "error", err)
+			quit <- syscall.SIGTERM
+		}
+	}()
+
+	<-quit
+	appLogger.Info(context.Background(), "shutting down server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	stopEmail()
+	terminalModule.Stop()
+	emailModule.Stop()
+
+	select {
+	case <-shutdownCtx.Done():
+		appLogger.Warn(context.Background(), "shutdown timeout exceeded")
+	default:
+		appLogger.Info(context.Background(), "server shutdown complete")
+	}
+
+	return nil
+}
+
+func sandboxPolicyPath() (string, error) {
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("get working directory: %w", err)
+	}
+
+	directory := workingDirectory
+	for range 8 {
+		candidate := filepath.Join(directory, "configs", "sandbox.yaml")
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return candidate, nil
+		}
+		parent := filepath.Dir(directory)
+		if parent == directory {
+			break
+		}
+		directory = parent
+	}
+	return "", fmt.Errorf("sandbox policy not found from %s", workingDirectory)
 }

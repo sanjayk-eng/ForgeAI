@@ -8,29 +8,30 @@ import (
 	"time"
 
 	"ai-agent/internal/modules/terminal/domain"
-	"ai-agent/internal/modules/terminal/infrastructure"
 	"ai-agent/internal/modules/terminal/policy"
 )
 
-type Store interface {
-	CanAccessWorkspace(ctx context.Context, workspaceID, userID string) (bool, error)
-	FindProjectWorkspace(ctx context.Context, projectID string) (string, error)
-	FindActiveByProject(ctx context.Context, projectID string) (domain.Sandbox, error)
-	FindByID(ctx context.Context, sandboxID string) (domain.Sandbox, error)
-	Create(ctx context.Context, sandbox domain.Sandbox) (string, error)
-	AttachContainer(ctx context.Context, sandboxID, containerID string) error
-	TransitionStatus(ctx context.Context, sandboxID string, from, to domain.SandboxStatus) error
-	SetLastError(ctx context.Context, sandboxID, message string) error
-}
-
 type Service struct {
-	store   Store
-	runtime infrastructure.Runtime
-	policy  policy.Sandbox
+	store            Store
+	runtime          Runtime
+	files            FileStore
+	repositoryCloner RepositoryCloner
+	repositoryPusher RepositoryPusher
+	policy           policy.Sandbox
 }
 
-func NewService(store Store, runtime infrastructure.Runtime, sandboxPolicy policy.Sandbox) *Service {
-	return &Service{store: store, runtime: runtime, policy: sandboxPolicy}
+func NewService(store Store, runtime Runtime, files FileStore, repositoryCloner RepositoryCloner, sandboxPolicy policy.Sandbox, repositoryPushers ...RepositoryPusher) *Service {
+	service := &Service{
+		store:            store,
+		runtime:          runtime,
+		files:            files,
+		repositoryCloner: repositoryCloner,
+		policy:           sandboxPolicy,
+	}
+	if len(repositoryPushers) > 0 {
+		service.repositoryPusher = repositoryPushers[0]
+	}
+	return service
 }
 
 func (service *Service) Create(ctx context.Context, userID, projectID string) (domain.Sandbox, error) {
@@ -39,16 +40,9 @@ func (service *Service) Create(ctx context.Context, userID, projectID string) (d
 	if userID == "" || projectID == "" || service.store == nil || service.runtime == nil {
 		return domain.Sandbox{}, domain.ErrInvalidSandbox
 	}
-	workspaceID, err := service.store.FindProjectWorkspace(ctx, projectID)
+	workspaceID, err := service.workspaceForUser(ctx, userID, projectID)
 	if err != nil {
 		return domain.Sandbox{}, err
-	}
-	allowed, err := service.store.CanAccessWorkspace(ctx, workspaceID, userID)
-	if err != nil {
-		return domain.Sandbox{}, fmt.Errorf("check sandbox workspace access: %w", err)
-	}
-	if !allowed {
-		return domain.Sandbox{}, fmt.Errorf("sandbox workspace access denied")
 	}
 	if active, err := service.store.FindActiveByProject(ctx, projectID); err == nil && active.ID != "" {
 		return domain.Sandbox{}, domain.ErrSandboxExists
@@ -78,7 +72,7 @@ func (service *Service) Create(ctx context.Context, userID, projectID string) (d
 	if err := service.runtime.CreateVolume(ctx, volumeName); err != nil {
 		return fail(fmt.Errorf("create sandbox volume: %w", err))
 	}
-	containerID, err := service.runtime.CreateContainer(ctx, infrastructure.ContainerSpec{
+	containerID, err := service.runtime.CreateContainer(ctx, ContainerSpec{
 		Name: containerName, Image: service.policy.Image, VolumeName: volumeName,
 		WorkspacePath: service.policy.WorkspacePath, NetworkMode: service.policy.NetworkMode,
 		ReadOnlyRootFS: service.policy.ReadOnlyRootFS, NoNewPrivileges: service.policy.NoNewPrivileges,
@@ -197,8 +191,12 @@ func (service *Service) Destroy(ctx context.Context, sandboxID string) (domain.S
 	if err := service.store.TransitionStatus(ctx, sandbox.ID, sandbox.Status, domain.StatusDestroying); err != nil {
 		return domain.Sandbox{}, err
 	}
-	if sandbox.ContainerID != "" {
-		if err := service.runtime.RemoveContainer(ctx, sandbox.ContainerID); err != nil {
+	containerID := sandbox.ContainerID
+	if containerID == "" {
+		containerID = sandbox.ContainerName
+	}
+	if containerID != "" {
+		if err := service.runtime.RemoveContainer(ctx, containerID); err != nil {
 			_ = service.store.TransitionStatus(ctx, sandbox.ID, domain.StatusDestroying, domain.StatusFailed)
 			_ = service.store.SetLastError(ctx, sandbox.ID, fmt.Sprintf("destroy sandbox container: %v", err))
 			return domain.Sandbox{}, fmt.Errorf("destroy sandbox container: %w", err)
@@ -216,13 +214,9 @@ func (service *Service) Destroy(ctx context.Context, sandboxID string) (domain.S
 	return sandbox, nil
 }
 
-func (service *Service) Execute(ctx context.Context, sandboxID, command string) (infrastructure.ExecutionResult, error) {
-	sandbox, err := service.Get(ctx, sandboxID)
-	if err != nil {
-		return infrastructure.ExecutionResult{}, err
+func (service *Service) GetByProject(ctx context.Context, projectID string) (domain.Sandbox, error) {
+	if strings.TrimSpace(projectID) == "" {
+		return domain.Sandbox{}, domain.ErrInvalidSandbox
 	}
-	if sandbox.Status != domain.StatusRunning {
-		return infrastructure.ExecutionResult{}, fmt.Errorf("sandbox must be RUNNING to execute commands")
-	}
-	return service.runtime.Execute(ctx, sandbox.ContainerID, command, service.policy.CommandTimeout)
+	return service.store.FindActiveByProject(ctx, projectID)
 }

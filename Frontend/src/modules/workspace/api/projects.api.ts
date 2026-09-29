@@ -72,10 +72,11 @@ export function resolveRepository(accessToken: string, repositoryUrl: string) {
   });
 }
 
-export function listGitHubRepositories(accessToken: string, workspaceId: string) {
+export function listGitHubRepositories(accessToken: string, workspaceId: string, owner?: string) {
+  const ownerQuery = owner ? `?${new URLSearchParams({ owner }).toString()}` : "";
   return authenticatedRequest<GitHubRepositoryCatalog>(
     accessToken,
-    `/workspaces/${workspaceId}/github/repositories`,
+    `/workspaces/${workspaceId}/github/repositories${ownerQuery}`,
   );
 }
 

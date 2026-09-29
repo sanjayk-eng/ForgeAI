@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	gh "github.com/google/go-github/v92/github"
 )
 
 type GitHubProvider struct {
@@ -16,80 +18,190 @@ type GitHubProvider struct {
 var _ GitHubRepositoryInspector = (*GitHubProvider)(nil)
 
 func NewGitHubProvider(config Config, httpClient *http.Client) *GitHubProvider {
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
 	return &GitHubProvider{config: config, httpClient: httpClient}
 }
 
-func (provider *GitHubProvider) InspectRepository(ctx context.Context, owner, name string) (GitHubRepository, error) {
-	var payload struct {
-		ID            int64  `json:"id"`
-		Name          string `json:"name"`
-		HTMLURL       string `json:"html_url"`
-		Private       bool   `json:"private"`
-		DefaultBranch string `json:"default_branch"`
-		Owner         struct {
-			Login string `json:"login"`
-		} `json:"owner"`
+func (provider *GitHubProvider) newAPIClient(accessToken string) (*gh.Client, error) {
+	options := []gh.ClientOptionsFunc{gh.WithHTTPClient(provider.httpClient)}
+	if strings.TrimSpace(accessToken) != "" {
+		options = append(options, gh.WithAuthToken(accessToken))
 	}
-	endpoint := "https://api.github.com/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(name)
-	if err := getJSON(ctx, provider.httpClient, endpoint, "", &payload); err != nil {
+	return gh.NewClient(options...)
+}
+
+func (provider *GitHubProvider) InspectRepository(ctx context.Context, owner, name string) (GitHubRepository, error) {
+	return provider.inspectRepository(ctx, owner, name, "")
+}
+
+func (provider *GitHubProvider) InspectRepositoryWithToken(ctx context.Context, owner, name, accessToken string) (GitHubRepository, error) {
+	return provider.inspectRepository(ctx, owner, name, accessToken)
+}
+
+func (provider *GitHubProvider) inspectRepository(ctx context.Context, owner, name, accessToken string) (GitHubRepository, error) {
+	client, err := provider.newAPIClient(accessToken)
+	if err != nil {
+		return GitHubRepository{}, fmt.Errorf("create GitHub API client: %w", err)
+	}
+	repository, _, err := client.Repositories.Get(ctx, owner, name)
+	if err != nil {
 		return GitHubRepository{}, fmt.Errorf("inspect GitHub repository: %w", err)
 	}
-	if payload.ID <= 0 || payload.Owner.Login == "" || payload.Name == "" || payload.HTMLURL == "" || payload.DefaultBranch == "" {
+	if repository == nil {
+		return GitHubRepository{}, fmt.Errorf("GitHub repository response is empty")
+	}
+	result := mapGitHubRepository(repository)
+	if result.ID <= 0 || result.Owner == "" || result.Name == "" || result.URL == "" || result.DefaultBranch == "" {
 		return GitHubRepository{}, fmt.Errorf("GitHub repository response is incomplete")
 	}
-	var branchesPayload []struct {
-		Name string `json:"name"`
-	}
-	branchesEndpoint := "https://api.github.com/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(name) + "/branches?per_page=100"
-	if err := getJSON(ctx, provider.httpClient, branchesEndpoint, "", &branchesPayload); err != nil {
+	result.Branches, err = provider.listBranches(ctx, client, owner, name)
+	if err != nil {
 		return GitHubRepository{}, fmt.Errorf("inspect GitHub repository branches: %w", err)
 	}
-	branches := make([]string, 0, len(branchesPayload))
-	for _, branch := range branchesPayload {
-		if branch.Name != "" {
-			branches = append(branches, branch.Name)
+	return result, nil
+}
+
+func (provider *GitHubProvider) listBranches(ctx context.Context, client *gh.Client, owner, name string) ([]string, error) {
+	options := &gh.BranchListOptions{ListOptions: gh.ListOptions{PerPage: 100}}
+	branches := make([]string, 0)
+	for {
+		page, response, err := client.Repositories.ListBranches(ctx, owner, name, options)
+		if err != nil {
+			return nil, err
 		}
+		for _, branch := range page {
+			if branch != nil && branch.GetName() != "" {
+				branches = append(branches, branch.GetName())
+			}
+		}
+		if response == nil || response.NextPage == 0 {
+			return branches, nil
+		}
+		options.Page = response.NextPage
+	}
+}
+
+func mapGitHubRepository(repository *gh.Repository) GitHubRepository {
+	owner := ""
+	if repository.Owner != nil {
+		owner = repository.Owner.GetLogin()
 	}
 	return GitHubRepository{
-		ID: payload.ID, Owner: payload.Owner.Login, Name: payload.Name,
-		URL: payload.HTMLURL, Private: payload.Private, DefaultBranch: payload.DefaultBranch, Branches: branches,
-	}, nil
+		ID:            repository.GetID(),
+		Owner:         owner,
+		Name:          repository.GetName(),
+		URL:           repository.GetHTMLURL(),
+		Private:       repository.GetPrivate(),
+		DefaultBranch: repository.GetDefaultBranch(),
+	}
+}
+
+func mapGitHubRepositories(repositories []*gh.Repository) []GitHubRepository {
+	result := make([]GitHubRepository, 0, len(repositories))
+	for _, repository := range repositories {
+		if repository != nil {
+			result = append(result, mapGitHubRepository(repository))
+		}
+	}
+	return result
 }
 
 func (provider *GitHubProvider) ListOrganizations(ctx context.Context, accessToken string) ([]GitHubOrganization, error) {
-	var payload []GitHubOrganization
-	if err := getJSON(ctx, provider.httpClient, "https://api.github.com/user/orgs?per_page=100", accessToken, &payload); err != nil {
-		return nil, fmt.Errorf("list GitHub organizations: %w", err)
+	client, err := provider.newAPIClient(accessToken)
+	if err != nil {
+		return nil, fmt.Errorf("create GitHub API client: %w", err)
 	}
-	return payload, nil
+	options := &gh.ListOptions{PerPage: 100}
+	organizations := make([]GitHubOrganization, 0)
+	scopes := ""
+	for {
+		page, response, err := client.Organizations.List(ctx, "", options)
+		if err != nil {
+			return nil, fmt.Errorf("list GitHub organizations: %w", err)
+		}
+		if response != nil {
+			scopes = response.Header.Get("X-OAuth-Scopes")
+		}
+		for _, organization := range page {
+			if organization != nil && organization.GetLogin() != "" {
+				organizations = append(organizations, GitHubOrganization{Login: organization.GetLogin()})
+			}
+		}
+		if response == nil || response.NextPage == 0 {
+			break
+		}
+		options.Page = response.NextPage
+	}
+	if !hasOAuthScope(scopes, "read:org") {
+		return nil, ErrGitHubOrganizationScopeRequired
+	}
+	return organizations, nil
+}
+
+func hasOAuthScope(scopesHeader, requiredScope string) bool {
+	for _, scope := range strings.Split(scopesHeader, ",") {
+		if strings.EqualFold(strings.TrimSpace(scope), requiredScope) {
+			return true
+		}
+	}
+	return false
+}
+
+func (provider *GitHubProvider) GetAccountLogin(ctx context.Context, accessToken string) (string, error) {
+	client, err := provider.newAPIClient(accessToken)
+	if err != nil {
+		return "", fmt.Errorf("create GitHub API client: %w", err)
+	}
+	profile, _, err := client.Users.Get(ctx, "")
+	if err != nil {
+		return "", fmt.Errorf("get GitHub account: %w", err)
+	}
+	if profile == nil || strings.TrimSpace(profile.GetLogin()) == "" {
+		return "", fmt.Errorf("GitHub account response is missing login")
+	}
+	return profile.GetLogin(), nil
 }
 
 func (provider *GitHubProvider) ListRepositories(ctx context.Context, accessToken, organization string) ([]GitHubRepository, error) {
-	endpoint := "https://api.github.com/user/repos?per_page=100&sort=updated&type=all"
-	if strings.TrimSpace(organization) != "" {
-		endpoint = "https://api.github.com/orgs/" + url.PathEscape(organization) + "/repos?per_page=100&type=all&sort=updated"
+	client, err := provider.newAPIClient(accessToken)
+	if err != nil {
+		return nil, fmt.Errorf("create GitHub API client: %w", err)
 	}
-	var payload []struct {
-		ID            int64  `json:"id"`
-		Name          string `json:"name"`
-		HTMLURL       string `json:"html_url"`
-		DefaultBranch string `json:"default_branch"`
-		Owner         struct {
-			Login string `json:"login"`
-		} `json:"owner"`
-		Private bool `json:"private"`
+	organization = strings.TrimSpace(organization)
+	userOptions := &gh.RepositoryListByAuthenticatedUserOptions{
+		Type:        "all",
+		Sort:        "updated",
+		ListOptions: gh.ListOptions{PerPage: 100},
 	}
-	if err := getJSON(ctx, provider.httpClient, endpoint, accessToken, &payload); err != nil {
-		return nil, fmt.Errorf("list GitHub repositories: %w", err)
+	organizationOptions := &gh.RepositoryListByOrgOptions{
+		Type:        "all",
+		Sort:        "updated",
+		ListOptions: gh.ListOptions{PerPage: 100},
 	}
-	repositories := make([]GitHubRepository, 0, len(payload))
-	for _, repository := range payload {
-		repositories = append(repositories, GitHubRepository{
-			ID: repository.ID, Owner: repository.Owner.Login, Name: repository.Name,
-			URL: repository.HTMLURL, Private: repository.Private, DefaultBranch: repository.DefaultBranch,
-		})
+	repositories := make([]*gh.Repository, 0)
+	pageNumber := 0
+	for {
+		var page []*gh.Repository
+		var response *gh.Response
+		if organization == "" {
+			userOptions.Page = pageNumber
+			page, response, err = client.Repositories.ListByAuthenticatedUser(ctx, userOptions)
+		} else {
+			organizationOptions.Page = pageNumber
+			page, response, err = client.Repositories.ListByOrg(ctx, organization, organizationOptions)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("list GitHub repositories: %w", err)
+		}
+		repositories = append(repositories, page...)
+		if response == nil || response.NextPage == 0 {
+			break
+		}
+		pageNumber = response.NextPage
 	}
-	return repositories, nil
+	return mapGitHubRepositories(repositories), nil
 }
 
 func (provider *GitHubProvider) ExchangeCode(ctx context.Context, code string) (ServiceUser, error) {
@@ -107,28 +219,49 @@ func (provider *GitHubProvider) ExchangeCode(ctx context.Context, code string) (
 		return ServiceUser{}, fmt.Errorf("exchange GitHub code: %s", token.Error)
 	}
 
-	var profile gitHubProfile
-	if err := getJSON(ctx, provider.httpClient, "https://api.github.com/user", token.AccessToken, &profile); err != nil {
+	client, err := provider.newAPIClient(token.AccessToken)
+	if err != nil {
+		return ServiceUser{}, fmt.Errorf("create GitHub API client: %w", err)
+	}
+	profile, _, err := client.Users.Get(ctx, "")
+	if err != nil {
 		return ServiceUser{}, fmt.Errorf("get GitHub user: %w", err)
 	}
-	if profile.Email == "" {
-		var emails []gitHubEmail
-		if err := getJSON(ctx, provider.httpClient, "https://api.github.com/user/emails", token.AccessToken, &emails); err != nil {
-			return ServiceUser{}, fmt.Errorf("get GitHub email: %w", err)
-		}
-		for _, email := range emails {
-			if email.Primary && email.Verified {
-				profile.Email = email.Email
+	if profile == nil {
+		return ServiceUser{}, fmt.Errorf("get GitHub user: response is empty")
+	}
+	emailAddress := profile.GetEmail()
+	if emailAddress == "" {
+		options := &gh.ListOptions{PerPage: 100}
+		for {
+			emails, response, err := client.Users.ListEmails(ctx, options)
+			if err != nil {
+				return ServiceUser{}, fmt.Errorf("get GitHub email: %w", err)
+			}
+			for _, email := range emails {
+				if email != nil && email.GetPrimary() && email.GetVerified() {
+					emailAddress = email.GetEmail()
+					break
+				}
+			}
+			if emailAddress != "" || response == nil || response.NextPage == 0 {
 				break
 			}
+			options.Page = response.NextPage
 		}
-		if profile.Email == "" {
+		if emailAddress == "" {
 			return ServiceUser{}, fmt.Errorf("GitHub account has no verified email")
 		}
 	}
-	name := profile.Name
+	name := profile.GetName()
 	if name == "" {
-		name = profile.Login
+		name = profile.GetLogin()
 	}
-	return ServiceUser{ProviderID: fmt.Sprintf("%d", profile.ID), Email: profile.Email, Name: name, AvatarURL: profile.AvatarURL, AccessToken: token.AccessToken}, nil
+	return ServiceUser{
+		ProviderID:  fmt.Sprintf("%d", profile.GetID()),
+		Email:       emailAddress,
+		Name:        name,
+		AvatarURL:   profile.GetAvatarURL(),
+		AccessToken: token.AccessToken,
+	}, nil
 }

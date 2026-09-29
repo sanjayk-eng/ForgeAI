@@ -25,6 +25,7 @@ var (
 	ErrInvalidTransition   = errors.New("invalid sandbox lifecycle transition")
 	ErrSandboxNotFound     = errors.New("sandbox not found")
 	ErrSandboxExists       = errors.New("project already has an active sandbox")
+	ErrSandboxAccessDenied = errors.New("sandbox workspace access denied")
 	ErrSandboxStateChanged = errors.New("sandbox state changed concurrently")
 	ErrInvalidSandbox      = errors.New("invalid sandbox input")
 )
@@ -36,20 +37,20 @@ type ResourceLimits struct {
 }
 
 type Sandbox struct {
-	ID            string
-	WorkspaceID   string
-	ProjectID     string
-	ContainerID   string
-	ContainerName string
-	VolumeName    string
-	Image         string
-	ImageActual   string
-	WorkspacePath string
-	Status        SandboxStatus
-	LastError     string
-	Limits        ResourceLimits
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID            string         `json:"id"`
+	WorkspaceID   string         `json:"workspace_id"`
+	ProjectID     string         `json:"project_id"`
+	ContainerID   string         `json:"container_id"`
+	ContainerName string         `json:"container_name"`
+	VolumeName    string         `json:"volume_name"`
+	Image         string         `json:"image"`
+	ImageActual   string         `json:"image_actual"`
+	WorkspacePath string         `json:"workspace_path"`
+	Status        SandboxStatus  `json:"status"`
+	LastError     string         `json:"last_error,omitempty"`
+	Limits        ResourceLimits `json:"limits"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
 }
 
 func (sandbox Sandbox) Transition(next SandboxStatus) (Sandbox, error) {

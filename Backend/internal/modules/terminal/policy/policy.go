@@ -18,6 +18,7 @@ type File struct {
 
 type Sandbox struct {
 	Image             string        `yaml:"image"`
+	GitImage          string        `yaml:"git_image"`
 	WorkspacePath     string        `yaml:"workspace_path"`
 	NetworkMode       string        `yaml:"network_mode"`
 	ReadOnlyRootFS    bool          `yaml:"read_only_rootfs"`
@@ -67,6 +68,9 @@ func (sandbox Sandbox) ResourceLimits() domain.ResourceLimits {
 func (sandbox *Sandbox) validate() error {
 	if strings.TrimSpace(sandbox.Image) == "" || strings.TrimSpace(sandbox.WorkspacePath) == "" {
 		return fmt.Errorf("sandbox policy image and workspace_path are required")
+	}
+	if strings.TrimSpace(sandbox.GitImage) == "" {
+		return fmt.Errorf("sandbox policy git_image is required")
 	}
 	if sandbox.NetworkMode == "" {
 		return fmt.Errorf("sandbox policy network_mode is required")

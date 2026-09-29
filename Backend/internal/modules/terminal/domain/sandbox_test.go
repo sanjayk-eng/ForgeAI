@@ -1,6 +1,27 @@
 package domain
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
+
+func TestSandboxJSONUsesFrontendFieldNames(t *testing.T) {
+	encoded, err := json.Marshal(Sandbox{ID: "sandbox-id", ProjectID: "project-id", Status: StatusCreating})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := payload["status"]; !ok {
+		t.Fatalf("sandbox JSON is missing status field: %s", encoded)
+	}
+	if _, ok := payload["project_id"]; !ok {
+		t.Fatalf("sandbox JSON is missing project_id field: %s", encoded)
+	}
+}
 
 func TestSandboxLifecycleTransitions(t *testing.T) {
 	sandbox := Sandbox{Status: StatusCreating}

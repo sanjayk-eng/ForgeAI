@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Outlet, useSearchParams } from "react-router-dom";
+import { useEffect } from "react";
+import { Outlet, useLocation, useSearchParams } from "react-router-dom";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { useAuth } from "../auth/useAuth";
 import { listWorkspaces } from "./api/workspace.api";
@@ -10,6 +11,8 @@ import { WorkspaceSidebar } from "./components/WorkspaceSidebar";
 import { useWorkspaceStore } from "./workspaceStore";
 
 export function WorkspaceLayout() {
+  const { pathname } = useLocation();
+  const isProjectDetail = /^\/workspace\/projects\/[^/]+$/.test(pathname);
   const { user, tokens, signOut } = useAuth();
   const [params, setParams] = useSearchParams();
   const mobileOpen = useWorkspaceStore((state) => state.mobileNavigationOpen);
@@ -37,6 +40,13 @@ export function WorkspaceLayout() {
     workspaces.find((item) => item.id === params.get("workspace")) ??
     workspaces[0];
 
+  useEffect(() => {
+    if (query.isLoading || query.isError || !selected) return;
+    if (params.get("workspace") !== selected.id) {
+      setParams({ workspace: selected.id }, { replace: true });
+    }
+  }, [params, query.isError, query.isLoading, selected, setParams]);
+
   function selectWorkspace(workspace: Workspace) {
     setParams({ workspace: workspace.id });
   }
@@ -61,8 +71,8 @@ export function WorkspaceLayout() {
           onClose={closeMobileNavigation}
           onSignOut={signOut}
         />
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-[calc(100%-32px)] max-w-[1180px] py-8 sm:w-[calc(100%-64px)] sm:py-11 lg:w-[calc(100%-96px)]">
+        <main className={`min-h-0 min-w-0 flex-1 ${isProjectDetail ? "overflow-hidden" : "overflow-y-auto"}`}>
+          <div className={isProjectDetail ? "h-full min-h-0 w-full max-w-none" : "mx-auto w-[calc(100%-32px)] max-w-[1180px] py-8 sm:w-[calc(100%-64px)] sm:py-11 lg:w-[calc(100%-96px)]"}>
             {query.isLoading ? (
               <LoadingState />
             ) : selected ? (
@@ -116,7 +126,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
               conversations.
             </p>
             <button
-              className="group mt-7 inline-flex items-center gap-2 rounded-md bg-forge-accent px-4 py-3 text-xs font-extrabold text-forge-bg transition hover:bg-[#d7ff82] focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
+              className="group mt-7 inline-flex items-center gap-2 rounded-md bg-forge-accent px-4 py-3 text-xs font-extrabold text-forge-bg transition hover:bg-forge-accent-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
               onClick={onCreate}
             >
               Create workspace

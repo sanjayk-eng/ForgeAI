@@ -35,6 +35,15 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <OverviewPage /> },
           { path: "projects", element: <ProjectsPage /> },
+          {
+            path: "projects/:projectId",
+            lazy: async () => {
+              const { ProjectDetailPage } = await import(
+                "../modules/workspace/features/projects/ProjectDetailPage"
+              );
+              return { Component: ProjectDetailPage };
+            },
+          },
           { path: "members", element: <MembersPage /> },
           { path: "settings", element: <SettingsPage /> },
         ],

@@ -28,8 +28,11 @@ The backend is a Go API built with Gin and centered around a modular architectur
   - Backend/pkg/database/postgres.go and Backend/pkg/jwt/jwt.go provide DB access and JWT creation/validation utilities.
 
 - Module structure:
-  - The codebase already has scaffolded modules for agent, conversation, git, llm, permission, tool, workspace, and terminal; the active production path is currently centered on the auth flow and the server bootstrapping.
-  - Some folders like the git package are still minimal or incomplete, which means the architecture is intentionally prepared for expansion but not all features are implemented yet.
+  - The codebase follows a clean modular architecture with clear separation of concerns.
+  - **Project Module**: Refactored into submodules (core, repository, sync, github) with orchestrators for business logic composition. Each submodule handles a specific domain with optimized database queries.
+  - **Auth Module**: Handles user authentication, OAuth flows, JWT management, and user sessions.
+  - **Workspace Module**: Manages workspace creation, invitations, and member management with role-based access control.
+  - Other modules (agent, conversation, git, llm, permission, tool, terminal) are scaffolded for expansion.
 
 ### Backend structure
 
@@ -54,9 +57,21 @@ Backend/
 |   |   |-- git/
 |   |   |-- llm/
 |   |   |-- permission/
+|   |   |-- project/
+|   |   |   |-- core/              (Project CRUD)
+|   |   |   |-- repository/        (Repository connections)
+|   |   |   |-- sync/              (GitHub sync)
+|   |   |   |-- github/            (GitHub API)
+|   |   |   |-- orchestrator/      (Business composition)
+|   |   |   |-- service.go         (Main facade)
+|   |   |   |-- handler.go
+|   |   |   `-- module.go
 |   |   |-- terminal/
 |   |   |-- tool/
-|   |   `-- workspace/
+|   |   `-- workspaces/
+|   |       |-- invite/
+|   |       |-- member/
+|   |       `-- workspace/
 |   |-- router/
 |   `-- shared/
 |       |-- errors/
@@ -76,7 +91,7 @@ Backend/
 
 ### Current status
 
-This backend is in an early-to-mid modular architecture stage. The server boots and exposes an auth API, the configuration layer is active, and the system is designed to grow into a more complete AI-agent platform with workspace, git, terminal, tool, and permission features. The next implementation steps are usually to complete the remaining modules and wire them into the router and service layer.
+This backend follows a clean modular architecture with domain-driven design principles. The server exposes auth, workspace, and project APIs with optimized database queries and clear separation of concerns. The project module demonstrates the architecture pattern with submodules for domain entities (core, repository, sync, github) and orchestrators for business logic composition. The system is designed to scale with additional AI-agent features including terminal, tool, permission, and git integrations.
 
 ## Backend Structure
 
@@ -90,8 +105,9 @@ Backend/
 |   |   |-- agent/        (handler.go, service.go, repository.go, model.go, route.go)
 |   |   |-- conversation/ (handler.go, service.go, repository.go, model.go)
 |   |   |-- llm/          (service.go, repository.go, model.go)
+|   |   |-- project/      (Modular: core/, repository/, sync/, github/, orchestrator/)
 |   |   |-- tool/         (service.go, registry.go, model.go)
-|   |   |-- workspace/    (service.go, repository.go, model.go)
+|   |   |-- workspaces/   (workspace/, member/, invite/ submodules)
 |   |   |-- permission/   (service.go, repository.go, model.go)
 |   |   `-- git/          (service.go, repository.go, model.go)
 |   |-- shared/

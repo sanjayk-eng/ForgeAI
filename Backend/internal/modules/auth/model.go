@@ -44,6 +44,8 @@ type UserProfile struct {
 
 var ErrEmailAlreadyExists = errors.New("email already exists")
 
+var ErrGitHubAccountNotConnected = errors.New("GitHub account is not connected")
+
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
 var ErrEmailNotVerified = errors.New("email is not verified")
