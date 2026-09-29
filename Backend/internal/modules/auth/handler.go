@@ -14,10 +14,6 @@ type Handler struct {
 	service *Service
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
-}
-
 func (handler *Handler) OAuthConnect(c *gin.Context) {
 	providerType := ProviderType(c.Param("provider"))
 	if providerType == "" {
