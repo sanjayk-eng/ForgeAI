@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -103,6 +104,25 @@ func TestDiffForTrackedFileReturnsBaseEvenWhenPatchIsEmpty(t *testing.T) {
 	}
 }
 
+func TestDiffForNewUntrackedFileReturnsSyntheticDiff(t *testing.T) {
+	executor := &newFileDiffExecutor{}
+	service := NewService("/workspace", executor)
+
+	result, err := service.Diff(context.Background(), "sandbox-1", "notes.txt")
+	if err != nil {
+		t.Fatalf("Diff() error = %v", err)
+	}
+	if len(result.Files) != 1 || result.Files[0].Status != "added" {
+		t.Fatalf("Diff() files = %#v, want synthetic added diff for notes.txt", result.Files)
+	}
+	if result.Files[0].Path != "notes.txt" {
+		t.Fatalf("Diff() path = %q, want notes.txt", result.Files[0].Path)
+	}
+	if result.Files[0].OriginalContent == nil || *result.Files[0].OriginalContent != "" {
+		t.Fatalf("Diff() original content = %#v, want empty original for a newly created file", result.Files[0].OriginalContent)
+	}
+}
+
 func TestDiffForRenamedFileReadsOriginalFromOldPath(t *testing.T) {
 	executor := &renamedFileDiffExecutor{}
 	service := NewService("/workspace", executor)
@@ -195,6 +215,69 @@ func TestCommitRejectsPathsOutsideWorkspace(t *testing.T) {
 	}
 }
 
+func TestRevertRestoresSelectedFiles(t *testing.T) {
+	executor := &pushExecutor{}
+	service := NewService("/workspace", executor)
+	selected := []string{"Backend/internal/config/env.go", "Backend/internal/config/validation.go"}
+
+	if err := service.Revert(context.Background(), "sandbox-1", RevertRequest{Files: selected}); err != nil {
+		t.Fatalf("Revert() error = %v", err)
+	}
+	if len(executor.commands) != 4 {
+		t.Fatalf("Revert() commands = %#v, want tracked-file check plus restore for each selected file", executor.commands)
+	}
+	joined := strings.Join(executor.commands, "\n")
+	for _, file := range selected {
+		if !strings.Contains(joined, "'"+file+"'") {
+			t.Fatalf("selected file %q missing from revert command: %s", file, joined)
+		}
+		if !strings.Contains(joined, "'restore' '--source=HEAD' '--staged' '--worktree' '--' '"+file+"'") {
+			t.Fatalf("tracked file %q was not restored with HEAD source: %s", file, joined)
+		}
+	}
+	if strings.Contains(joined, "'.'") {
+		t.Fatalf("selected-file revert used workspace-wide restore: %s", joined)
+	}
+}
+
+func TestRevertRemovesUntrackedNewFiles(t *testing.T) {
+	executor := &pushExecutor{}
+	service := NewService("/workspace", executor)
+
+	if err := service.Revert(context.Background(), "sandbox-1", RevertRequest{Files: []string{"notes.txt"}}); err != nil {
+		t.Fatalf("Revert() error = %v", err)
+	}
+	joined := strings.Join(executor.commands, "\n")
+	if !strings.Contains(joined, "'ls-files'") {
+		t.Fatalf("untracked revert should check whether the file is tracked: %s", joined)
+	}
+	if !strings.Contains(joined, "'clean'") && !strings.Contains(joined, "'rm'") {
+		t.Fatalf("reverting a new file should remove it from the workspace: %s", joined)
+	}
+}
+
+func TestIsTrackedFileAllowsExitCodeOneForUntrackedFiles(t *testing.T) {
+	service := NewService("/workspace", &untrackedFileExecutor{})
+	tracked, err := service.isTrackedFile(context.Background(), "sandbox-1", "demo1.go")
+	if err != nil {
+		t.Fatalf("isTrackedFile() error = %v", err)
+	}
+	if tracked {
+		t.Fatal("isTrackedFile() incorrectly marked an untracked file as tracked")
+	}
+}
+
+func TestRevertRejectsPathsOutsideWorkspace(t *testing.T) {
+	executor := &pushExecutor{}
+	service := NewService("/workspace", executor)
+	if err := service.Revert(context.Background(), "sandbox-1", RevertRequest{Files: []string{"../outside.go"}}); err == nil {
+		t.Fatal("Revert() accepted a path outside the workspace")
+	}
+	if len(executor.commands) != 0 {
+		t.Fatalf("Revert() executed commands for an invalid path: %#v", executor.commands)
+	}
+}
+
 func TestPushRejectsNonGitHubRemote(t *testing.T) {
 	executor := &pushExecutor{remoteURL: "https://example.com/acme/project.git"}
 	service := NewService("/workspace", executor)
@@ -214,6 +297,15 @@ type pushExecutor struct {
 	commands   []string
 }
 
+type untrackedFileExecutor struct{}
+
+func (executor *untrackedFileExecutor) Execute(_ context.Context, _ string, command string) (terminalapp.ExecutionResult, error) {
+	if strings.Contains(command, "'ls-files'") {
+		return terminalapp.ExecutionResult{Output: "fatal: pathspec 'demo1.go' did not match any file(s) known to git\n", ExitCode: 1}, fmt.Errorf("exit status 1")
+	}
+	return terminalapp.ExecutionResult{Output: "", ExitCode: 0}, nil
+}
+
 type fileDiffExecutor struct {
 	commands  []string
 	unchanged bool
@@ -221,6 +313,24 @@ type fileDiffExecutor struct {
 
 type renamedFileDiffExecutor struct {
 	commands []string
+}
+
+type newFileDiffExecutor struct {
+	commands []string
+}
+
+func (executor *newFileDiffExecutor) Execute(_ context.Context, _ string, command string) (terminalapp.ExecutionResult, error) {
+	executor.commands = append(executor.commands, command)
+	if strings.Contains(command, "'diff'") {
+		return terminalapp.ExecutionResult{Output: "diff --git a/notes.txt b/notes.txt\nnew file mode 100644\nindex 0000000..1111111\n--- /dev/null\n+++ b/notes.txt\n@@ -0,0 +1 @@\n+hello\n"}, nil
+	}
+	if strings.Contains(command, "'show' 'HEAD:notes.txt'") {
+		return terminalapp.ExecutionResult{Output: "fatal: invalid object name HEAD:notes.txt", ExitCode: 128}, nil
+	}
+	if strings.Contains(command, "'diff' '--' '--' 'notes.txt'") {
+		return terminalapp.ExecutionResult{Output: "diff --git a/notes.txt b/notes.txt\nnew file mode 100644\nindex 0000000..1111111\n--- /dev/null\n+++ b/notes.txt\n@@ -0,0 +1 @@\n+hello\n"}, nil
+	}
+	return terminalapp.ExecutionResult{}, nil
 }
 
 func (executor *renamedFileDiffExecutor) Execute(_ context.Context, _ string, command string) (terminalapp.ExecutionResult, error) {
@@ -255,6 +365,20 @@ func (executor *pushExecutor) Execute(_ context.Context, _ string, command strin
 	}
 	if strings.Contains(command, "'rev-parse' 'HEAD'") {
 		return terminalapp.ExecutionResult{Output: "commit-hash"}, nil
+	}
+	if strings.Contains(command, "'ls-files' '--error-unmatch' '--'") {
+		start := strings.Index(command, "'--' '")
+		if start >= 0 {
+			rest := command[start+len("'--' '"):]
+			if end := strings.Index(rest, "'"); end >= 0 {
+				tracked := rest[:end]
+				if tracked == "notes.txt" {
+					return terminalapp.ExecutionResult{}, nil
+				}
+				return terminalapp.ExecutionResult{Output: tracked + "\n"}, nil
+			}
+		}
+		return terminalapp.ExecutionResult{Output: "tracked.txt\n"}, nil
 	}
 	return terminalapp.ExecutionResult{}, nil
 }

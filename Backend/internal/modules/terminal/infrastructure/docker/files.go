@@ -48,7 +48,7 @@ func parseListFiles(output, path string) []application.FileEntry {
 		name := fields[len(fields)-1]
 		isDir := strings.HasSuffix(name, "/")
 		name = strings.TrimSuffix(name, "/")
-		if name == "." || name == ".." {
+		if name == "." || name == ".." || strings.HasPrefix(name, ".") {
 			continue
 		}
 		entryPath := strings.TrimRight(path, "/") + "/" + name

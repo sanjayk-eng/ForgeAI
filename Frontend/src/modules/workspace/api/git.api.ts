@@ -46,6 +46,14 @@ export function commitGitChanges(accessToken: string, sandboxId: string, message
   );
 }
 
+export function revertGitChanges(accessToken: string, sandboxId: string, files: string[], all = false) {
+  return authenticatedRequest<{ message: string; status: string }>(
+    accessToken,
+    `/sandboxes/${sandboxId}/git/revert`,
+    { method: "POST", body: JSON.stringify({ files, all }) },
+  );
+}
+
 export function pushGitChanges(accessToken: string, sandboxId: string, remote?: string, branch?: string) {
   return authenticatedRequest<{ message: string; status: string }>(
     accessToken,

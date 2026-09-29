@@ -111,6 +111,59 @@ func normalizeCommitPaths(files []string) ([]string, error) {
 	return normalized, nil
 }
 
+func (s *Service) Revert(ctx context.Context, sandboxID string, req RevertRequest) error {
+	if req.All {
+		if _, err := s.runGit(ctx, sandboxID, "restore", "--source=HEAD", "--staged", "--worktree", "."); err != nil {
+			return err
+		}
+		if _, err := s.runGit(ctx, sandboxID, "clean", "-fd", "--", "."); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	files, err := normalizeCommitPaths(req.Files)
+	if err != nil {
+		return err
+	}
+	if len(files) == 0 {
+		return fmt.Errorf("select at least one file to revert")
+	}
+
+	for _, file := range files {
+		tracked, err := s.isTrackedFile(ctx, sandboxID, file)
+		if err != nil {
+			return err
+		}
+		if tracked {
+			if _, err := s.runGit(ctx, sandboxID, "restore", "--source=HEAD", "--staged", "--worktree", "--", file); err != nil {
+				return err
+			}
+			continue
+		}
+		if _, err := s.runGit(ctx, sandboxID, "clean", "-fd", "--", file); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) isTrackedFile(ctx context.Context, sandboxID, file string) (bool, error) {
+	output, err := s.runGitAllowExitCode(ctx, sandboxID, 1, "ls-files", "--error-unmatch", "--", file)
+	if err != nil {
+		return false, err
+	}
+	trimmed := strings.TrimSpace(output)
+	if trimmed == "" {
+		return false, nil
+	}
+	lower := strings.ToLower(trimmed)
+	if strings.Contains(lower, "did not match any file(s) known to git") || strings.Contains(lower, "pathspec") {
+		return false, nil
+	}
+	return true, nil
+}
+
 func (s *Service) Push(ctx context.Context, sandboxID string, req PushRequest, accessToken string) (PushResult, error) {
 	accessToken = strings.TrimSpace(accessToken)
 	if accessToken == "" {
@@ -154,6 +207,24 @@ func (s *Service) runGit(ctx context.Context, sandboxID string, args ...string) 
 		return "", fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(result.Output))
 	}
 	if result.ExitCode != 0 {
+		return "", fmt.Errorf("git %s: exit code %d: %s", strings.Join(args, " "), result.ExitCode, strings.TrimSpace(result.Output))
+	}
+	return result.Output, nil
+}
+
+func (s *Service) runGitAllowExitCode(ctx context.Context, sandboxID string, allowedExitCode int, args ...string) (string, error) {
+	if sandboxID == "" {
+		return "", fmt.Errorf("sandbox_id is required")
+	}
+	if s.executor == nil {
+		return "", fmt.Errorf("sandbox executor is not configured")
+	}
+	command := "cd " + quoteShell(s.workspaceRoot) + " && git " + quoteShellArgs(args)
+	result, err := s.executor.Execute(ctx, sandboxID, command)
+	if err != nil && result.ExitCode != allowedExitCode {
+		return "", fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(result.Output))
+	}
+	if result.ExitCode != 0 && result.ExitCode != allowedExitCode {
 		return "", fmt.Errorf("git %s: exit code %d: %s", strings.Join(args, " "), result.ExitCode, strings.TrimSpace(result.Output))
 	}
 	return result.Output, nil

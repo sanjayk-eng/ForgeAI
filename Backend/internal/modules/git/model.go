@@ -34,11 +34,23 @@ type CommitRequest struct {
 	Files   []string `json:"files,omitempty"`
 }
 
+// RevertRequest carries optional file-scoped restore instructions.
+type RevertRequest struct {
+	All   bool     `json:"all,omitempty"`
+	Files []string `json:"files,omitempty"`
+}
+
 // CommitResult captures the response from a commit operation.
 type CommitResult struct {
 	Message string    `json:"message"`
 	Hash    string    `json:"hash,omitempty"`
 	Time    time.Time `json:"time"`
+}
+
+// RevertResult captures the response from a revert operation.
+type RevertResult struct {
+	Message string `json:"message"`
+	Status  string `json:"status"`
 }
 
 // PushRequest carries optional remote branch information.

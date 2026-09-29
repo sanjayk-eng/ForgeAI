@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, GitBranch, Loader2, Send } from "lucide-react";
+import { AlertCircle, CheckCircle2, GitBranch, Loader2, RotateCcw, Send } from "lucide-react";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { getGitDiff, getGitStatus, pushGitChanges, commitGitChanges } from "../../../api/git.api";
+import { getGitDiff, getGitStatus, pushGitChanges, commitGitChanges, revertGitChanges } from "../../../api/git.api";
 import { GitDiffPreview } from "./GitDiffPreview";
 import {
   buildCommitFileList,
@@ -82,6 +82,24 @@ export function GitPanel({
     },
     onError: (submitError) => {
       setError(submitError instanceof Error ? submitError.message : "Commit failed");
+    },
+  });
+
+  const revertMutation = useMutation({
+    mutationFn: async () => {
+      if (!accessToken || !sandboxId) throw new Error("Missing sandbox context");
+      return revertGitChanges(accessToken, sandboxId, selectedPaths);
+    },
+    onSuccess: () => {
+      setError(null);
+      setMessage("Initial commit");
+    },
+    onSettled: async () => {
+      await Promise.all([statusQuery.refetch(), diffQuery.refetch()]);
+      if (sandboxId) await queryClient.invalidateQueries({ queryKey: ["git-file-diff", sandboxId] });
+    },
+    onError: (submitError) => {
+      setError(submitError instanceof Error ? submitError.message : "Revert failed");
     },
   });
 
@@ -231,11 +249,15 @@ export function GitPanel({
           Only selected files are included in a commit. Push publishes existing commits without committing other changes.
         </p>
         <div className="flex gap-2">
-          <button type="submit" disabled={commitMutation.isPending || pushMutation.isPending || !status || selectedPaths.length === 0} className="inline-flex flex-1 items-center justify-center gap-2 border border-forge-accent/35 bg-forge-accent/[0.08] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-accent disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="submit" disabled={commitMutation.isPending || revertMutation.isPending || pushMutation.isPending || !status || selectedPaths.length === 0} className="inline-flex flex-1 items-center justify-center gap-2 border border-forge-accent/35 bg-forge-accent/[0.08] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-accent disabled:cursor-not-allowed disabled:opacity-50">
             {commitMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
             Commit
           </button>
-          <button type="button" onClick={() => void pushMutation.mutate()} disabled={pushMutation.isPending || commitMutation.isPending || !status || (status.ahead ?? 0) === 0} className="inline-flex flex-1 items-center justify-center gap-2 border border-[var(--border)] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-muted disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="button" onClick={() => void revertMutation.mutate()} disabled={revertMutation.isPending || commitMutation.isPending || pushMutation.isPending || !status || selectedPaths.length === 0} className="inline-flex flex-1 items-center justify-center gap-2 border border-[var(--border)] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-muted disabled:cursor-not-allowed disabled:opacity-50">
+            {revertMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+            {revertMutation.isPending ? "Reverting" : "Revert selected"}
+          </button>
+          <button type="button" onClick={() => void pushMutation.mutate()} disabled={pushMutation.isPending || commitMutation.isPending || revertMutation.isPending || !status || (status.ahead ?? 0) === 0} className="inline-flex flex-1 items-center justify-center gap-2 border border-[var(--border)] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-muted disabled:cursor-not-allowed disabled:opacity-50">
             {pushMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <GitBranch size={12} />}
             {pushMutation.isPending ? "Publishing" : "Push to GitHub"}
           </button>

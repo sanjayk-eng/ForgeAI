@@ -30,6 +30,10 @@ func (s *Service) Diff(ctx context.Context, sandboxID string, filePaths ...strin
 		if files[index].Path != filePath && files[index].OldPath != filePath {
 			continue
 		}
+		if files[index].Status == "added" {
+			files[index].OriginalContent = ptrString("")
+			return GitDiffResult{Files: files}, nil
+		}
 		basePath := files[index].OldPath
 		if basePath == "" {
 			basePath = files[index].Path
@@ -41,13 +45,27 @@ func (s *Service) Diff(ctx context.Context, sandboxID string, filePaths ...strin
 		return GitDiffResult{Files: files}, nil
 	}
 
+	newFileOutput, noIndexErr := s.runGitAllowExitCode(ctx, sandboxID, 1, "diff", "--no-index", "--", "/dev/null", filePath)
+	if noIndexErr == nil && strings.TrimSpace(newFileOutput) != "" {
+		newEntry := parseDiffOutput(newFileOutput)
+		if len(newEntry) > 0 {
+			newEntry[0].OriginalContent = ptrString("")
+			return GitDiffResult{Files: newEntry}, nil
+		}
+	}
+
 	original, showErr := s.runGit(ctx, sandboxID, "show", "HEAD:"+filePath)
 	if showErr == nil {
 		files = append(files, GitDiffEntry{
 			Path: filePath, Status: "unchanged", OriginalContent: &original,
 		})
+		return GitDiffResult{Files: files}, nil
 	}
-	return GitDiffResult{Files: files}, nil
+	return GitDiffResult{Files: []GitDiffEntry{{Path: filePath, Status: "untracked", OriginalContent: ptrString(""), Content: ""}}}, nil
+}
+
+func ptrString(value string) *string {
+	return &value
 }
 
 func parseDiffOutput(output string) []GitDiffEntry {

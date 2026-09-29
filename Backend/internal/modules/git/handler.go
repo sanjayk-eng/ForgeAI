@@ -110,6 +110,28 @@ func (h *Handler) Commit(c *gin.Context) {
 	apierrors.Success(c, http.StatusOK, "commit created", result)
 }
 
+func (h *Handler) Revert(c *gin.Context) {
+	sandboxID := c.Param("sandbox_id")
+	if strings.TrimSpace(sandboxID) == "" {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "sandbox_id is required", nil)
+		return
+	}
+	if !h.authorize(c, sandboxID) {
+		return
+	}
+	var payload RevertRequest
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "invalid revert payload", nil)
+		return
+	}
+	if err := h.service.Revert(c.Request.Context(), sandboxID, payload); err != nil {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
+		return
+	}
+	h.publishGitStatus(c.Request.Context(), sandboxID)
+	apierrors.Success(c, http.StatusOK, "revert completed", RevertResult{Message: "revert complete", Status: "ok"})
+}
+
 func (h *Handler) Push(c *gin.Context) {
 	sandboxID := c.Param("sandbox_id")
 	if strings.TrimSpace(sandboxID) == "" {

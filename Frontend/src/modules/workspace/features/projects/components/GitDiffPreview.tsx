@@ -34,7 +34,8 @@ export function GitDiffPreview({ accessToken, sandboxId, status, files, selected
         throw new Error("Missing Git review context");
       }
       const response = await getGitDiff(accessToken, sandboxId, selectedPath);
-      const entry = response.files.find((file) => file.path === selectedPath || file.old_path === selectedPath);
+      const files = response.files ?? [];
+      const entry = files.find((file) => file.path === selectedPath || file.old_path === selectedPath);
       const original = entry?.original_content ?? "";
       const modified = entry?.status === "deleted"
         ? ""
