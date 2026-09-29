@@ -78,8 +78,8 @@ export function ProjectDetailPage() {
     if (!sandbox?.id) return;
     if (activePanel === "git") {
       invalidateGitDiffs(queryClient, sandbox.id);
+      refreshGitStatus();
     }
-    refreshGitStatus();
   }
 
   function handleRealtimeEvent(event: ProjectRealtimeEvent) {
@@ -148,6 +148,7 @@ export function ProjectDetailPage() {
 
   useEffect(() => {
     if (activePanel === "git" && sandbox?.id) {
+      void queryClient.invalidateQueries({ queryKey: ["git-status", sandbox.id] });
       invalidateGitDiffs(queryClient, sandbox.id);
     }
   }, [activePanel, queryClient, sandbox?.id]);

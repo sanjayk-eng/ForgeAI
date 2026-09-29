@@ -12,6 +12,8 @@ interface GitDiffPreviewProps {
   sandboxId: string | null;
   status: GitStatusPayload | undefined;
   files: GitDiffEntry[];
+  selectedPaths: string[];
+  onToggleFile: (path: string, selected: boolean) => void;
 }
 
 interface ChangedFile {
@@ -19,7 +21,7 @@ interface ChangedFile {
   status: string;
 }
 
-export function GitDiffPreview({ accessToken, sandboxId, status, files }: GitDiffPreviewProps) {
+export function GitDiffPreview({ accessToken, sandboxId, status, files, selectedPaths, onToggleFile }: GitDiffPreviewProps) {
   const { resolvedTheme } = useTheme();
   const [requestedPath, setRequestedPath] = useState<string | null>(null);
   const changedFiles = collectChangedFiles(status, files);
@@ -27,6 +29,7 @@ export function GitDiffPreview({ accessToken, sandboxId, status, files }: GitDif
     ? requestedPath
     : changedFiles[0]?.path ?? null;
   const selectedFile = changedFiles.find(({ path }) => path === selectedPath);
+  const included = new Set(selectedPaths);
 
   const selectedDiff = useQuery({
     queryKey: ["git-file-diff", sandboxId, selectedPath],
@@ -53,18 +56,26 @@ export function GitDiffPreview({ accessToken, sandboxId, status, files }: GitDif
           <span>{changedFiles.length}</span>
         </div>
         {changedFiles.map((file) => (
-          <button
-            key={file.path}
-            type="button"
-            aria-current={file.path === selectedPath ? "true" : undefined}
-            onClick={() => setRequestedPath(file.path)}
-            className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-[var(--surface-hover)] ${file.path === selectedPath ? "bg-[var(--surface-hover)] text-forge-text" : "text-forge-muted"}`}
-          >
-            <span className="min-w-0 truncate font-mono">{file.path}</span>
-            <span className={`shrink-0 text-[9px] font-bold uppercase ${fileStatusClass(file.status)}`}>
-              {fileStatusLabel(file.status)}
-            </span>
-          </button>
+          <div key={file.path} className={`flex items-center gap-2 px-2 py-2 text-xs ${file.path === selectedPath ? "bg-[var(--surface-hover)]" : "hover:bg-[var(--surface-hover)]"}`}>
+            <input
+              type="checkbox"
+              aria-label={`Include ${file.path} in commit`}
+              checked={included.has(file.path)}
+              onChange={(event) => onToggleFile(file.path, event.target.checked)}
+              className="size-3.5 shrink-0 accent-[var(--primary)]"
+            />
+            <button
+              type="button"
+              aria-current={file.path === selectedPath ? "true" : undefined}
+              onClick={() => setRequestedPath(file.path)}
+              className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
+            >
+              <span className="min-w-0 truncate font-mono text-forge-muted">{file.path}</span>
+              <span className={`shrink-0 text-[9px] font-bold uppercase ${fileStatusClass(file.status)}`}>
+                {fileStatusLabel(file.status)}
+              </span>
+            </button>
+          </div>
         ))}
         {changedFiles.length === 0 && (
           <p className="px-3 py-4 text-xs text-forge-muted">No changed files</p>

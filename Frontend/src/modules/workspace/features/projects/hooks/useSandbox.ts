@@ -2,9 +2,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 import { getSandboxByProject } from "../../../api/sandbox.api";
 
+const sandboxTransitionTimeoutMs = 120_000;
+
 export function useSandbox(accessToken: string | null, projectId: string | null, ensureMissing = false) {
   const queryClient = useQueryClient();
   const failedRecoveryStartedAt = useRef<number | null>(null);
+  const transitionStartedAt = useRef<number | null>(null);
 
   const sandboxQuery = useQuery({
     queryKey: ["sandbox", projectId],
@@ -18,13 +21,16 @@ export function useSandbox(accessToken: string | null, projectId: string | null,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       if (status === "FAILED" && ensureMissing) {
+        transitionStartedAt.current = null;
         failedRecoveryStartedAt.current ??= Date.now();
         return Date.now() - failedRecoveryStartedAt.current < 30_000 ? 2000 : false;
       }
       failedRecoveryStartedAt.current = null;
       if (status === "CREATING" || status === "STARTING" || status === "STOPPING" || status === "RESTARTING") {
-        return 2000;
+        transitionStartedAt.current ??= Date.now();
+        return Date.now() - transitionStartedAt.current < sandboxTransitionTimeoutMs ? 2000 : false;
       }
+      transitionStartedAt.current = null;
       return false;
     },
     retry: (failureCount, error: any) => {

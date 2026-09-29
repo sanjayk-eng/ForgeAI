@@ -29,8 +29,9 @@ type GitDiffResult struct {
 
 // CommitRequest carries the commit message for a staged workspace snapshot.
 type CommitRequest struct {
-	Message string `json:"message"`
-	All     bool   `json:"all,omitempty"`
+	Message string   `json:"message"`
+	All     bool     `json:"all,omitempty"`
+	Files   []string `json:"files,omitempty"`
 }
 
 // CommitResult captures the response from a commit operation.

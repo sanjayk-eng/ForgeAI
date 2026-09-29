@@ -161,6 +161,40 @@ func TestCommitUsesSuppliedIdentityForSingleCommand(t *testing.T) {
 	}
 }
 
+func TestCommitOnlyStagesAndCommitsSelectedFiles(t *testing.T) {
+	executor := &pushExecutor{}
+	service := NewService("/workspace", executor)
+	selected := []string{"Backend/internal/config/env.go", "Backend/internal/config/validation.go"}
+
+	if _, err := service.Commit(context.Background(), "sandbox-1", CommitRequest{Message: "selected config files", Files: selected}, "Forge User", "forge@example.com"); err != nil {
+		t.Fatalf("Commit() error = %v", err)
+	}
+	if len(executor.commands) != 3 {
+		t.Fatalf("Commit() commands = %#v, want add, commit, and rev-parse", executor.commands)
+	}
+	for _, command := range executor.commands[:2] {
+		for _, file := range selected {
+			if !strings.Contains(command, "'"+file+"'") {
+				t.Fatalf("selected file %q missing from command: %s", file, command)
+			}
+		}
+		if strings.Contains(command, "config_test.go") {
+			t.Fatalf("unselected file was included in command: %s", command)
+		}
+	}
+}
+
+func TestCommitRejectsPathsOutsideWorkspace(t *testing.T) {
+	executor := &pushExecutor{}
+	service := NewService("/workspace", executor)
+	if _, err := service.Commit(context.Background(), "sandbox-1", CommitRequest{Message: "bad path", Files: []string{"../outside.go"}}, "Forge User", "forge@example.com"); err == nil {
+		t.Fatal("Commit() accepted a path outside the workspace")
+	}
+	if len(executor.commands) != 0 {
+		t.Fatalf("Commit() executed commands for an invalid path: %#v", executor.commands)
+	}
+}
+
 func TestPushRejectsNonGitHubRemote(t *testing.T) {
 	executor := &pushExecutor{remoteURL: "https://example.com/acme/project.git"}
 	service := NewService("/workspace", executor)

@@ -38,11 +38,11 @@ export function getGitDiff(accessToken: string, sandboxId: string, path?: string
   );
 }
 
-export function commitGitChanges(accessToken: string, sandboxId: string, message: string, all = true) {
+export function commitGitChanges(accessToken: string, sandboxId: string, message: string, files: string[]) {
   return authenticatedRequest<{ message: string; hash: string }>(
     accessToken,
     `/sandboxes/${sandboxId}/git/commit`,
-    { method: "POST", body: JSON.stringify({ message, all }) },
+    { method: "POST", body: JSON.stringify({ message, files }) },
   );
 }
 

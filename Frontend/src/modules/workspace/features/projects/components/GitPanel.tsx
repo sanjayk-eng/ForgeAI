@@ -17,6 +17,10 @@ export function GitPanel({
 }) {
   const [message, setMessage] = useState("Initial commit");
   const [error, setError] = useState<string | null>(null);
+  const [fileSelection, setFileSelection] = useState<{ pathsKey: string; excluded: Set<string> }>(() => ({
+    pathsKey: "",
+    excluded: new Set(),
+  }));
   const queryClient = useQueryClient();
   const sandboxReady = sandboxStatus === "RUNNING";
 
@@ -44,10 +48,26 @@ export function GitPanel({
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
+  const status = sandboxReady ? statusQuery.data?.status : undefined;
+  const files = diffQuery.data?.files ?? [];
+  const changedPaths = [...new Set([
+    ...(status?.staged ?? []),
+    ...(status?.modified ?? []),
+    ...(status?.untracked ?? []),
+    ...files.map((file) => file.path),
+  ])].sort();
+  const changedPathsKey = `${sandboxId ?? ""}\0${changedPaths.join("\0")}`;
+  const excludedFiles = fileSelection.pathsKey === changedPathsKey ? fileSelection.excluded : new Set<string>();
+  const selectedPaths = changedPaths.filter((path) => !excludedFiles.has(path));
+
   const commitMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (paths: string[]) => {
       if (!accessToken || !sandboxId) throw new Error("Missing sandbox context");
-      return commitGitChanges(accessToken, sandboxId, message.trim(), true);
+      const commitPaths = paths.flatMap((filePath) => {
+        const oldPath = files.find((file) => file.path === filePath)?.old_path;
+        return oldPath ? [oldPath, filePath] : [filePath];
+      });
+      return commitGitChanges(accessToken, sandboxId, message.trim(), [...new Set(commitPaths)]);
     },
     onSuccess: () => {
       setError(null);
@@ -63,10 +83,6 @@ export function GitPanel({
   const pushMutation = useMutation({
     mutationFn: async () => {
       if (!accessToken || !sandboxId) throw new Error("Missing sandbox context");
-      if (status?.is_dirty) {
-        if (!message.trim()) throw new Error("Commit message is required");
-        await commitGitChanges(accessToken, sandboxId, message.trim(), true);
-      }
       return pushGitChanges(accessToken, sandboxId);
     },
     onSuccess: () => {
@@ -87,11 +103,12 @@ export function GitPanel({
       setError("Commit message is required");
       return;
     }
-    commitMutation.mutate();
+    if (selectedPaths.length === 0) {
+      setError("Select at least one file to commit");
+      return;
+    }
+    commitMutation.mutate(selectedPaths);
   }
-
-  const status = sandboxReady ? statusQuery.data?.status : undefined;
-  const files = diffQuery.data?.files ?? [];
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-3 p-3">
@@ -206,14 +223,14 @@ export function GitPanel({
           placeholder="Describe the workspace changes"
         />
         <p className="text-[10px] leading-4 text-forge-muted">
-          When you push, uncommitted changes are committed with this message first.
+          Only selected files are included in a commit. Push publishes existing commits without committing other changes.
         </p>
         <div className="flex gap-2">
-          <button type="submit" disabled={commitMutation.isPending || pushMutation.isPending || !status || !status.is_dirty} className="inline-flex flex-1 items-center justify-center gap-2 border border-forge-accent/35 bg-forge-accent/[0.08] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-accent disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="submit" disabled={commitMutation.isPending || pushMutation.isPending || !status || selectedPaths.length === 0} className="inline-flex flex-1 items-center justify-center gap-2 border border-forge-accent/35 bg-forge-accent/[0.08] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-accent disabled:cursor-not-allowed disabled:opacity-50">
             {commitMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
             Commit
           </button>
-          <button type="button" onClick={() => void pushMutation.mutate()} disabled={pushMutation.isPending || commitMutation.isPending || !status || (!status.is_dirty && (status.ahead ?? 0) === 0)} className="inline-flex flex-1 items-center justify-center gap-2 border border-[var(--border)] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-muted disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="button" onClick={() => void pushMutation.mutate()} disabled={pushMutation.isPending || commitMutation.isPending || !status || (status.ahead ?? 0) === 0} className="inline-flex flex-1 items-center justify-center gap-2 border border-[var(--border)] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-muted disabled:cursor-not-allowed disabled:opacity-50">
             {pushMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <GitBranch size={12} />}
             {pushMutation.isPending ? "Publishing" : "Push to GitHub"}
           </button>
@@ -222,8 +239,11 @@ export function GitPanel({
       </div>
       <section className="flex min-h-0 flex-1 flex-col gap-2">
         <div className="flex shrink-0 items-center justify-between text-[10px] font-semibold uppercase tracking-[0.12em] text-forge-muted">
-          <span>File changes</span>
-          <span>{files.length} tracked diffs</span>
+          <span>File changes · {selectedPaths.length}/{changedPaths.length} selected</span>
+          <span className="flex items-center gap-2">
+            <button type="button" onClick={() => setFileSelection({ pathsKey: changedPathsKey, excluded: new Set() })} disabled={changedPaths.length === 0} className="hover:text-forge-text disabled:opacity-40">All</button>
+            <button type="button" onClick={() => setFileSelection({ pathsKey: changedPathsKey, excluded: new Set(changedPaths) })} disabled={changedPaths.length === 0} className="hover:text-forge-text disabled:opacity-40">None</button>
+          </span>
         </div>
         {status ? (
           <GitDiffPreview
@@ -231,6 +251,13 @@ export function GitPanel({
             sandboxId={sandboxId}
             status={status}
             files={files}
+            selectedPaths={selectedPaths}
+            onToggleFile={(path, selected) => setFileSelection((current) => {
+              const next = new Set(current.pathsKey === changedPathsKey ? current.excluded : []);
+              if (selected) next.delete(path);
+              else next.add(path);
+              return { pathsKey: changedPathsKey, excluded: next };
+            })}
           />
         ) : (
           <div className="flex min-h-0 flex-1 items-center justify-center border border-[var(--border)] text-xs text-forge-muted">

@@ -57,12 +57,26 @@ func (s *Service) Commit(ctx context.Context, sandboxID string, req CommitReques
 	if authorName == "" || authorEmail == "" {
 		return CommitResult{}, fmt.Errorf("commit author name and email are required")
 	}
-	if req.All {
+	files, err := normalizeCommitPaths(req.Files)
+	if err != nil {
+		return CommitResult{}, err
+	}
+	if len(files) > 0 {
+		addArgs := append([]string{"--literal-pathspecs", "add", "-A", "--"}, files...)
+		if _, err := s.runGit(ctx, sandboxID, addArgs...); err != nil {
+			return CommitResult{}, err
+		}
+	} else if req.All {
 		if _, err := s.runGit(ctx, sandboxID, "add", "-A"); err != nil {
 			return CommitResult{}, err
 		}
 	}
-	if _, err := s.runGit(ctx, sandboxID, "-c", "user.name="+authorName, "-c", "user.email="+authorEmail, "commit", "-m", message); err != nil {
+	commitArgs := []string{"--literal-pathspecs", "-c", "user.name=" + authorName, "-c", "user.email=" + authorEmail, "commit", "-m", message}
+	if len(files) > 0 {
+		commitArgs = append(commitArgs, "--")
+		commitArgs = append(commitArgs, files...)
+	}
+	if _, err := s.runGit(ctx, sandboxID, commitArgs...); err != nil {
 		return CommitResult{}, err
 	}
 	output, err := s.runGit(ctx, sandboxID, "rev-parse", "HEAD")
@@ -74,6 +88,27 @@ func (s *Service) Commit(ctx context.Context, sandboxID string, req CommitReques
 		Hash:    strings.TrimSpace(output),
 		Time:    time.Now().UTC(),
 	}, nil
+}
+
+func normalizeCommitPaths(files []string) ([]string, error) {
+	if len(files) == 0 {
+		return nil, nil
+	}
+
+	normalized := make([]string, 0, len(files))
+	seen := make(map[string]struct{}, len(files))
+	for _, file := range files {
+		cleaned := path.Clean(file)
+		if strings.TrimSpace(file) == "" || strings.ContainsRune(file, '\x00') || path.IsAbs(file) || cleaned != file || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") {
+			return nil, fmt.Errorf("invalid commit path %q", file)
+		}
+		if _, exists := seen[file]; exists {
+			continue
+		}
+		seen[file] = struct{}{}
+		normalized = append(normalized, file)
+	}
+	return normalized, nil
 }
 
 func (s *Service) Push(ctx context.Context, sandboxID string, req PushRequest, accessToken string) (PushResult, error) {
