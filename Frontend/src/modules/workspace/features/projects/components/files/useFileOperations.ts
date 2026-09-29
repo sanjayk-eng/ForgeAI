@@ -3,7 +3,7 @@ import {
   createFileOrDirectory,
   deletePath,
   renamePath,
-} from "../../../../api/sandbox.api";
+} from "../../../../api/sandbox-files.api";
 import { getParentPath, joinFilePath, sandboxFileKeys } from "./fileTree";
 
 interface FileMove {

@@ -122,6 +122,7 @@ export function FileExplorerNode({
           <FileCode2 size={14} className="shrink-0 text-forge-muted" />
         )}
         <span className="truncate">{file.name}</span>
+        {file.is_modified && <span className="size-1.5 shrink-0 rounded-full bg-forge-signal" aria-label="File has changes" />}
       </button>
 
       {file.childrenLoading && <LoaderCircle size={12} className="animate-spin text-forge-muted" />}

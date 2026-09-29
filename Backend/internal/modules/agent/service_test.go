@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	terminalapp "ai-agent/internal/modules/terminal/application"
+	"ai-agent/internal/modules/terminal/domain"
+	"ai-agent/internal/shared/realtime"
 )
 
 func TestValidateChangePath(t *testing.T) {
@@ -83,7 +85,8 @@ func TestRunTaskReadsProjectAndAppliesChanges(t *testing.T) {
 	}))
 	defer model.Close()
 
-	service := NewService(sandbox, Config{BaseURL: model.URL, APIKey: "test-key", Model: "test-model"})
+	events := &recordingEventPublisher{}
+	service := NewService(sandbox, Config{BaseURL: model.URL, APIKey: "test-key", Model: "test-model"}, events)
 	result, err := service.RunTask(context.Background(), "user-1", "sandbox-1", "Add an empty main function")
 	if err != nil {
 		t.Fatalf("RunTask() error = %v", err)
@@ -93,6 +96,12 @@ func TestRunTaskReadsProjectAndAppliesChanges(t *testing.T) {
 	}
 	if !strings.Contains(sandbox.writes["src/main.go"], "func main()") {
 		t.Fatalf("expected model change to be written, got %q", sandbox.writes["src/main.go"])
+	}
+	if len(events.events) != 4 || events.events[0].Event != "agent.started" || events.events[1].Event != "agent.progress" || events.events[2].Event != "agent.progress" || events.events[3].Event != "agent.completed" {
+		t.Fatalf("unexpected Agent event sequence: %+v", events.events)
+	}
+	if events.events[0].ProjectID != "project-1" || events.events[0].SandboxID != "sandbox-1" {
+		t.Fatalf("Agent event is missing its project scope: %+v", events.events[0])
 	}
 }
 
@@ -116,6 +125,10 @@ func (sandbox *fakeSandbox) ValidateSandboxAccess(context.Context, string, strin
 	return sandbox.accessError
 }
 
+func (sandbox *fakeSandbox) Get(context.Context, string) (domain.Sandbox, error) {
+	return domain.Sandbox{ID: "sandbox-1", ProjectID: "project-1", WorkspaceID: "workspace-1", Status: domain.StatusRunning}, nil
+}
+
 func (sandbox *fakeSandbox) ListFiles(_ context.Context, _ string, dir string) ([]terminalapp.FileEntry, error) {
 	return sandbox.files[dir], nil
 }
@@ -131,4 +144,12 @@ func (sandbox *fakeSandbox) ReadFile(_ context.Context, _ string, filePath strin
 func (sandbox *fakeSandbox) WriteFile(_ context.Context, _ string, relativePath, content string) error {
 	sandbox.writes[relativePath] = content
 	return nil
+}
+
+type recordingEventPublisher struct {
+	events []realtime.Event
+}
+
+func (publisher *recordingEventPublisher) Publish(event realtime.Event) {
+	publisher.events = append(publisher.events, event)
 }

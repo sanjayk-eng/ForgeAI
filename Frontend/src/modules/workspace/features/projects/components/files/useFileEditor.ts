@@ -1,11 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { readFile, saveFile } from "../../../../api/sandbox.api";
+import { useEffect, useRef, useState } from "react";
+import { getGitDiff } from "../../../../api/git.api";
+import { readFile, saveFile } from "../../../../api/sandbox-files.api";
 import { sandboxFileKeys } from "./fileTree";
 
 interface FileDraft {
   path: string;
   content: string;
+}
+
+export interface FileContentDiff {
+  original: string;
+  modified: string;
 }
 
 export function useFileEditor(
@@ -15,6 +21,9 @@ export function useFileEditor(
 ) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<FileDraft | null>(null);
+  const [diff, setDiff] = useState<FileContentDiff | null>(null);
+  const [externalChange, setExternalChange] = useState(false);
+  const initialGitDiffPath = useRef<string | null>(null);
 
   const fileQuery = useQuery({
     queryKey: sandboxId && filePath
@@ -29,6 +38,27 @@ export function useFileEditor(
     enabled: Boolean(sandboxId && filePath && accessToken),
     staleTime: 30_000,
   });
+
+  useEffect(() => {
+    initialGitDiffPath.current = null;
+    setDiff(null);
+    setExternalChange(false);
+  }, [filePath]);
+
+  useEffect(() => {
+    if (!filePath || !fileQuery.data || initialGitDiffPath.current === filePath) return;
+    initialGitDiffPath.current = filePath;
+    let active = true;
+    const currentContent = fileQuery.data.content;
+    void gitOriginalContent(filePath).then((original) => {
+      if (active && original !== undefined && original !== currentContent) {
+        setDiff({ original, modified: currentContent });
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [accessToken, filePath, fileQuery.data?.content, sandboxId]);
 
   const content = filePath && draft?.path === filePath
     ? draft.content
@@ -68,7 +98,48 @@ export function useFileEditor(
     if (!sandboxId || !filePath || !accessToken || !hasUnsavedChanges) {
       return Promise.resolve();
     }
-    return saveMutation.mutateAsync({ path: filePath, content });
+    const original = fileQuery.data?.content ?? "";
+    return saveMutation.mutateAsync({ path: filePath, content }).then(() => {
+      if (original !== content) {
+        void gitOriginalContent(filePath).then((gitOriginal) => {
+          setDiff({ original: gitOriginal ?? original, modified: content });
+        });
+      }
+      setExternalChange(false);
+    });
+  }
+
+  async function refreshWithDiff() {
+    if (!filePath) return;
+    const original = fileQuery.data?.content ?? "";
+    const hadUnsavedDraft = Boolean(draft?.path === filePath && draft.content !== original);
+    const result = await fileQuery.refetch();
+    const modified = result.data?.content;
+    if (modified === undefined || modified === original) return;
+    const gitOriginal = await gitOriginalContent(filePath);
+    setDiff({ original: gitOriginal ?? original, modified });
+    if (hadUnsavedDraft) {
+      setExternalChange(true);
+      return;
+    }
+    setDraft(null);
+    setExternalChange(false);
+  }
+
+  async function gitOriginalContent(path: string) {
+    if (!accessToken || !sandboxId) return undefined;
+    const relativePath = path.replaceAll("\\", "/").replace(/^\/workspace\//, "");
+    try {
+      const result = await getGitDiff(accessToken, sandboxId, relativePath);
+      return result.files.find((file) => file.path === relativePath)?.original_content;
+    } catch {
+      return undefined;
+    }
+  }
+
+  function useExternalVersion() {
+    setDraft(null);
+    setExternalChange(false);
   }
 
   return {
@@ -77,7 +148,11 @@ export function useFileEditor(
     hasUnsavedChanges,
     isLoading: fileQuery.isLoading,
     isSaving: saveMutation.isPending,
+    diff,
+    externalChange,
     save,
+    refreshWithDiff,
+    useExternalVersion,
     updateDraft,
   };
 }

@@ -15,10 +15,11 @@ type GitStatus struct {
 
 // GitDiffEntry is a single file diff for a git change.
 type GitDiffEntry struct {
-	Path    string `json:"path"`
-	OldPath string `json:"old_path,omitempty"`
-	Content string `json:"content"`
-	Status  string `json:"status"`
+	Path            string  `json:"path"`
+	OldPath         string  `json:"old_path,omitempty"`
+	Content         string  `json:"content"`
+	Status          string  `json:"status"`
+	OriginalContent *string `json:"original_content,omitempty"`
 }
 
 // GitDiffResult contains the diff summary for the workspace.

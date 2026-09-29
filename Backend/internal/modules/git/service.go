@@ -47,14 +47,6 @@ func (s *Service) Status(ctx context.Context, sandboxID string) (GitStatus, erro
 	return status, nil
 }
 
-func (s *Service) Diff(ctx context.Context, sandboxID string) (GitDiffResult, error) {
-	output, err := s.runGit(ctx, sandboxID, "diff", "--no-ext-diff", "--binary", "HEAD")
-	if err != nil {
-		return GitDiffResult{}, err
-	}
-	return GitDiffResult{Files: parseDiffOutput(output)}, nil
-}
-
 func (s *Service) Commit(ctx context.Context, sandboxID string, req CommitRequest, authorName, authorEmail string) (CommitResult, error) {
 	message := strings.TrimSpace(req.Message)
 	if message == "" {
@@ -213,33 +205,6 @@ func parseStatusOutput(output string) (GitStatus, error) {
 	}
 	status.IsDirty = len(status.Modified)+len(status.Staged)+len(status.Untracked) > 0
 	return status, nil
-}
-
-func parseDiffOutput(output string) []GitDiffEntry {
-	if strings.TrimSpace(output) == "" {
-		return nil
-	}
-	files := make([]GitDiffEntry, 0)
-	for _, block := range strings.Split(output, "diff --git ") {
-		block = strings.TrimSpace(block)
-		if block == "" {
-			continue
-		}
-		lines := strings.Split(block, "\n")
-		if len(lines) < 2 {
-			continue
-		}
-		header := strings.TrimSpace(lines[0])
-		path := strings.TrimSpace(header)
-		if strings.Contains(path, " b/") {
-			path = strings.TrimSpace(strings.SplitN(path, " b/", 2)[1])
-		}
-		files = append(files, GitDiffEntry{Path: path, Content: block, Status: "modified"})
-	}
-	if len(files) == 0 {
-		return nil
-	}
-	return files
 }
 
 func (s *Service) repoRoot() string {

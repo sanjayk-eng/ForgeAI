@@ -15,17 +15,20 @@ import (
 )
 
 type ModuleConfig struct {
-	Database     *sqlx.DB
-	Logger       logger.Logger
-	DockerBinary string
-	PolicyPath   string
-	ProjectRepo  worker.ProjectRepository
+	Database         *sqlx.DB
+	Logger           logger.Logger
+	DockerBinary     string
+	PolicyPath       string
+	ProjectRepo      worker.ProjectRepository
+	WebSocketOrigins []string
 }
 
 type Module struct {
-	Service *application.Service
-	Worker  *worker.SandboxWorker
-	Handler *Handler
+	Service          *application.Service
+	Worker           *worker.SandboxWorker
+	Handler          *Handler
+	Events           *EventHub
+	WebSocketOrigins []string
 }
 
 func LoadModule(config ModuleConfig) (*Module, error) {
@@ -41,11 +44,14 @@ func LoadModule(config ModuleConfig) (*Module, error) {
 	repositoryPusher := terminalgithub.NewGitHubRepositoryPusher(dockerCLI)
 	repo := terminalpostgres.NewRepository(config.Database)
 	service := application.NewService(repo, runtime, files, repositoryCloner, sandboxPolicy, repositoryPusher)
-	sandboxWorker := worker.NewSandboxWorker(service, config.ProjectRepo, config.Logger)
+	events := NewEventHub()
+	sandboxWorker := worker.NewSandboxWorker(service, config.ProjectRepo, config.Logger, events)
 
 	module := &Module{
-		Service: service,
-		Worker:  sandboxWorker,
+		Service:          service,
+		Worker:           sandboxWorker,
+		Events:           events,
+		WebSocketOrigins: config.WebSocketOrigins,
 	}
 	module.Handler = NewHandler(module)
 

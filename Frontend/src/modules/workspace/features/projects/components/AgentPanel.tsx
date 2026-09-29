@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Bot, Check, Loader2, Send } from "lucide-react";
-import { useState, type FormEvent } from "react";
-import { getAgentStatus, runAgentTask } from "../../../api/sandbox.api";
+import { useEffect, useState, type FormEvent } from "react";
+import { getAgentStatus, runAgentTask } from "../../../api/agent.api";
+import type { SequencedProjectRealtimeEvent } from "../../../api/project-realtime.types";
 
 type AgentMessage = {
   role: "user" | "assistant";
@@ -15,16 +16,19 @@ export function AgentPanel({
   accessToken,
   sandboxId,
   sandboxStatus,
+  realtimeEvents = [],
 }: {
   projectName: string;
   selectedFile: string | null;
   accessToken: string | null;
   sandboxId: string | null;
   sandboxStatus: string | null;
+  realtimeEvents?: SequencedProjectRealtimeEvent[];
 }) {
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [taskError, setTaskError] = useState<string | null>(null);
+  const [realtimeActivity, setRealtimeActivity] = useState("");
   const queryClient = useQueryClient();
   const statusQuery = useQuery({
     queryKey: ["agent-status", sandboxId],
@@ -50,6 +54,12 @@ export function AgentPanel({
       setTaskError(error instanceof Error ? error.message : "Agent task failed");
     },
   });
+
+  useEffect(() => {
+    const agentEvents = realtimeEvents.filter(({ event }) => event.event.startsWith("agent."));
+    const latest = agentEvents.at(-1)?.event;
+    if (latest) setRealtimeActivity(latest.message ?? latest.event.replace("agent.", "Agent "));
+  }, [realtimeEvents.at(-1)?.sequence]);
 
   const configured = statusQuery.data?.configured === true;
   const canSend = configured && sandboxStatus === "RUNNING" && prompt.trim().length > 0 && !taskMutation.isPending;
@@ -113,6 +123,9 @@ export function AgentPanel({
         ))}
         {taskMutation.isPending && (
           <div className="flex items-center gap-2 text-xs text-forge-muted"><Loader2 size={13} className="animate-spin" /> Reading project and applying changes</div>
+        )}
+        {realtimeActivity && !taskMutation.isPending && (
+          <div className="text-xs text-forge-muted" aria-live="polite">{realtimeActivity}</div>
         )}
         {taskError && <div role="alert" className="text-xs text-forge-signal">{taskError}</div>}
       </div>

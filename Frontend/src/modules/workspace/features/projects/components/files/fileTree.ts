@@ -1,4 +1,4 @@
-import type { FileEntry } from "../../../../api/sandbox.api";
+import type { FileEntry } from "../../../../api/sandbox-files.api";
 
 export const WORKSPACE_ROOT = "/workspace";
 
@@ -6,6 +6,7 @@ export interface FileTreeItem extends FileEntry {
   children?: FileTreeItem[];
   childrenLoading?: boolean;
   childrenError?: boolean;
+  is_modified?: boolean;
   isCreatePlaceholder?: boolean;
   createEntryType?: "file" | "directory";
 }
