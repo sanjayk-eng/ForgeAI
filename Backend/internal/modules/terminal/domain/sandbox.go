@@ -22,12 +22,14 @@ const (
 )
 
 var (
-	ErrInvalidTransition   = errors.New("invalid sandbox lifecycle transition")
-	ErrSandboxNotFound     = errors.New("sandbox not found")
-	ErrSandboxExists       = errors.New("project already has an active sandbox")
-	ErrSandboxAccessDenied = errors.New("sandbox workspace access denied")
-	ErrSandboxStateChanged = errors.New("sandbox state changed concurrently")
-	ErrInvalidSandbox      = errors.New("invalid sandbox input")
+	ErrInvalidTransition        = errors.New("invalid sandbox lifecycle transition")
+	ErrSandboxNotFound          = errors.New("sandbox not found")
+	ErrSandboxExists            = errors.New("project already has an active sandbox")
+	ErrSandboxAccessDenied      = errors.New("sandbox workspace access denied")
+	ErrSandboxStateChanged      = errors.New("sandbox state changed concurrently")
+	ErrInvalidSandbox           = errors.New("invalid sandbox input")
+	ErrSandboxNotRunning        = errors.New("sandbox is not running")
+	ErrTerminalShellUnavailable = errors.New("terminal shell is unavailable")
 )
 
 type ResourceLimits struct {

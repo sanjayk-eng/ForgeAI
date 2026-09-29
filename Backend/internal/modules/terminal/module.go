@@ -27,6 +27,7 @@ type Module struct {
 	Service          *application.Service
 	Worker           *worker.SandboxWorker
 	Handler          *Handler
+	Sessions         *SessionManager
 	Events           *EventHub
 	WebSocketOrigins []string
 }
@@ -50,6 +51,7 @@ func LoadModule(config ModuleConfig) (*Module, error) {
 	module := &Module{
 		Service:          service,
 		Worker:           sandboxWorker,
+		Sessions:         NewSessionManager(service),
 		Events:           events,
 		WebSocketOrigins: config.WebSocketOrigins,
 	}
@@ -67,6 +69,9 @@ func (m *Module) Start(ctx context.Context, workerCount int) {
 func (m *Module) Stop() {
 	if m.Worker != nil {
 		m.Worker.Stop()
+	}
+	if m.Sessions != nil {
+		m.Sessions.CloseAll()
 	}
 }
 

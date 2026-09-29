@@ -1,0 +1,15 @@
+FROM golang:1.26-alpine
+
+RUN apk add --no-cache bash git nodejs npm \
+    && npm install --global typescript \
+    && ln -s /usr/local/go/bin/go /usr/local/bin/go \
+    && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+
+ENV HOME=/workspace/.home \
+    GOCACHE=/workspace/.cache/go-build \
+    GOMODCACHE=/workspace/.cache/go-mod \
+    GOTMPDIR=/workspace \
+    TMPDIR=/workspace \
+    npm_config_cache=/workspace/.cache/npm
+
+WORKDIR /workspace

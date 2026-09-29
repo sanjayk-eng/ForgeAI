@@ -240,6 +240,10 @@ func (h *Handler) requireSandboxAccess(c *gin.Context) (string, bool) {
 
 func RegisterRoutes(router gin.IRouter, handler *Handler) {
 	router.GET("/projects/:project_id/ws", handler.ProjectEvents)
+	router.GET("/projects/:project_id/terminals/shells", handler.TerminalShells)
+	router.POST("/projects/:project_id/terminals", handler.CreateTerminal)
+	router.DELETE("/projects/:project_id/terminals/:session_id", handler.CloseTerminal)
+	router.GET("/projects/:project_id/terminals/:session_id/ws", handler.TerminalSessionWebSocket)
 	router.GET("/projects/:project_id/sandbox", handler.GetSandboxByProject)
 	router.GET("/sandboxes/:sandbox_id/files", handler.ListSandboxFiles)
 	router.GET("/sandboxes/:sandbox_id/files/*path", handler.ReadSandboxFile)

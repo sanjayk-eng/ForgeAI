@@ -38,11 +38,11 @@ The frontend is built in React 19 with Vite and TypeScript. It uses React Router
   - Config, logger, database, validation, email service, executor, filesystem utilities, and error handling.
 
 ### Current working config
-The sandbox image currently configured in the project is:
+The development sandbox uses a dedicated image with Go, Node.js/npm, Git, and Bash:
 - Backend/configs/sandbox.yaml
-- Image: alpine/git:latest
+- Image: forgeai-sandbox:latest
 
-This is also the image currently seen in running Docker containers for the sandbox environment.
+React, TypeScript, and JavaScript projects use their normal npm dependencies. The sandbox currently has `network_mode: none`, so npm and Go dependencies must already be available locally; registry downloads are unavailable during sandbox execution.
 
 ### Backend structure
 ```text
@@ -167,10 +167,16 @@ npm install
 npm run dev
 ```
 
-### Current sandbox image
+### Build the sandbox image
 ```yaml
 sandbox:
-  image: alpine/git:latest
+  image: forgeai-sandbox:latest
+```
+
+Build the image from the repository root before starting the backend:
+
+```bash
+docker build -f Backend/Dockerfile.sandbox -t forgeai-sandbox:latest Backend
 ```
 
 ---

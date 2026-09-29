@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"ai-agent/internal/modules/terminal/domain"
@@ -36,6 +37,20 @@ type ExecutionResult struct {
 	Command  string
 }
 
+type TerminalShell struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Available  bool   `json:"available"`
+	Default    bool   `json:"default"`
+	Executable string `json:"-"`
+}
+
+type InteractiveProcess interface {
+	io.ReadWriteCloser
+	Resize(cols, rows int) error
+	Wait() (int, error)
+}
+
 type FileEntry struct {
 	Name        string `json:"name"`
 	Path        string `json:"path"`
@@ -52,6 +67,8 @@ type Runtime interface {
 	StopContainer(ctx context.Context, containerID string) error
 	RemoveContainer(ctx context.Context, containerID string) error
 	Execute(ctx context.Context, containerID, command string, timeoutSeconds int) (ExecutionResult, error)
+	ListTerminalShells(ctx context.Context, containerID string) ([]TerminalShell, error)
+	StartTerminal(ctx context.Context, containerID, workspacePath, shellID string, cols, rows int) (InteractiveProcess, error)
 }
 
 type FileStore interface {

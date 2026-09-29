@@ -10,7 +10,7 @@ func TestLoadSandboxPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Image == "" || loaded.CommandTimeout <= 0 || loaded.Limits.MemoryBytes <= 0 {
+	if loaded.Image != "forgeai-sandbox:latest" || loaded.CommandTimeout <= 0 || loaded.Limits.MemoryBytes <= 0 {
 		t.Fatalf("incomplete sandbox policy: %#v", loaded)
 	}
 }

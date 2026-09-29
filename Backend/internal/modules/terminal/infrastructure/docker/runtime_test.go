@@ -33,6 +33,25 @@ func TestParseContainerID(t *testing.T) {
 	}
 }
 
+func TestParseTerminalShells(t *testing.T) {
+	shells := parseTerminalShells("sh\t/bin/sh\nbash\t/usr/bin/bash\npwsh\t/usr/bin/pwsh\npowershell\t\n")
+	if len(shells) != 3 {
+		t.Fatalf("detected %d shells, want 3: %+v", len(shells), shells)
+	}
+	if shells[0].ID != "sh" || !shells[0].Default || shells[0].Executable != "/bin/sh" {
+		t.Fatalf("unexpected default shell: %+v", shells[0])
+	}
+	if shells[1].ID != "bash" || shells[1].Default {
+		t.Fatalf("unexpected Bash shell: %+v", shells[1])
+	}
+	if shells[2].ID != "powershell" || shells[2].Executable != "/usr/bin/pwsh" {
+		t.Fatalf("unexpected PowerShell shell: %+v", shells[2])
+	}
+	if shells := parseTerminalShells("bash\t\nzsh\t\n"); len(shells) != 0 {
+		t.Fatalf("unavailable shells were reported: %+v", shells)
+	}
+}
+
 func TestIsMissingDockerResource(t *testing.T) {
 	if !isMissingDockerResource(errors.New("Error response from daemon: No such container: sandbox"), "container") {
 		t.Fatal("expected missing container to be treated as already removed")
