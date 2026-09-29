@@ -3,6 +3,12 @@ import type { FileTreeItem } from "./fileTree";
 
 interface FileExplorerActions {
   createEntry: (parentPath: string, type: "file" | "directory") => void;
+  createName: string;
+  createError: string;
+  isCreating: boolean;
+  setCreateName: (name: string) => void;
+  submitCreate: () => Promise<void>;
+  cancelCreate: () => void;
   deleteEntry: (file: FileTreeItem) => void;
   renameEntry: (file: FileTreeItem) => void;
   selectFile: (file: FileTreeItem) => void;

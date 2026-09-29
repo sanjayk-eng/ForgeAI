@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Tree } from "react-arborist";
-import { Check, FilePlus2, FolderPlus, X } from "lucide-react";
+import { FilePlus2, FolderPlus } from "lucide-react";
 import type { FileEntry } from "../../../../api/sandbox.api";
 import { FileActionDialog, type FileActionDialogState } from "./FileActionDialog";
 import { FileExplorerActionsContext } from "./FileExplorerActionsContext";
@@ -65,8 +65,7 @@ export function FileExplorer({
     setPendingCreate({ parentPath, entryType });
   }
 
-  async function submitCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitCreate() {
     if (!pendingCreate || !createName.trim()) return;
     setCreateError("");
     try {
@@ -79,6 +78,12 @@ export function FileExplorer({
 
   const actions = {
     createEntry: startCreate,
+    createName,
+    createError,
+    isCreating: explorer.isPending,
+    setCreateName,
+    submitCreate,
+    cancelCreate: () => setPendingCreate(null),
     deleteEntry: (file: FileTreeItem) => openDialog({ kind: "delete", file }),
     renameEntry: (file: FileTreeItem) => openDialog({ kind: "rename", file }),
     selectFile: onSelect,
@@ -102,6 +107,31 @@ export function FileExplorer({
       setDialogError(error instanceof Error ? error.message : "File operation failed");
     }
   }
+
+  function addCreatePlaceholder(entries: FileTreeItem[]): FileTreeItem[] {
+    if (!pendingCreate) return entries;
+    const placeholder: FileTreeItem = {
+      name: "",
+      path: `__forgeai_create__:${pendingCreate.parentPath}`,
+      is_directory: false,
+      isCreatePlaceholder: true,
+      createEntryType: pendingCreate.entryType,
+    };
+    if (pendingCreate.parentPath === WORKSPACE_ROOT) {
+      return [placeholder, ...entries];
+    }
+    return entries.map((entry) => {
+      if (entry.path === pendingCreate.parentPath && entry.is_directory) {
+        return { ...entry, children: [placeholder, ...(entry.children ?? [])] };
+      }
+      if (entry.is_directory && entry.children) {
+        return { ...entry, children: addCreatePlaceholder(entry.children) };
+      }
+      return entry;
+    });
+  }
+
+  const treeData = addCreatePlaceholder(explorer.data);
 
   return (
     <FileExplorerActionsContext.Provider value={actions}>
@@ -132,60 +162,16 @@ export function FileExplorer({
         {!explorer.isLoading && explorer.rootError && (
           <div className="px-2 py-1 text-xs text-forge-signal">Unable to load files</div>
         )}
-        {!explorer.isLoading && !explorer.rootError && explorer.data.length === 0 && (
+        {!explorer.isLoading && !explorer.rootError && treeData.length === 0 && (
           <div className="px-2 py-1 text-xs text-forge-muted">No files found</div>
-        )}
-        {pendingCreate && (
-          <form
-            className="grid gap-1 rounded-md border border-forge-accent/40 bg-forge-accent/[0.06] p-2"
-            onSubmit={submitCreate}
-          >
-            <div className="flex min-w-0 items-center gap-2">
-              {pendingCreate.entryType === "file"
-                ? <FilePlus2 size={14} className="shrink-0 text-forge-accent" />
-                : <FolderPlus size={14} className="shrink-0 text-forge-accent" />}
-              <input
-                autoFocus
-                aria-label={pendingCreate.entryType === "file" ? "New file name" : "New folder name"}
-                className="h-8 min-w-0 flex-1 border-0 bg-transparent text-xs text-forge-text outline-none placeholder:text-forge-muted focus:ring-0"
-                placeholder={pendingCreate.entryType === "file" ? "File name, e.g. notes.md" : "Folder name"}
-                value={createName}
-                onChange={(event) => setCreateName(event.target.value)}
-                disabled={explorer.isPending}
-              />
-              <button
-                type="submit"
-                title="Create"
-                aria-label="Create"
-                className="grid size-7 shrink-0 place-items-center rounded text-forge-accent hover:bg-forge-accent/10 disabled:opacity-50"
-                disabled={!createName.trim() || explorer.isPending}
-              >
-                <Check size={15} />
-              </button>
-              <button
-                type="button"
-                title="Cancel"
-                aria-label="Cancel"
-                className="grid size-7 shrink-0 place-items-center rounded text-forge-muted hover:bg-[var(--surface-hover)]"
-                onClick={() => setPendingCreate(null)}
-                disabled={explorer.isPending}
-              >
-                <X size={15} />
-              </button>
-            </div>
-            <span className="truncate pl-6 text-[10px] text-forge-muted">
-              {pendingCreate.entryType === "file" ? "File" : "Folder"} in {pendingCreate.parentPath}
-            </span>
-            {createError && <span className="pl-6 text-xs text-forge-signal" role="alert">{createError}</span>}
-          </form>
         )}
         {explorer.operationError && (
           <div className="px-2 py-1 text-xs text-forge-signal">A file operation failed</div>
         )}
         <div ref={treeContainer} className="min-h-0 flex-1">
-          {explorer.data.length > 0 && (
+          {treeData.length > 0 && (
             <Tree<FileTreeItem>
-              data={explorer.data}
+              data={treeData}
               idAccessor="path"
               selection={selectedPath ?? undefined}
               width="100%"

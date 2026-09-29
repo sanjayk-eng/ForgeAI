@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  Check,
   ChevronDown,
   ChevronRight,
   FileCode2,
@@ -10,6 +11,7 @@ import {
   LoaderCircle,
   Pencil,
   Trash2,
+  X,
 } from "lucide-react";
 import type { NodeRendererProps } from "react-arborist";
 import type { FileTreeItem } from "./fileTree";
@@ -23,6 +25,75 @@ export function FileExplorerNode({
   const actions = useFileExplorerActions();
   const file = node.data;
   const isDirectory = file.is_directory;
+
+  if (file.isCreatePlaceholder) {
+    const entryType = file.createEntryType ?? "file";
+    return (
+      <div
+        style={style}
+        className="group flex min-w-0 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center gap-1 text-forge-accent">
+          {entryType === "file" ? <FilePlus2 size={13} /> : <FolderPlus size={13} />}
+        </div>
+
+        <form
+          className="flex min-w-0 flex-1 items-center gap-1.5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void actions.submitCreate();
+          }}
+        >
+          <span className="flex shrink-0 items-center">
+            {entryType === "file" ? <FileCode2 size={13} className="text-forge-muted" /> : <FolderOpen size={13} className="text-forge-accent" />}
+          </span>
+          <input
+            autoFocus
+            aria-label={entryType === "file" ? "New file name" : "New folder name"}
+            className="h-7 min-w-0 flex-1 border-0 bg-transparent text-xs font-medium text-forge-text outline-none placeholder:text-forge-muted focus:ring-0"
+            placeholder={entryType === "file" ? "File name" : "Folder name"}
+            value={actions.createName}
+            onChange={(event) => actions.setCreateName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") actions.cancelCreate();
+            }}
+            disabled={actions.isCreating}
+          />
+        </form>
+
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="submit"
+            title="Create"
+            aria-label="Create"
+            className="grid size-6 shrink-0 place-items-center rounded-md bg-forge-accent/10 text-forge-accent hover:bg-forge-accent/15 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!actions.createName.trim() || actions.isCreating}
+            onClick={() => void actions.submitCreate()}
+          >
+            <Check size={13} />
+          </button>
+          <button
+            type="button"
+            title="Cancel"
+            aria-label="Cancel"
+            className="grid size-6 shrink-0 place-items-center rounded-md text-forge-muted hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={actions.cancelCreate}
+            disabled={actions.isCreating}
+          >
+            <X size={13} />
+          </button>
+        </div>
+
+        {actions.createError && (
+          <span title={actions.createError} className="flex shrink-0 items-center">
+            <AlertCircle size={13} className="text-forge-signal" />
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -66,6 +137,7 @@ export function FileExplorerNode({
               className="grid size-6 place-items-center rounded text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"
               onClick={(event) => {
                 event.stopPropagation();
+                node.open();
                 actions.createEntry(file.path, "file");
               }}
             >
@@ -78,6 +150,7 @@ export function FileExplorerNode({
               className="grid size-6 place-items-center rounded text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"
               onClick={(event) => {
                 event.stopPropagation();
+                node.open();
                 actions.createEntry(file.path, "directory");
               }}
             >

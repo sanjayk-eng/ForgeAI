@@ -53,9 +53,19 @@ export function GitPanel({
   });
 
   const pushMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!accessToken || !sandboxId) throw new Error("Missing sandbox context");
+      if (status?.is_dirty) {
+        if (!message.trim()) throw new Error("Commit message is required");
+        await commitGitChanges(accessToken, sandboxId, message.trim(), true);
+      }
       return pushGitChanges(accessToken, sandboxId);
+    },
+    onSuccess: () => {
+      setError(null);
+    },
+    onSettled: async () => {
+      await Promise.all([statusQuery.refetch(), diffQuery.refetch()]);
     },
     onError: (submitError) => {
       setError(submitError instanceof Error ? submitError.message : "Push failed");
@@ -97,6 +107,12 @@ export function GitPanel({
           <div className="flex items-center justify-between gap-3">
             <span className="text-[10px] uppercase tracking-[0.12em] text-forge-muted">Branch</span>
             <span className="font-mono text-[11px] text-forge-text">{status.branch || "(detached)"}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[10px] uppercase tracking-[0.12em] text-forge-muted">Remote</span>
+            <span className="font-mono text-[11px] text-forge-text">
+              {status.ahead ?? 0} ahead / {status.behind ?? 0} behind
+            </span>
           </div>
           <div className="flex items-center justify-between gap-3">
             <span className="text-[10px] uppercase tracking-[0.12em] text-forge-muted">State</span>
@@ -141,14 +157,17 @@ export function GitPanel({
           className="w-full resize-none bg-transparent text-xs text-forge-text outline-none placeholder:text-forge-muted"
           placeholder="Describe the workspace changes"
         />
+        <p className="text-[10px] leading-4 text-forge-muted">
+          When you push, uncommitted changes are committed with this message first.
+        </p>
         <div className="flex gap-2">
-          <button type="submit" disabled={commitMutation.isPending || !status || !status.is_dirty} className="inline-flex flex-1 items-center justify-center gap-2 border border-forge-accent/35 bg-forge-accent/[0.08] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-accent disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="submit" disabled={commitMutation.isPending || pushMutation.isPending || !status || !status.is_dirty} className="inline-flex flex-1 items-center justify-center gap-2 border border-forge-accent/35 bg-forge-accent/[0.08] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-accent disabled:cursor-not-allowed disabled:opacity-50">
             {commitMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
             Commit
           </button>
-          <button type="button" onClick={() => void pushMutation.mutate()} disabled={pushMutation.isPending || !status || !status.is_dirty} className="inline-flex flex-1 items-center justify-center gap-2 border border-[var(--border)] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-muted disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="button" onClick={() => void pushMutation.mutate()} disabled={pushMutation.isPending || commitMutation.isPending || !status || (!status.is_dirty && (status.ahead ?? 0) === 0)} className="inline-flex flex-1 items-center justify-center gap-2 border border-[var(--border)] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-muted disabled:cursor-not-allowed disabled:opacity-50">
             {pushMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <GitBranch size={12} />}
-            Push
+            {pushMutation.isPending ? "Publishing" : "Push to GitHub"}
           </button>
         </div>
       </form>

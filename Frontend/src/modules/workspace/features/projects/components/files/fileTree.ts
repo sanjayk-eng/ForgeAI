@@ -6,6 +6,8 @@ export interface FileTreeItem extends FileEntry {
   children?: FileTreeItem[];
   childrenLoading?: boolean;
   childrenError?: boolean;
+  isCreatePlaceholder?: boolean;
+  createEntryType?: "file" | "directory";
 }
 
 export const sandboxFileKeys = {

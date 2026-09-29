@@ -144,6 +144,8 @@ export interface GitStatusPayload {
   modified: string[];
   staged: string[];
   untracked: string[];
+  ahead?: number;
+  behind?: number;
 }
 
 export interface GitDiffEntry {
