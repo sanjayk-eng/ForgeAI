@@ -6,16 +6,22 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/agent ./cmd/agent
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/agent ./cmd/agent
 
 FROM alpine:3.22
 
 RUN apk --no-cache add ca-certificates \
     && adduser -D -H -u 10001 appuser
 
-COPY --from=build /out/agent /usr/local/bin/agent
+WORKDIR /app
 
-USER 10001:10001
+COPY --from=build /out/agent ./agent
+COPY migrations ./migrations
+
+ENV HOST=0.0.0.0 \
+    PORT=8080
+
 EXPOSE 8080
+USER appuser
 
-ENTRYPOINT ["/usr/local/bin/agent"]
+ENTRYPOINT ["./agent"]
