@@ -6,6 +6,7 @@ import (
 	agentmodule "ai-agent/internal/modules/agent"
 	"ai-agent/internal/modules/auth"
 	"ai-agent/internal/modules/auth/provider"
+	gitmodule "ai-agent/internal/modules/git"
 	projectmodule "ai-agent/internal/modules/project"
 	terminalmodule "ai-agent/internal/modules/terminal"
 	terminalworker "ai-agent/internal/modules/terminal/worker"
@@ -168,6 +169,13 @@ func runServer() error {
 
 	terminalModule.Start(emailContext, 3)
 	defer terminalModule.Stop()
+
+	gitmodule.LoadModule(gitmodule.ModuleConfig{
+		Router:          protectedRouter,
+		WorkspaceRoot:   "/workspace",
+		SandboxExecutor: terminalModule.Service,
+		SandboxAccess:   terminalModule.Service,
+	})
 
 	terminalmodule.RegisterRoutes(protectedRouter, terminalModule.Handler)
 	agentService := agentmodule.NewService(terminalModule.Service, agentmodule.Config{

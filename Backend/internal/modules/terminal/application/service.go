@@ -4,24 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path"
 	"strings"
 	"time"
 
 	"ai-agent/internal/modules/terminal/domain"
 	"ai-agent/internal/modules/terminal/policy"
 )
-
-type Store interface {
-	CanAccessWorkspace(ctx context.Context, workspaceID, userID string) (bool, error)
-	FindProjectWorkspace(ctx context.Context, projectID string) (string, error)
-	FindActiveByProject(ctx context.Context, projectID string) (domain.Sandbox, error)
-	FindByID(ctx context.Context, sandboxID string) (domain.Sandbox, error)
-	Create(ctx context.Context, sandbox domain.Sandbox) (string, error)
-	AttachContainer(ctx context.Context, sandboxID, containerID string) error
-	TransitionStatus(ctx context.Context, sandboxID string, from, to domain.SandboxStatus) error
-	SetLastError(ctx context.Context, sandboxID, message string) error
-}
 
 type Service struct {
 	store            Store
@@ -226,119 +214,4 @@ func (service *Service) GetByProject(ctx context.Context, projectID string) (dom
 		return domain.Sandbox{}, domain.ErrInvalidSandbox
 	}
 	return service.store.FindActiveByProject(ctx, projectID)
-}
-
-func (service *Service) ValidateProjectAccess(ctx context.Context, userID, projectID string) error {
-	_, err := service.workspaceForUser(ctx, userID, projectID)
-	return err
-}
-
-func (service *Service) ValidateSandboxAccess(ctx context.Context, userID, sandboxID string) error {
-	sandbox, err := service.Get(ctx, sandboxID)
-	if err != nil {
-		return err
-	}
-	allowed, err := service.store.CanAccessWorkspace(ctx, sandbox.WorkspaceID, strings.TrimSpace(userID))
-	if err != nil {
-		return fmt.Errorf("check sandbox workspace access: %w", err)
-	}
-	if !allowed {
-		return domain.ErrSandboxAccessDenied
-	}
-	return nil
-}
-
-func (service *Service) workspaceForUser(ctx context.Context, userID, projectID string) (string, error) {
-	userID = strings.TrimSpace(userID)
-	projectID = strings.TrimSpace(projectID)
-	if userID == "" || projectID == "" || service.store == nil {
-		return "", domain.ErrInvalidSandbox
-	}
-	workspaceID, err := service.store.FindProjectWorkspace(ctx, projectID)
-	if err != nil {
-		return "", err
-	}
-	allowed, err := service.store.CanAccessWorkspace(ctx, workspaceID, userID)
-	if err != nil {
-		return "", fmt.Errorf("check sandbox workspace access: %w", err)
-	}
-	if !allowed {
-		return "", domain.ErrSandboxAccessDenied
-	}
-	return workspaceID, nil
-}
-
-func (service *Service) Execute(ctx context.Context, sandboxID, command string) (ExecutionResult, error) {
-	sandbox, err := service.Get(ctx, sandboxID)
-	if err != nil {
-		return ExecutionResult{}, err
-	}
-	if sandbox.Status != domain.StatusRunning {
-		return ExecutionResult{}, fmt.Errorf("sandbox must be RUNNING to execute commands")
-	}
-	return service.runtime.Execute(ctx, sandbox.ContainerID, command, int(service.policy.CommandTimeout.Seconds()))
-}
-
-func (service *Service) ListFiles(ctx context.Context, sandboxID, path string) ([]FileEntry, error) {
-	sandbox, err := service.Get(ctx, sandboxID)
-	if err != nil {
-		return nil, err
-	}
-	if sandbox.Status != domain.StatusRunning {
-		return nil, fmt.Errorf("sandbox must be RUNNING to list files")
-	}
-	return service.files.ListFiles(ctx, sandbox.ContainerID, path)
-}
-
-func (service *Service) ReadFile(ctx context.Context, sandboxID, path string) (string, error) {
-	sandbox, err := service.Get(ctx, sandboxID)
-	if err != nil {
-		return "", err
-	}
-	if sandbox.Status != domain.StatusRunning {
-		return "", fmt.Errorf("sandbox must be RUNNING to read files")
-	}
-	return service.files.ReadFile(ctx, sandbox.ContainerID, path)
-}
-
-func (service *Service) WriteFile(ctx context.Context, sandboxID, relativePath, content string) error {
-	sandbox, err := service.Get(ctx, sandboxID)
-	if err != nil {
-		return err
-	}
-	if sandbox.Status != domain.StatusRunning {
-		return fmt.Errorf("sandbox must be RUNNING to write files")
-	}
-	if strings.Contains(relativePath, "\\") || strings.HasPrefix(relativePath, "/") {
-		return domain.ErrInvalidSandbox
-	}
-	cleanPath := path.Clean(relativePath)
-	if cleanPath == "." || cleanPath == ".." || strings.HasPrefix(cleanPath, "../") {
-		return domain.ErrInvalidSandbox
-	}
-	for _, segment := range strings.Split(cleanPath, "/") {
-		if strings.EqualFold(segment, ".git") {
-			return domain.ErrInvalidSandbox
-		}
-	}
-	workspaceRoot := path.Clean(sandbox.WorkspacePath)
-	fullPath := path.Join(workspaceRoot, cleanPath)
-	if !strings.HasPrefix(fullPath, workspaceRoot+"/") {
-		return domain.ErrInvalidSandbox
-	}
-	if len(content) > 512*1024 {
-		return fmt.Errorf("file content exceeds the write limit")
-	}
-	return service.files.WriteFile(ctx, sandbox.ContainerID, fullPath, content)
-}
-
-func (service *Service) CloneRepository(ctx context.Context, sandboxID, repositoryURL, branch, accessToken string) error {
-	sandbox, err := service.Get(ctx, sandboxID)
-	if err != nil {
-		return err
-	}
-	if sandbox.Status != domain.StatusRunning {
-		return fmt.Errorf("sandbox must be RUNNING to clone a repository")
-	}
-	return service.repositoryCloner.CloneRepository(ctx, sandbox.VolumeName, sandbox.WorkspacePath, service.policy.GitImage, repositoryURL, branch, accessToken, 5*time.Minute)
 }

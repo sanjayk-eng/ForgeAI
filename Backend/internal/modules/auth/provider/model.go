@@ -27,20 +27,6 @@ type GitHubOrganization struct {
 	Login string `json:"login"`
 }
 
-type gitHubProfile struct {
-	ID        int64  `json:"id"`
-	Email     string `json:"email"`
-	Name      string `json:"name"`
-	Login     string `json:"login"`
-	AvatarURL string `json:"avatar_url"`
-}
-
-type gitHubEmail struct {
-	Email    string `json:"email"`
-	Primary  bool   `json:"primary"`
-	Verified bool   `json:"verified"`
-}
-
 type googleProfile struct {
 	ID      string `json:"sub"`
 	Email   string `json:"email"`

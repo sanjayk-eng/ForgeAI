@@ -25,6 +25,8 @@ type GitHubOrchestrator struct {
 	accountStore GitHubAccountStore
 }
 
+var slugSeparatorPattern = regexp.MustCompile(`[^a-z0-9]+`)
+
 func NewGitHubOrchestrator(
 	db *sqlx.DB,
 	coreRepo core.Repository,
@@ -172,6 +174,6 @@ type ImportGitHubRepositoriesResponse struct {
 
 func slugify(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
-	value = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(value, "-")
+	value = slugSeparatorPattern.ReplaceAllString(value, "-")
 	return strings.Trim(strings.TrimSpace(value), "-")
 }

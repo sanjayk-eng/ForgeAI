@@ -96,4 +96,43 @@ func (store *DockerFileStore) WriteFile(ctx context.Context, containerID, path, 
 	return nil
 }
 
+func (store *DockerFileStore) CreateDirectory(ctx context.Context, containerID, path string) error {
+	if strings.TrimSpace(containerID) == "" || strings.TrimSpace(path) == "" {
+		return fmt.Errorf("container id and directory path are required")
+	}
+	commandContext, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	_, err := store.docker.Run(commandContext, "exec", containerID, "sh", "-lc", `mkdir -p "$1"`, "sh", path)
+	if err != nil {
+		return fmt.Errorf("create directory: %w", err)
+	}
+	return nil
+}
+
+func (store *DockerFileStore) DeletePath(ctx context.Context, containerID, path string) error {
+	if strings.TrimSpace(containerID) == "" || strings.TrimSpace(path) == "" {
+		return fmt.Errorf("container id and path are required")
+	}
+	commandContext, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	_, err := store.docker.Run(commandContext, "exec", containerID, "sh", "-lc", `rm -rf "$1"`, "sh", path)
+	if err != nil {
+		return fmt.Errorf("delete path: %w", err)
+	}
+	return nil
+}
+
+func (store *DockerFileStore) RenamePath(ctx context.Context, containerID, oldPath, newPath string) error {
+	if strings.TrimSpace(containerID) == "" || strings.TrimSpace(oldPath) == "" || strings.TrimSpace(newPath) == "" {
+		return fmt.Errorf("container id, old path and new path are required")
+	}
+	commandContext, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	_, err := store.docker.Run(commandContext, "exec", containerID, "sh", "-lc", `mkdir -p "$(dirname "$2")" && mv "$1" "$2"`, "sh", oldPath, newPath)
+	if err != nil {
+		return fmt.Errorf("rename path: %w", err)
+	}
+	return nil
+}
+
 var _ application.FileStore = (*DockerFileStore)(nil)

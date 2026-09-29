@@ -7,6 +7,17 @@ import (
 	"ai-agent/internal/modules/terminal/domain"
 )
 
+type Store interface {
+	CanAccessWorkspace(ctx context.Context, workspaceID, userID string) (bool, error)
+	FindProjectWorkspace(ctx context.Context, projectID string) (string, error)
+	FindActiveByProject(ctx context.Context, projectID string) (domain.Sandbox, error)
+	FindByID(ctx context.Context, sandboxID string) (domain.Sandbox, error)
+	Create(ctx context.Context, sandbox domain.Sandbox) (string, error)
+	AttachContainer(ctx context.Context, sandboxID, containerID string) error
+	TransitionStatus(ctx context.Context, sandboxID string, from, to domain.SandboxStatus) error
+	SetLastError(ctx context.Context, sandboxID, message string) error
+}
+
 type ContainerSpec struct {
 	Name            string
 	Image           string
@@ -47,6 +58,9 @@ type FileStore interface {
 	ListFiles(ctx context.Context, containerID, path string) ([]FileEntry, error)
 	ReadFile(ctx context.Context, containerID, path string) (string, error)
 	WriteFile(ctx context.Context, containerID, path, content string) error
+	CreateDirectory(ctx context.Context, containerID, path string) error
+	DeletePath(ctx context.Context, containerID, path string) error
+	RenamePath(ctx context.Context, containerID, oldPath, newPath string) error
 }
 
 type RepositoryCloner interface {

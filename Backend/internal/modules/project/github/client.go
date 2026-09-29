@@ -83,15 +83,7 @@ func (c *client) inspectRepository(ctx context.Context, owner, name, accessToken
 		return Repository{}, err
 	}
 
-	return Repository{
-		ID:            repo.ID,
-		Owner:         repo.Owner,
-		Name:          repo.Name,
-		URL:           repo.URL,
-		Private:       repo.Private,
-		DefaultBranch: repo.DefaultBranch,
-		Branches:      repo.Branches,
-	}, nil
+	return mapRepository(repo), nil
 }
 
 func (c *client) ResolveRepository(ctx context.Context, repositoryURL, accessToken string) (repository.ResolvedRepository, error) {
@@ -112,15 +104,8 @@ func (c *client) ResolveRepository(ctx context.Context, repositoryURL, accessTok
 	}
 
 	return repository.ResolvedRepository{
-		Repository: repository.ConnectRepositoryRequest{
-			GitHubRepositoryID:   repo.ID,
-			GitHubOwner:          repo.Owner,
-			GitHubRepositoryName: repo.Name,
-			RepositoryURL:        repo.URL,
-			Private:              repo.Private,
-			DefaultBranch:        repo.DefaultBranch,
-		},
-		Branches: repo.Branches,
+		Repository: toConnectRepositoryRequest(repo),
+		Branches:   repo.Branches,
 	}, nil
 }
 
@@ -165,15 +150,7 @@ func (c *client) ListRepositories(ctx context.Context, accessToken, organization
 
 	result := make([]Repository, 0, len(repositories))
 	for _, repo := range repositories {
-		result = append(result, Repository{
-			ID:            repo.ID,
-			Owner:         repo.Owner,
-			Name:          repo.Name,
-			URL:           repo.URL,
-			Private:       repo.Private,
-			DefaultBranch: repo.DefaultBranch,
-			Branches:      repo.Branches,
-		})
+		result = append(result, mapRepository(repo))
 	}
 	return result, nil
 }

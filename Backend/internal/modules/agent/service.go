@@ -8,13 +8,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"path"
 	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	terminalapp "ai-agent/internal/modules/terminal/application"
+	"ai-agent/internal/shared/filesystem"
 )
 
 const (
@@ -185,8 +185,8 @@ func (service *Service) projectContext(ctx context.Context, sandboxID string) (s
 }
 
 func validWorkspacePath(filePath string) bool {
-	cleaned := path.Clean(filePath)
-	return strings.HasPrefix(cleaned, "/workspace/") && !strings.Contains(cleaned, "/../")
+	_, err := filesystem.ResolveWorkspacePath("/workspace", filePath)
+	return err == nil
 }
 
 func skipContextEntry(name string, isDirectory bool) bool {
@@ -289,19 +289,18 @@ func validateChanges(changes []fileChange) ([]fileChange, error) {
 }
 
 func validateChangePath(filePath string) (string, error) {
-	filePath = strings.TrimSpace(strings.ReplaceAll(filePath, "\\", "/"))
-	filePath = strings.TrimPrefix(filePath, "/workspace/")
-	if filePath == "" || strings.HasPrefix(filePath, "/") || len(filePath) > 300 {
+	fullPath, err := filesystem.ResolveWorkspacePath("/workspace", filePath)
+	if err != nil {
 		return "", fmt.Errorf("invalid path")
 	}
-	cleaned := path.Clean(filePath)
-	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") {
+	relativePath := strings.TrimPrefix(fullPath, "/workspace/")
+	if len(relativePath) > 300 {
 		return "", fmt.Errorf("invalid path")
 	}
-	for _, segment := range strings.Split(cleaned, "/") {
-		if strings.EqualFold(segment, ".git") || skipContextEntry(segment, false) {
+	for _, segment := range strings.Split(relativePath, "/") {
+		if skipContextEntry(segment, false) {
 			return "", fmt.Errorf("protected path")
 		}
 	}
-	return cleaned, nil
+	return relativePath, nil
 }
