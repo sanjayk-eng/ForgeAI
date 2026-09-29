@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, GitBranch, Loader2, Send } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { getGitDiff, getGitStatus, pushGitChanges, commitGitChanges } from "../../../api/git.api";
@@ -17,6 +17,7 @@ export function GitPanel({
 }) {
   const [message, setMessage] = useState("Initial commit");
   const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const sandboxReady = sandboxStatus === "RUNNING";
 
   const statusQuery = useQuery({
@@ -52,6 +53,7 @@ export function GitPanel({
       setError(null);
       void statusQuery.refetch();
       void diffQuery.refetch();
+      if (sandboxId) void queryClient.invalidateQueries({ queryKey: ["git-file-diff", sandboxId] });
     },
     onError: (submitError) => {
       setError(submitError instanceof Error ? submitError.message : "Commit failed");
@@ -72,6 +74,7 @@ export function GitPanel({
     },
     onSettled: async () => {
       await Promise.all([statusQuery.refetch(), diffQuery.refetch()]);
+      if (sandboxId) await queryClient.invalidateQueries({ queryKey: ["git-file-diff", sandboxId] });
     },
     onError: (submitError) => {
       setError(submitError instanceof Error ? submitError.message : "Push failed");
@@ -91,7 +94,8 @@ export function GitPanel({
   const files = diffQuery.data?.files ?? [];
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-3 p-3">
+      <div className="max-h-[44%] shrink-0 space-y-4 overflow-y-auto pr-1">
       <div>
         <div className="flex items-center gap-2 text-xs font-semibold text-forge-text">
           <GitBranch size={14} className="text-forge-accent" />
@@ -215,14 +219,25 @@ export function GitPanel({
           </button>
         </div>
       </form>
-
-      {diffQuery.data && files.length > 0 && (
-        <div className="border border-[var(--border)] bg-forge-bg p-3">
-          <p className="mb-2 text-[10px] uppercase tracking-[0.12em] text-forge-muted">Diff preview</p>
-          <GitDiffPreview files={files} />
+      </div>
+      <section className="flex min-h-0 flex-1 flex-col gap-2">
+        <div className="flex shrink-0 items-center justify-between text-[10px] font-semibold uppercase tracking-[0.12em] text-forge-muted">
+          <span>File changes</span>
+          <span>{files.length} tracked diffs</span>
         </div>
-      )}
-
+        {status ? (
+          <GitDiffPreview
+            accessToken={accessToken}
+            sandboxId={sandboxId}
+            status={status}
+            files={files}
+          />
+        ) : (
+          <div className="flex min-h-0 flex-1 items-center justify-center border border-[var(--border)] text-xs text-forge-muted">
+            {sandboxReady ? "Waiting for Git status" : "Git review is unavailable until the sandbox is running"}
+          </div>
+        )}
+      </section>
       {error && <div className="text-xs text-forge-signal">{error}</div>}
     </div>
   );

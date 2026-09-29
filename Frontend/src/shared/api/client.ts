@@ -1,4 +1,9 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8080";
+const API_PREFIX = "/api/v1";
+
+function apiEndpoint(path: string): string {
+  return `${API_BASE_URL}${API_PREFIX}${path}`;
+}
 
 export type ApiErrorPayload = {
   code: string;
@@ -23,7 +28,7 @@ type ApiResponse<T> = {
 };
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(apiEndpoint(path), {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -45,5 +50,5 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
 }
 
 export function apiUrl(path: string): string {
-  return `${API_BASE_URL}${path}`;
+  return apiEndpoint(path);
 }

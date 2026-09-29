@@ -66,6 +66,7 @@ func runServer() error {
 	engine.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+	apiRouter := engine.Group("/api/v1")
 	oauthFactory := provider.NewFactory(provider.Config{
 		GoogleClientID:     settings.OAuth.GoogleClientID,
 		GoogleClientSecret: settings.OAuth.GoogleClientSecret,
@@ -111,7 +112,7 @@ func runServer() error {
 	appLogger.Info(context.Background(), "email service initialized", "queue_size", 100, "workers", 3)
 
 	authModule := auth.LoadModule(auth.ModuleConfig{
-		Router:       engine,
+		Router:       apiRouter,
 		Database:     db,
 		Provider:     oauthFactory,
 		JWT:          jwtManager,
@@ -119,7 +120,7 @@ func runServer() error {
 		EmailService: emailModule.Service,
 		FrontendURL:  settings.FrontendURL,
 	})
-	protectedRouter := middleware.ProtectedGroup(engine, jwtManager, appLogger)
+	protectedRouter := middleware.ProtectedGroup(apiRouter, jwtManager, appLogger)
 	workspacecore.LoadModule(workspacecore.ModuleConfig{
 		Router:   protectedRouter,
 		Database: db,
@@ -201,7 +202,7 @@ func runServer() error {
 	// Initialize workspace invite module
 	workspaceinvite.LoadModule(workspaceinvite.ModuleConfig{
 		ProtectedRouter: protectedRouter,
-		PublicRouter:    engine, // Public routes on main router
+		PublicRouter:    apiRouter,
 		Database:        db,
 		Logger:          appLogger,
 		EmailService:    emailModule.Service, // Pass interface

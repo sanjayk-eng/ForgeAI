@@ -1,6 +1,6 @@
 import { ArrowLeft, Bot, Code2, FileText, FolderGit2, Loader2 } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../auth/useAuth";
 import { getGitStatus } from "../../api/git.api";
@@ -12,11 +12,15 @@ import { SandboxStatus } from "./components/SandboxStatus";
 import { FileExplorer } from "./components/files/FileExplorer";
 import { sandboxFileKeys, WORKSPACE_ROOT } from "./components/files/fileTree";
 import { AgentPanel } from "./components/AgentPanel";
-import { GitPanel } from "./components/GitPanel";
 import { ProjectSidePanel } from "./components/ProjectSidePanel";
 
 const CodeEditor = lazy(() =>
   import("./components/files/CodeEditor").then(({ CodeEditor: component }) => ({
+    default: component,
+  })),
+);
+const GitPanel = lazy(() =>
+  import("./components/GitPanel").then(({ GitPanel: component }) => ({
     default: component,
   })),
 );
@@ -67,7 +71,7 @@ export function ProjectDetailPage() {
     if (projectId) void queryClient.invalidateQueries({ queryKey: ["sandbox", projectId] });
     if (!sandbox?.id) return;
     if (activePanel === "git") {
-      void queryClient.invalidateQueries({ queryKey: ["git-diff", sandbox.id] });
+      invalidateGitDiffs(queryClient, sandbox.id);
     }
     refreshGitStatus();
   }
@@ -94,7 +98,7 @@ export function ProjectDetailPage() {
           });
         }
         if (activePanel === "git") {
-          void queryClient.invalidateQueries({ queryKey: ["git-diff", sandbox.id] });
+          invalidateGitDiffs(queryClient, sandbox.id);
         }
       }
       if (sandbox?.id && oldPath && oldPath !== selectedFile?.path) {
@@ -126,7 +130,7 @@ export function ProjectDetailPage() {
     if (event.event === "git.status.changed") {
       refreshGitStatus();
       if (activePanel === "git" && sandbox?.id) {
-        void queryClient.invalidateQueries({ queryKey: ["git-diff", sandbox.id] });
+        invalidateGitDiffs(queryClient, sandbox.id);
       }
       return;
     }
@@ -138,7 +142,7 @@ export function ProjectDetailPage() {
 
   useEffect(() => {
     if (activePanel === "git" && sandbox?.id) {
-      void queryClient.invalidateQueries({ queryKey: ["git-diff", sandbox.id] });
+      invalidateGitDiffs(queryClient, sandbox.id);
     }
   }, [activePanel, queryClient, sandbox?.id]);
 
@@ -241,7 +245,16 @@ export function ProjectDetailPage() {
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-forge-bg">
           <div className="flex min-h-0 min-w-0 flex-1 bg-forge-bg p-0">
-            {sandboxStatus === "RUNNING" ? (
+            {activePanel === "git" ? (
+              <Suspense fallback={<div className="p-4 text-sm text-forge-muted">Loading Git review...</div>}>
+                <GitPanel
+                  accessToken={accessToken}
+                  sandboxId={sandbox?.id ?? null}
+                  sandboxStatus={sandboxStatus}
+                  projectName={projectLabel}
+                />
+              </Suspense>
+            ) : sandboxStatus === "RUNNING" ? (
               selectedFile ? (
                 <Suspense
                   fallback={<div className="p-4 text-sm text-forge-muted">Loading editor...</div>}
@@ -313,20 +326,6 @@ export function ProjectDetailPage() {
             />
           </ProjectSidePanel>
         )}
-        {activePanel === "git" && (
-          <ProjectSidePanel
-            title="Git"
-            icon={<FolderGit2 size={15} className="text-forge-accent" />}
-            onClose={() => selectPanel("files")}
-          >
-            <GitPanel
-              accessToken={accessToken}
-              sandboxId={sandbox?.id ?? null}
-              sandboxStatus={sandboxStatus}
-              projectName={projectLabel}
-            />
-          </ProjectSidePanel>
-        )}
       </div>
     </div>
   );
@@ -337,6 +336,11 @@ function toWorkspacePath(path: string) {
   return normalized === "workspace" || normalized.startsWith("workspace/")
     ? `/${normalized}`
     : `${WORKSPACE_ROOT}/${normalized}`;
+}
+
+function invalidateGitDiffs(queryClient: QueryClient, sandboxId: string) {
+  void queryClient.invalidateQueries({ queryKey: ["git-diff", sandboxId] });
+  void queryClient.invalidateQueries({ queryKey: ["git-file-diff", sandboxId] });
 }
 
 function isPathWithin(candidate: string, parent: string) {
