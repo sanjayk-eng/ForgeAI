@@ -38,8 +38,9 @@ func LoadModule(config ModuleConfig) (*Module, error) {
 	runtime := docker.NewDockerRuntimeWithCLI(dockerCLI)
 	files := docker.NewDockerFileStore(dockerCLI)
 	repositoryCloner := terminalgithub.NewGitHubRepositoryCloner(dockerCLI)
+	repositoryPusher := terminalgithub.NewGitHubRepositoryPusher(dockerCLI)
 	repo := terminalpostgres.NewRepository(config.Database)
-	service := application.NewService(repo, runtime, files, repositoryCloner, sandboxPolicy)
+	service := application.NewService(repo, runtime, files, repositoryCloner, sandboxPolicy, repositoryPusher)
 	sandboxWorker := worker.NewSandboxWorker(service, config.ProjectRepo, config.Logger)
 
 	module := &Module{

@@ -175,6 +175,7 @@ func runServer() error {
 		WorkspaceRoot:   "/workspace",
 		SandboxExecutor: terminalModule.Service,
 		SandboxAccess:   terminalModule.Service,
+		GitHubAccounts:  authModule.Repository,
 	})
 
 	terminalmodule.RegisterRoutes(protectedRouter, terminalModule.Handler)

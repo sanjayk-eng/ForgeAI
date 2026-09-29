@@ -14,6 +14,7 @@ The server wires together these major modules:
 - Workspace
 - Project
 - Terminal / sandbox
+- Git source control
 - Agent
 - Member / invite
 - Email
@@ -146,6 +147,8 @@ Subareas:
 
 This module is effectively the execution environment where the AI actually interacts with code.
 
+The configured sandbox image is `alpine/git:latest`, and the runtime explicitly starts `sh` so Git commands are available inside the main workspace container. The sandbox itself uses `network_mode: none`. Repository clone and push operations that need GitHub network access run in separate short-lived helper containers with the workspace volume mounted; the main sandbox remains network-isolated.
+
 ---
 
 ### 3.5 Agent module
@@ -169,9 +172,23 @@ Important behavior:
 
 This is the key “AI coding loop” in the current implementation.
 
+### 3.6 Git source-control module
+
+Location:
+- `Backend/internal/modules/git/`
+
+Responsibilities:
+- inspect Git status and diffs inside a sandbox workspace
+- commit sandbox workspace changes
+- push commits to an HTTPS GitHub remote
+
+The Git handler is registered on the protected router and checks sandbox access before each operation. Commits use the authenticated user's name and email from the auth repository as command-scoped Git identity; these values are not persisted in Git configuration. For pushes, the handler loads the authenticated user's GitHub OAuth token from the auth repository. A short-lived `alpine/git` helper mounts the sandbox workspace, uses bridge networking, and receives the token over stdin. The helper exposes it to Git as a temporary HTTP authorization header; the token is not saved in the repository's Git configuration or Docker arguments.
+
+GitHub API operations use `github.com/google/go-github/v92`. Git status, diff, and commit operations use the Git CLI inside the sandbox. The Git module depends on the terminal application, which delegates authenticated pushes to the terminal infrastructure's helper. Docker remains an infrastructure detail of the terminal module.
+
 ---
 
-### 3.6 Email module
+### 3.7 Email module
 
 Location:
 - `Backend/internal/shared/email/`
@@ -197,11 +214,11 @@ The real implemented flow is:
 6. The project lifecycle triggers a sandbox creation event.
 7. The terminal module creates a sandbox and starts a container.
 8. The runtime mounts a host directory into the container workspace.
-9. The runtime clones the GitHub repository into the sandbox workspace.
+9. Terminal infrastructure clones the GitHub repository into the sandbox workspace using a short-lived Git helper with network access.
 10. The AI agent reads files from the sandbox workspace.
 11. The AI model creates file-level changes.
 12. The backend writes those changes back into the sandbox files.
-13. The user sees the outcome through the app, but the repo is not yet being committed and pushed remotely in the current implementation.
+13. The user can review status and diffs in the Git panel, commit workspace changes, and push commits to the connected HTTPS GitHub remote.
 
 This means the actual AI interaction is with the sandboxed workspace, not directly with the remote GitHub repo itself.
 
@@ -295,18 +312,16 @@ The project has a few crucial boundaries:
 - worker-based async event processing for project tasks
 
 ### Not fully implemented yet
-- direct GitHub commit/push after AI edits
-- branch sync to remote after code changes
 - PR generation
 - distributed queue infrastructure
 - full production-grade async job system
-- repo mutation flow outside the sandbox
+- Git operations outside the sandbox workspace
 
 ---
 
 ## 9. The actual architecture in one sentence
 
-ForgeAI’s current backend is a modular Go service where user and project metadata live in PostgreSQL, AI coding runs against Docker-based sandbox workspaces, and the backend manages the lifecycle of those sandboxes and repo clones while the model modifies files inside the sandbox rather than directly pushing to GitHub.
+ForgeAI’s current backend is a modular Go service where user and project metadata live in PostgreSQL, AI coding and Git operations run against Docker-based sandbox workspaces, and authenticated GitHub pushes are initiated through the Git API rather than by the model directly.
 
 ---
 
@@ -318,7 +333,8 @@ The central runtime concept is:
 - sandbox execution in Docker
 - code repository cloned into sandbox
 - AI agent edits files in sandbox
-- GitHub is connected as repository metadata and source, but not as the active mutation target yet
+- Git panel reviews and commits sandbox changes
+- authenticated Git push updates the configured HTTPS GitHub remote
 
 This is the current real architecture in this codebase.
 
@@ -485,6 +501,23 @@ The sandbox queue has one event channel and three worker goroutines by default:
 
 Unlike the email queue, the sandbox `Publish` method is intentionally non-blocking. This keeps the caller responsive, but it means a full queue can result in a dropped project event.
 
+### 11.10 Git panel and push flow
+
+Git operations are request-time operations on the existing sandbox; they do not run in the sandbox event queue:
+
+1. The project detail page passes the current access token and sandbox ID to the Git panel.
+2. The panel requests Git status and diff from the protected Git routes.
+3. The Git handler validates sandbox access through the terminal application service.
+4. The Git service runs status, diff, and commit commands in `/workspace` through the network-disabled sandbox executor.
+5. For a commit, the service optionally stages all changes and runs `git commit` with the supplied message and the authenticated user's profile name/email as command-scoped Git config.
+6. For a push, the handler loads the user's GitHub OAuth token from the auth repository.
+7. The Git service checks that the selected remote resolves to an HTTPS `github.com` URL.
+8. The terminal application passes the repository volume, workspace path, remote, branch, and token to the terminal infrastructure pusher.
+9. The pusher starts a disposable Git helper with bridge networking and mounts the same workspace volume. It reads the token from stdin and creates a temporary HTTP authorization header for Git; credentials are not persisted in `.git/config` or passed in Docker arguments.
+10. The panel refreshes status and diff after the operation.
+
+The push succeeds only when the user has a connected GitHub account with repository write access and the sandbox repository has a valid HTTPS GitHub remote. The sandbox container itself has no network access; only the one-shot clone/push helpers use bridge networking.
+
 ---
 
 ## 12. Queue and worker inventory
@@ -559,9 +592,9 @@ The project moves through these practical states:
 5. The repository is available under the sandbox workspace.
 6. The AI reads and changes workspace files.
 7. The user can inspect the changed sandbox files.
-8. The remote GitHub repository remains unchanged until a future commit and push workflow is implemented.
+8. The user can commit the changes in the sandbox and push them to its configured GitHub remote from the Git panel.
 
-The current architecture is therefore a sandbox-first editing system. GitHub supplies repository metadata and clone source, while Docker workspace state is the active working copy.
+The current architecture is therefore a sandbox-first editing system. GitHub supplies repository metadata and clone source, while Docker workspace state is the active working copy and the Git panel provides the explicit commit/push path back to the remote.
 
 ---
 
@@ -574,7 +607,9 @@ The design is suitable for a single backend process and development or early-sta
 - Worker counts are process-local and do not scale across instances.
 - There is no durable task status model for every background operation.
 - There is no distributed coordination for the same project across multiple backend instances.
-- AI edits are not committed, pushed, or converted into pull requests.
+- Pull requests are not generated automatically after a push.
+- Git diff preview is based on `git diff HEAD`; untracked files appear in status but are not represented as patch content in the current preview.
+- The sandbox and Git helper use the mutable `alpine/git:latest` image tag, so their Git version can change when the image is updated.
 - There is no durable audit trail for every file change produced by the model.
 
 These are current-state observations, not missing pieces that are silently assumed to exist.

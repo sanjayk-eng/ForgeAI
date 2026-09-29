@@ -16,17 +16,22 @@ type Service struct {
 	runtime          Runtime
 	files            FileStore
 	repositoryCloner RepositoryCloner
+	repositoryPusher RepositoryPusher
 	policy           policy.Sandbox
 }
 
-func NewService(store Store, runtime Runtime, files FileStore, repositoryCloner RepositoryCloner, sandboxPolicy policy.Sandbox) *Service {
-	return &Service{
+func NewService(store Store, runtime Runtime, files FileStore, repositoryCloner RepositoryCloner, sandboxPolicy policy.Sandbox, repositoryPushers ...RepositoryPusher) *Service {
+	service := &Service{
 		store:            store,
 		runtime:          runtime,
 		files:            files,
 		repositoryCloner: repositoryCloner,
 		policy:           sandboxPolicy,
 	}
+	if len(repositoryPushers) > 0 {
+		service.repositoryPusher = repositoryPushers[0]
+	}
+	return service
 }
 
 func (service *Service) Create(ctx context.Context, userID, projectID string) (domain.Sandbox, error) {

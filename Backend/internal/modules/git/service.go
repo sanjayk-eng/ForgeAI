@@ -3,7 +3,8 @@ package git
 import (
 	"context"
 	"fmt"
-	"path/filepath"
+	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -14,6 +15,10 @@ const defaultWorkspaceRoot = "/workspace"
 
 type SandboxExecutor interface {
 	Execute(ctx context.Context, sandboxID, command string) (terminalapp.ExecutionResult, error)
+}
+
+type SandboxRepositoryPusher interface {
+	PushRepository(ctx context.Context, sandboxID, remote, branch, accessToken string) error
 }
 
 // Service executes git commands inside the sandbox workspace.
@@ -27,7 +32,7 @@ func NewService(workspaceRoot string, executor SandboxExecutor) *Service {
 	if root == "" {
 		root = defaultWorkspaceRoot
 	}
-	return &Service{workspaceRoot: filepath.Clean(root), executor: executor}
+	return &Service{workspaceRoot: path.Clean(root), executor: executor}
 }
 
 func (s *Service) Status(ctx context.Context, sandboxID string) (GitStatus, error) {
@@ -50,17 +55,22 @@ func (s *Service) Diff(ctx context.Context, sandboxID string) (GitDiffResult, er
 	return GitDiffResult{Files: parseDiffOutput(output)}, nil
 }
 
-func (s *Service) Commit(ctx context.Context, sandboxID string, req CommitRequest) (CommitResult, error) {
+func (s *Service) Commit(ctx context.Context, sandboxID string, req CommitRequest, authorName, authorEmail string) (CommitResult, error) {
 	message := strings.TrimSpace(req.Message)
 	if message == "" {
 		return CommitResult{}, fmt.Errorf("commit message is required")
+	}
+	authorName = strings.TrimSpace(authorName)
+	authorEmail = strings.TrimSpace(authorEmail)
+	if authorName == "" || authorEmail == "" {
+		return CommitResult{}, fmt.Errorf("commit author name and email are required")
 	}
 	if req.All {
 		if _, err := s.runGit(ctx, sandboxID, "add", "-A"); err != nil {
 			return CommitResult{}, err
 		}
 	}
-	if _, err := s.runGit(ctx, sandboxID, "commit", "-m", message); err != nil {
+	if _, err := s.runGit(ctx, sandboxID, "-c", "user.name="+authorName, "-c", "user.email="+authorEmail, "commit", "-m", message); err != nil {
 		return CommitResult{}, err
 	}
 	output, err := s.runGit(ctx, sandboxID, "rev-parse", "HEAD")
@@ -74,16 +84,32 @@ func (s *Service) Commit(ctx context.Context, sandboxID string, req CommitReques
 	}, nil
 }
 
-func (s *Service) Push(ctx context.Context, sandboxID string, req PushRequest) (PushResult, error) {
-	args := []string{"push"}
-	if strings.TrimSpace(req.Remote) != "" {
-		args = append(args, req.Remote)
+func (s *Service) Push(ctx context.Context, sandboxID string, req PushRequest, accessToken string) (PushResult, error) {
+	accessToken = strings.TrimSpace(accessToken)
+	if accessToken == "" {
+		return PushResult{}, fmt.Errorf("GitHub account is not connected")
 	}
-	if strings.TrimSpace(req.Branch) != "" {
-		args = append(args, req.Branch)
+
+	remote := strings.TrimSpace(req.Remote)
+	if remote == "" {
+		remote = "origin"
 	}
-	if _, err := s.runGit(ctx, sandboxID, args...); err != nil {
+	remoteURL, err := s.runGit(ctx, sandboxID, "remote", "get-url", remote)
+	if err != nil {
 		return PushResult{}, err
+	}
+	parsedRemote, err := url.Parse(strings.TrimSpace(remoteURL))
+	if err != nil || !strings.EqualFold(parsedRemote.Scheme, "https") ||
+		!strings.EqualFold(parsedRemote.Hostname(), "github.com") || parsedRemote.User != nil {
+		return PushResult{}, fmt.Errorf("push requires an HTTPS GitHub remote")
+	}
+
+	pusher, ok := s.executor.(SandboxRepositoryPusher)
+	if !ok {
+		return PushResult{}, fmt.Errorf("sandbox executor does not support repository pushes")
+	}
+	if err := pusher.PushRepository(ctx, sandboxID, remote, req.Branch, accessToken); err != nil {
+		return PushResult{}, fmt.Errorf("git push: %w", err)
 	}
 	return PushResult{Message: "push complete", Status: "ok"}, nil
 }
@@ -127,7 +153,11 @@ func parseStatusOutput(output string) (GitStatus, error) {
 		return GitStatus{}, fmt.Errorf("workspace is not a git repository")
 	}
 
-	status := GitStatus{}
+	status := GitStatus{
+		Modified:  make([]string, 0),
+		Staged:    make([]string, 0),
+		Untracked: make([]string, 0),
+	}
 	for _, rawLine := range strings.Split(trimmed, "\n") {
 		line := strings.TrimRight(rawLine, "\r")
 		if line == "" {

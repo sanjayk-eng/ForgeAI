@@ -204,6 +204,7 @@ export function ProjectDetailPage() {
             <GitPanel
               accessToken={accessToken}
               sandboxId={sandbox?.id ?? null}
+              sandboxStatus={sandboxStatus}
               projectName={projectLabel}
             />
           </ProjectSidePanel>

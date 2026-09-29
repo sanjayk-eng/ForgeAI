@@ -1,5 +1,5 @@
 sandbox:
-  image: alpine:3.20
+  image: alpine/git:latest
   git_image: alpine/git:latest
   workspace_path: /workspace
   network_mode: none

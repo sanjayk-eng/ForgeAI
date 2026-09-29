@@ -1,19 +1,22 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, GitBranch, Loader2, Send } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { getGitDiff, getGitStatus, pushGitChanges, commitGitChanges } from "../../../api/sandbox.api";
 
 export function GitPanel({
   accessToken,
   sandboxId,
+  sandboxStatus,
   projectName,
 }: {
   accessToken: string | null;
   sandboxId: string | null;
+  sandboxStatus: string | null;
   projectName: string;
 }) {
   const [message, setMessage] = useState("Initial commit");
   const [error, setError] = useState<string | null>(null);
+  const sandboxReady = sandboxStatus === "RUNNING";
 
   const statusQuery = useQuery({
     queryKey: ["git-status", sandboxId],
@@ -21,9 +24,10 @@ export function GitPanel({
       if (!accessToken || !sandboxId) throw new Error("Missing sandbox context");
       return getGitStatus(accessToken, sandboxId);
     },
-    enabled: Boolean(accessToken && sandboxId),
+    enabled: Boolean(accessToken && sandboxId && sandboxReady),
     staleTime: 15_000,
-    retry: false,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
   const diffQuery = useQuery({
@@ -32,9 +36,10 @@ export function GitPanel({
       if (!accessToken || !sandboxId) throw new Error("Missing sandbox context");
       return getGitDiff(accessToken, sandboxId);
     },
-    enabled: Boolean(accessToken && sandboxId),
+    enabled: Boolean(accessToken && sandboxId && sandboxReady),
     staleTime: 15_000,
-    retry: false,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
   const commitMutation = useMutation({
@@ -81,7 +86,7 @@ export function GitPanel({
     commitMutation.mutate();
   }
 
-  const status = statusQuery.data?.status;
+  const status = sandboxReady ? statusQuery.data?.status : undefined;
   const files = diffQuery.data?.files ?? [];
 
   return (
@@ -99,8 +104,30 @@ export function GitPanel({
       {statusQuery.isLoading && (
         <div className="flex items-center gap-2 text-xs text-forge-muted"><Loader2 size={13} className="animate-spin" /> Checking git status</div>
       )}
-      {statusQuery.isError && (
-        <StatusNotice>Git is not initialized for this workspace or the sandbox is not ready.</StatusNotice>
+      {!sandboxReady && (
+        <StatusNotice>
+          {sandboxStatus
+            ? `Git becomes available when the sandbox is running (currently ${sandboxStatus.toLowerCase()}).`
+            : "Waiting for sandbox status before checking Git."}
+        </StatusNotice>
+      )}
+      {sandboxReady && statusQuery.isError && (
+        <StatusNotice>
+          <div className="flex items-start justify-between gap-3">
+            <span>{statusQuery.error instanceof Error ? statusQuery.error.message : "Could not load Git status."}</span>
+            <button
+              type="button"
+              className="shrink-0 underline underline-offset-2 disabled:opacity-50"
+              disabled={statusQuery.isFetching || diffQuery.isFetching}
+              onClick={() => {
+                void statusQuery.refetch();
+                void diffQuery.refetch();
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        </StatusNotice>
       )}
       {status && (
         <div className="space-y-2 border border-[var(--border)] bg-forge-bg p-3">
@@ -121,31 +148,47 @@ export function GitPanel({
               {status.is_dirty ? "Dirty" : "Clean"}
             </span>
           </div>
-          {status.staged.length > 0 && (
+          {(status.staged ?? []).length > 0 && (
             <div>
               <p className="mb-1 text-[10px] uppercase tracking-[0.12em] text-forge-muted">Staged</p>
               <ul className="space-y-1 text-[11px] text-forge-text">
-                {status.staged.map((file) => <li key={file} className="truncate font-mono">{file}</li>)}
+                {(status.staged ?? []).map((file) => <li key={file} className="truncate font-mono">{file}</li>)}
               </ul>
             </div>
           )}
-          {status.modified.length > 0 && (
+          {(status.modified ?? []).length > 0 && (
             <div>
               <p className="mb-1 text-[10px] uppercase tracking-[0.12em] text-forge-muted">Modified</p>
               <ul className="space-y-1 text-[11px] text-forge-text">
-                {status.modified.map((file) => <li key={file} className="truncate font-mono">{file}</li>)}
+                {(status.modified ?? []).map((file) => <li key={file} className="truncate font-mono">{file}</li>)}
               </ul>
             </div>
           )}
-          {status.untracked.length > 0 && (
+          {(status.untracked ?? []).length > 0 && (
             <div>
               <p className="mb-1 text-[10px] uppercase tracking-[0.12em] text-forge-muted">Untracked</p>
               <ul className="space-y-1 text-[11px] text-forge-text">
-                {status.untracked.map((file) => <li key={file} className="truncate font-mono">{file}</li>)}
+                {(status.untracked ?? []).map((file) => <li key={file} className="truncate font-mono">{file}</li>)}
               </ul>
             </div>
           )}
         </div>
+      )}
+
+      {sandboxReady && diffQuery.isError && !statusQuery.isError && (
+        <StatusNotice>
+          <div className="flex items-start justify-between gap-3">
+            <span>{diffQuery.error instanceof Error ? diffQuery.error.message : "Could not load Git diff."}</span>
+            <button
+              type="button"
+              className="shrink-0 underline underline-offset-2 disabled:opacity-50"
+              disabled={diffQuery.isFetching}
+              onClick={() => void diffQuery.refetch()}
+            >
+              Retry
+            </button>
+          </div>
+        </StatusNotice>
       )}
 
       <form onSubmit={onSubmit} className="space-y-3 border border-[var(--border)] bg-forge-bg p-3">
@@ -191,7 +234,7 @@ export function GitPanel({
   );
 }
 
-function StatusNotice({ children }: { children: string }) {
+function StatusNotice({ children }: { children: ReactNode }) {
   return (
     <div className="border border-forge-signal/25 bg-forge-signal/[0.06] p-3 text-[11px] leading-5 text-forge-signal">
       {children}

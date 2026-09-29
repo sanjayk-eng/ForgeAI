@@ -9,6 +9,7 @@ type ModuleConfig struct {
 	WorkspaceRoot   string
 	SandboxExecutor SandboxExecutor
 	SandboxAccess   SandboxAccessValidator
+	GitHubAccounts  GitHubAccountStore
 }
 
 type Module struct {
@@ -18,7 +19,7 @@ type Module struct {
 
 func LoadModule(config ModuleConfig) *Module {
 	service := NewService(config.WorkspaceRoot, config.SandboxExecutor)
-	handler := NewHandler(service, config.SandboxAccess)
+	handler := NewHandler(service, config.SandboxAccess, config.GitHubAccounts)
 	RegisterRoutes(config.Router, handler)
 	return &Module{Service: service, Handler: handler}
 }

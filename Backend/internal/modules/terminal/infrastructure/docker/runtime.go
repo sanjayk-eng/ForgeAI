@@ -65,7 +65,7 @@ func (runtime *DockerRuntime) CreateContainer(ctx context.Context, spec applicat
 	if spec.Limits.PidsLimit > 0 {
 		args = append(args, "--pids-limit", strconv.FormatInt(spec.Limits.PidsLimit, 10))
 	}
-	args = append(args, spec.Image, "sh", "-c", "while true; do sleep 3600; done")
+	args = append(args, "--entrypoint", "sh", spec.Image, "-c", "while true; do sleep 3600; done")
 	output, err := runtime.docker.Run(ctx, args...)
 	if err != nil {
 		return "", err
