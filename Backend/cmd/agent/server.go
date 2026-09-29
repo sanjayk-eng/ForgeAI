@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -157,11 +158,12 @@ func runServer() error {
 	}
 
 	terminalModule, err := terminalmodule.LoadModule(terminalmodule.ModuleConfig{
-		Database:     db,
-		Logger:       appLogger,
-		DockerBinary: "docker",
-		PolicyPath:   policyPath,
-		ProjectRepo:  projectAdapter,
+		Database:         db,
+		Logger:           appLogger,
+		DockerBinary:     "docker",
+		PolicyPath:       policyPath,
+		ProjectRepo:      projectAdapter,
+		WebSocketOrigins: webSocketOrigins(settings.CORSOrigins, settings.FrontendURL),
 	})
 	if err != nil {
 		return fmt.Errorf("initialize terminal module: %w", err)
@@ -176,6 +178,7 @@ func runServer() error {
 		SandboxExecutor: terminalModule.Service,
 		SandboxAccess:   terminalModule.Service,
 		GitHubAccounts:  authModule.Repository,
+		Events:          terminalModule.Events,
 	})
 
 	terminalmodule.RegisterRoutes(protectedRouter, terminalModule.Handler)
@@ -183,7 +186,7 @@ func runServer() error {
 		BaseURL: settings.AIBaseURL,
 		APIKey:  settings.AIAPIKey,
 		Model:   settings.AIModel,
-	})
+	}, terminalModule.Events)
 	agentmodule.RegisterRoutes(protectedRouter, agentmodule.NewHandler(agentService))
 
 	projectModule.ProjectService.SetOnCreate(terminalModule.OnProjectCreated)
@@ -236,6 +239,23 @@ func runServer() error {
 	}
 
 	return nil
+}
+
+func webSocketOrigins(corsOrigins, frontendURL string) []string {
+	seen := make(map[string]struct{})
+	origins := make([]string, 0)
+	for _, origin := range append(strings.Split(corsOrigins, ","), frontendURL) {
+		origin = strings.TrimSpace(origin)
+		if origin == "" || origin == "*" {
+			continue
+		}
+		if _, exists := seen[origin]; exists {
+			continue
+		}
+		seen[origin] = struct{}{}
+		origins = append(origins, origin)
+	}
+	return origins
 }
 
 func sandboxPolicyPath() (string, error) {

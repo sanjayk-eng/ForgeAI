@@ -22,14 +22,16 @@ func Authenticate(jwtManager *appjwt.Manager, log logger.Logger) gin.HandlerFunc
 			return
 		}
 
-		authorization := strings.TrimSpace(c.GetHeader("Authorization"))
-		parts := strings.SplitN(authorization, " ", 2)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || strings.TrimSpace(parts[1]) == "" {
+		accessToken := bearerToken(c.GetHeader("Authorization"))
+		if accessToken == "" && isWebSocketUpgrade(c.Request) {
+			accessToken = webSocketAccessToken(c.GetHeader("Sec-WebSocket-Protocol"))
+		}
+		if accessToken == "" {
 			unauthorized(c, "Bearer access token is required")
 			return
 		}
 
-		claims, err := jwtManager.Parse(strings.TrimSpace(parts[1]), appjwt.AccessToken)
+		claims, err := jwtManager.Parse(accessToken, appjwt.AccessToken)
 		if err != nil {
 			unauthorized(c, "invalid access token")
 			return
@@ -43,6 +45,29 @@ func Authenticate(jwtManager *appjwt.Manager, log logger.Logger) gin.HandlerFunc
 		}
 		c.Next()
 	}
+}
+
+func bearerToken(authorization string) string {
+	parts := strings.SplitN(strings.TrimSpace(authorization), " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		return ""
+	}
+	return strings.TrimSpace(parts[1])
+}
+
+func isWebSocketUpgrade(request *http.Request) bool {
+	return strings.EqualFold(strings.TrimSpace(request.Header.Get("Upgrade")), "websocket") &&
+		strings.Contains(strings.ToLower(request.Header.Get("Connection")), "upgrade")
+}
+
+func webSocketAccessToken(protocolHeader string) string {
+	for _, protocol := range strings.Split(protocolHeader, ",") {
+		protocol = strings.TrimSpace(protocol)
+		if strings.HasPrefix(protocol, "forgeai-auth.") {
+			return strings.TrimPrefix(protocol, "forgeai-auth.")
+		}
+	}
+	return ""
 }
 
 func ProtectedGroup(router gin.IRouter, jwtManager *appjwt.Manager, log logger.Logger) *gin.RouterGroup {

@@ -1,7 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, GitBranch, Loader2, Send } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
-import { getGitDiff, getGitStatus, pushGitChanges, commitGitChanges } from "../../../api/sandbox.api";
+import { getGitDiff, getGitStatus, pushGitChanges, commitGitChanges } from "../../../api/git.api";
+import { GitDiffPreview } from "./GitDiffPreview";
 
 export function GitPanel({
   accessToken,
@@ -218,14 +219,7 @@ export function GitPanel({
       {diffQuery.data && files.length > 0 && (
         <div className="border border-[var(--border)] bg-forge-bg p-3">
           <p className="mb-2 text-[10px] uppercase tracking-[0.12em] text-forge-muted">Diff preview</p>
-          <div className="space-y-2">
-            {files.map((file) => (
-              <div key={file.path} className="border border-[var(--border)] bg-forge-panel p-2">
-                <div className="mb-1 truncate font-mono text-[10px] text-forge-accent">{file.path}</div>
-                <pre className="overflow-x-auto whitespace-pre-wrap text-[10px] leading-5 text-forge-muted">{file.content.slice(0, 600)}</pre>
-              </div>
-            ))}
-          </div>
+          <GitDiffPreview files={files} />
         </div>
       )}
 

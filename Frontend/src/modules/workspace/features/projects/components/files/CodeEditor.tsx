@@ -1,8 +1,9 @@
-import Editor from "@monaco-editor/react";
-import { Code2, FileCode2, Save } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { DiffEditor, Editor } from "@monaco-editor/react";
+import { Code2, FileCode2, GitCompareArrows, Save } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import "./monacoSetup";
 import { useTheme } from "../../../../../../shared/ui/themeContextStore";
+import type { SequencedProjectRealtimeEvent } from "../../../../api/project-realtime.types";
 import { getFileLanguage } from "./fileLanguage";
 import { useFileEditor } from "./useFileEditor";
 
@@ -11,19 +12,48 @@ export function CodeEditor({
   sandboxId,
   filePath,
   fileName,
+  realtimeEvents = [],
+  resyncVersion = 0,
 }: {
   accessToken: string | null;
   sandboxId: string | null;
   filePath: string | null;
   fileName: string | null;
+  realtimeEvents?: SequencedProjectRealtimeEvent[];
+  resyncVersion?: number;
 }) {
   const { resolvedTheme } = useTheme();
   const editorState = useFileEditor(sandboxId, filePath, accessToken);
   const saveRef = useRef(editorState.save);
+  const refreshRef = useRef(editorState.refreshWithDiff);
+  const processedRealtimeSequence = useRef(0);
+  const [showDiff, setShowDiff] = useState(false);
 
   useEffect(() => {
     saveRef.current = editorState.save;
   }, [editorState.save]);
+
+  useEffect(() => {
+    refreshRef.current = editorState.refreshWithDiff;
+  }, [editorState.refreshWithDiff]);
+
+  useEffect(() => {
+    if (!filePath) return;
+    const pending = realtimeEvents.filter(({ sequence }) => sequence > processedRealtimeSequence.current);
+    const missedEvents = pending.length > 0 && pending[0].sequence > processedRealtimeSequence.current + 1;
+    const fileChanged = pending.some(({ event }) =>
+      event.path && workspacePath(event.path) === filePath ||
+      event.old_path && workspacePath(event.old_path) === filePath,
+    );
+    if (missedEvents || fileChanged) void refreshRef.current();
+    if (pending.length > 0) processedRealtimeSequence.current = pending[pending.length - 1].sequence;
+  }, [filePath, realtimeEvents]);
+
+  useEffect(() => {
+    if (resyncVersion > 0) void refreshRef.current();
+  }, [filePath, resyncVersion]);
+
+  useEffect(() => setShowDiff(false), [filePath]);
 
   if (!filePath || !sandboxId) {
     return (
@@ -59,9 +89,29 @@ export function CodeEditor({
           <Save size={12} />
           {editorState.isSaving ? "Saving..." : editorState.hasUnsavedChanges ? "Save" : "Saved"}
         </button>
+        <button
+          type="button"
+          onClick={() => setShowDiff((current) => !current)}
+          disabled={!editorState.diff}
+          title={showDiff ? "Show editor" : "Show file diff"}
+          aria-label={showDiff ? "Show editor" : "Show file diff"}
+          className="grid size-8 place-items-center rounded-md border border-[var(--border)] text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <GitCompareArrows size={14} />
+        </button>
       </div>
       <div className="min-h-0 flex-1">
-        <Editor
+        {showDiff && editorState.diff ? (
+          <DiffEditor
+            width="100%"
+            height="100%"
+            original={editorState.diff.original}
+            modified={editorState.diff.modified}
+            language={getFileLanguage(filePath)}
+            theme={resolvedTheme === "dark" ? "forge-dark" : "forge-light"}
+            options={{ automaticLayout: true, readOnly: true, minimap: { enabled: false }, scrollBeyondLastLine: false }}
+          />
+        ) : <Editor
           width="100%"
           height="100%"
           path={filePath}
@@ -85,8 +135,21 @@ export function CodeEditor({
             tabSize: 2,
           }}
           theme={resolvedTheme === "dark" ? "forge-dark" : "forge-light"}
-        />
+        />}
       </div>
+      {editorState.externalChange && (
+        <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-2 text-xs text-forge-signal">
+          <span>The file changed in the workspace; your unsaved draft is preserved.</span>
+          <button type="button" className="shrink-0 underline underline-offset-2" onClick={editorState.useExternalVersion}>
+            Load workspace version
+          </button>
+        </div>
+      )}
     </div>
   );
+}
+
+function workspacePath(path: string) {
+  const normalized = path.replaceAll("\\", "/").replace(/^\/+/, "");
+  return normalized.startsWith("workspace/") ? `/${normalized}` : `/workspace/${normalized}`;
 }

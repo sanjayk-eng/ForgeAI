@@ -73,7 +73,7 @@ func (store *DockerFileStore) ReadFile(ctx context.Context, containerID, path st
 	}
 	commandContext, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	output, err := store.docker.Run(commandContext, "exec", containerID, "sh", "-lc", `sed -n '1,250p' "$1"`, "sh", path)
+	output, err := store.docker.Run(commandContext, "exec", containerID, "sh", "-lc", `cat -- "$1"`, "sh", path)
 	if err != nil {
 		return "", fmt.Errorf("read file: %w", err)
 	}

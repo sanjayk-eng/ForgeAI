@@ -8,7 +8,9 @@ import (
 
 	"ai-agent/internal/middleware"
 	"ai-agent/internal/modules/auth"
+	"ai-agent/internal/modules/terminal/domain"
 	apierrors "ai-agent/internal/shared/errors"
+	"ai-agent/internal/shared/realtime"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,10 +19,12 @@ type Handler struct {
 	service       *Service
 	access        SandboxAccessValidator
 	githubAccount GitHubAccountStore
+	events        realtime.Publisher
 }
 
 type SandboxAccessValidator interface {
 	ValidateSandboxAccess(ctx context.Context, userID, sandboxID string) error
+	Get(ctx context.Context, sandboxID string) (domain.Sandbox, error)
 }
 
 type GitHubAccountStore interface {
@@ -28,8 +32,12 @@ type GitHubAccountStore interface {
 	FindUserByID(ctx context.Context, userID string) (auth.UserProfile, error)
 }
 
-func NewHandler(service *Service, access SandboxAccessValidator, githubAccounts GitHubAccountStore) *Handler {
-	return &Handler{service: service, access: access, githubAccount: githubAccounts}
+func NewHandler(service *Service, access SandboxAccessValidator, githubAccounts GitHubAccountStore, publishers ...realtime.Publisher) *Handler {
+	handler := &Handler{service: service, access: access, githubAccount: githubAccounts}
+	if len(publishers) > 0 {
+		handler.events = publishers[0]
+	}
+	return handler
 }
 
 func (h *Handler) Status(c *gin.Context) {
@@ -58,7 +66,7 @@ func (h *Handler) Diff(c *gin.Context) {
 	if !h.authorize(c, sandboxID) {
 		return
 	}
-	diff, err := h.service.Diff(c.Request.Context(), sandboxID)
+	diff, err := h.service.Diff(c.Request.Context(), sandboxID, c.Query("path"))
 	if err != nil {
 		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
 		return
@@ -98,6 +106,7 @@ func (h *Handler) Commit(c *gin.Context) {
 		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
 		return
 	}
+	h.publishGitStatus(c.Request.Context(), sandboxID)
 	apierrors.Success(c, http.StatusOK, "commit created", result)
 }
 
@@ -137,7 +146,22 @@ func (h *Handler) Push(c *gin.Context) {
 		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
 		return
 	}
+	h.publishGitStatus(c.Request.Context(), sandboxID)
 	apierrors.Success(c, http.StatusOK, "push completed", result)
+}
+
+func (h *Handler) publishGitStatus(ctx context.Context, sandboxID string) {
+	if h.events == nil || h.access == nil {
+		return
+	}
+	sandbox, err := h.access.Get(ctx, sandboxID)
+	if err != nil {
+		return
+	}
+	h.events.Publish(realtime.Event{
+		Version: 1, Event: "git.status.changed", WorkspaceID: sandbox.WorkspaceID,
+		ProjectID: sandbox.ProjectID, SandboxID: sandbox.ID,
+	})
 }
 
 func (h *Handler) authorize(c *gin.Context, sandboxID string) bool {

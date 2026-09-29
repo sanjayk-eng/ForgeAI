@@ -2,13 +2,11 @@ package worker
 
 import (
 	"context"
-	"errors"
 	"sync"
-	"time"
 
 	"ai-agent/internal/modules/terminal/application"
-	"ai-agent/internal/modules/terminal/domain"
 	"ai-agent/internal/shared/logger"
+	"ai-agent/internal/shared/realtime"
 )
 
 type ProjectEvent struct {
@@ -18,20 +16,18 @@ type ProjectEvent struct {
 }
 
 type SandboxWorker struct {
-	service        *application.Service
-	projectRepo    ProjectRepository
-	events         chan ProjectEvent
-	log            logger.Logger
-	wg             sync.WaitGroup
-	stopOnce       sync.Once
-	stopChan       chan struct{}
-	projectLocksMu sync.Mutex
-	projectLocks   map[string]*projectOperationLock
-}
-
-type projectOperationLock struct {
-	mutex sync.Mutex
-	refs  int
+	service         *application.Service
+	projectRepo     ProjectRepository
+	events          chan ProjectEvent
+	log             logger.Logger
+	wg              sync.WaitGroup
+	stopOnce        sync.Once
+	stopChan        chan struct{}
+	projectLocksMu  sync.Mutex
+	projectLocks    map[string]*projectOperationLock
+	watchersMu      sync.Mutex
+	watchers        map[string]*WorkspaceWatcher
+	eventsPublisher realtime.Publisher
 }
 
 type ProjectRepository interface {
@@ -51,15 +47,20 @@ type Repository struct {
 	AccessToken string
 }
 
-func NewSandboxWorker(service *application.Service, projectRepo ProjectRepository, log logger.Logger) *SandboxWorker {
-	return &SandboxWorker{
+func NewSandboxWorker(service *application.Service, projectRepo ProjectRepository, log logger.Logger, publishers ...realtime.Publisher) *SandboxWorker {
+	worker := &SandboxWorker{
 		service:      service,
 		projectRepo:  projectRepo,
 		events:       make(chan ProjectEvent, 100),
 		log:          log,
 		stopChan:     make(chan struct{}),
 		projectLocks: make(map[string]*projectOperationLock),
+		watchers:     make(map[string]*WorkspaceWatcher),
 	}
+	if len(publishers) > 0 {
+		worker.eventsPublisher = publishers[0]
+	}
+	return worker
 }
 
 func (w *SandboxWorker) Start(ctx context.Context, workerCount int) {
@@ -80,9 +81,9 @@ func (w *SandboxWorker) Start(ctx context.Context, workerCount int) {
 func (w *SandboxWorker) Stop() {
 	w.stopOnce.Do(func() {
 		close(w.stopChan)
-		close(w.events)
 	})
 	w.wg.Wait()
+	w.stopAllWatchers()
 }
 
 func (w *SandboxWorker) Publish(event ProjectEvent) {
@@ -139,154 +140,4 @@ func (w *SandboxWorker) handleEvent(ctx context.Context, workerID int, event Pro
 	case "project.deleted":
 		w.handleProjectDeleted(ctx, event.ProjectID)
 	}
-}
-
-func (w *SandboxWorker) handleProjectCreated(ctx context.Context, projectID, userID string) {
-	unlock := w.lockProject(projectID)
-	defer unlock()
-
-	sandbox, err := w.service.GetByProject(ctx, projectID)
-	if err == nil && sandbox.ID != "" {
-		if sandbox.Status != domain.StatusFailed {
-			if sandbox.Status == domain.StatusRunning {
-				if err := w.provisionFiles(ctx, sandbox, projectID); err != nil && w.log != nil {
-					w.log.Warn(ctx, "file provisioning failed", "sandbox_id", sandbox.ID, "error", err)
-				}
-			}
-			if w.log != nil {
-				w.log.Info(ctx, "sandbox already exists", "project_id", projectID)
-			}
-			return
-		}
-		if _, err := w.service.Destroy(ctx, sandbox.ID); err != nil {
-			if w.log != nil {
-				w.log.Error(ctx, "failed sandbox cleanup failed", "sandbox_id", sandbox.ID, "error", err)
-			}
-			return
-		}
-	}
-
-	sandbox, err = w.service.Create(ctx, userID, projectID)
-	if err != nil {
-		if w.log != nil {
-			w.log.Error(ctx, "sandbox creation failed", "project_id", projectID, "error", err)
-		}
-		return
-	}
-
-	sandbox, err = w.service.Start(ctx, sandbox.ID)
-	if err != nil {
-		if w.log != nil {
-			w.log.Error(ctx, "sandbox start failed", "sandbox_id", sandbox.ID, "error", err)
-		}
-		return
-	}
-
-	if err := w.provisionFiles(ctx, sandbox, projectID); err != nil {
-		if w.log != nil {
-			w.log.Warn(ctx, "file provisioning failed", "sandbox_id", sandbox.ID, "error", err)
-		}
-	}
-
-	if w.log != nil {
-		w.log.Info(ctx, "sandbox provisioned", "sandbox_id", sandbox.ID, "project_id", projectID)
-	}
-}
-
-func (w *SandboxWorker) handleProjectDeleted(ctx context.Context, projectID string) {
-	if err := w.DeleteProject(ctx, projectID); err != nil && w.log != nil {
-		w.log.Error(ctx, "sandbox destruction failed", "project_id", projectID, "error", err)
-	}
-}
-
-func (w *SandboxWorker) RefreshProjectBranch(ctx context.Context, projectID string) error {
-	unlock := w.lockProject(projectID)
-	defer unlock()
-
-	sandbox, err := w.service.GetByProject(ctx, projectID)
-	if err != nil {
-		if errors.Is(err, domain.ErrSandboxNotFound) {
-			return nil
-		}
-		return err
-	}
-
-	if sandbox.Status == domain.StatusDestroyed {
-		return nil
-	}
-
-	if sandbox.Status != domain.StatusRunning {
-		return nil
-	}
-
-	if err := w.provisionFiles(ctx, sandbox, projectID); err != nil {
-		return err
-	}
-
-	if w.log != nil {
-		w.log.Info(ctx, "sandbox repository branch refreshed", "project_id", projectID, "sandbox_id", sandbox.ID)
-	}
-	return nil
-}
-
-func (w *SandboxWorker) DeleteProject(ctx context.Context, projectID string) error {
-	unlock := w.lockProject(projectID)
-	defer unlock()
-
-	sandbox, err := w.service.GetByProject(ctx, projectID)
-	if err != nil {
-		if errors.Is(err, domain.ErrSandboxNotFound) {
-			return nil
-		}
-		return err
-	}
-
-	if sandbox.Status == domain.StatusDestroyed {
-		return nil
-	}
-
-	_, err = w.service.Destroy(ctx, sandbox.ID)
-	return err
-}
-
-func (w *SandboxWorker) lockProject(projectID string) func() {
-	w.projectLocksMu.Lock()
-	lock := w.projectLocks[projectID]
-	if lock == nil {
-		lock = &projectOperationLock{}
-		w.projectLocks[projectID] = lock
-	}
-	lock.refs++
-	w.projectLocksMu.Unlock()
-
-	lock.mutex.Lock()
-	return func() {
-		lock.mutex.Unlock()
-		w.projectLocksMu.Lock()
-		lock.refs--
-		if lock.refs == 0 {
-			delete(w.projectLocks, projectID)
-		}
-		w.projectLocksMu.Unlock()
-	}
-}
-
-func (w *SandboxWorker) provisionFiles(ctx context.Context, sandbox domain.Sandbox, projectID string) error {
-	if w.projectRepo == nil {
-		return nil
-	}
-
-	project, err := w.projectRepo.FindByID(ctx, projectID)
-	if err != nil {
-		return err
-	}
-
-	if project.Type != "REPOSITORY" || project.Repository == nil {
-		return nil
-	}
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
-
-	return w.service.CloneRepository(timeoutCtx, sandbox.ID, project.Repository.URL, project.Repository.Branch, project.Repository.AccessToken)
 }

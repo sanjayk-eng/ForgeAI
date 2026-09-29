@@ -1,46 +1,55 @@
 # ForgeAI Backend Architecture Summary
 
-This document explains the backend architecture as it is currently implemented in the codebase, not the ideal future design.
+This document explains the backend as it is actually implemented in the current codebase. It is intentionally grounded in the runtime wiring and module composition used by the application, not the ideal future architecture.
 
-## 1. High-level overview
+## 1. High-level purpose
 
-The backend is a Go service built around Gin HTTP handlers, PostgreSQL persistence, GitHub OAuth/API integration, and Docker-based sandbox execution for AI coding tasks.
+ForgeAI is a full-stack AI coding workspace. The backend is the orchestration layer that ties together:
+
+- user identity and authentication
+- workspace membership and permissions
+- project data and GitHub metadata
+- sandboxed filesystem execution for coding tasks
+- Git status, diff, commit, and push workflows
+- AI agent task execution over repository files
+- email notifications and async worker flows
 
 The main runtime entrypoint is:
 - `Backend/cmd/agent/server.go`
 
-The active server composition wires together auth, workspace, member/invite, project, terminal/sandbox, Git, agent, and email modules. Middleware, configuration, shared email/logging/filesystem helpers, PostgreSQL, Docker, and GitHub clients provide cross-cutting infrastructure.
-
-The repository also contains `conversation`, `llm`, `permission`, and `tool` packages, but `cmd/agent/server.go` does not load them as runtime modules. In particular, the agent currently calls an OpenAI-compatible HTTP endpoint directly; `internal/modules/llm` is not in that request path.
+The runtime composition is a single server process that wires modules together and governs the lifecycle of their background workers.
 
 ---
 
 ## 2. Runtime startup flow
 
-The main server bootstraps all modules in `cmd/agent/server.go`.
+The actual boot flow is inside `runServer()` in `Backend/cmd/agent/server.go`.
 
-Actual composition order in `runServer()`:
-1. Load configuration, build the logger and Gin engine, and install request logging, panic recovery, and CORS middleware.
-2. Construct the OAuth factory; create the JWT manager and PostgreSQL connection when their settings are present.
-3. Construct and start the in-memory email workers.
-4. Load auth routes/repository, create the protected router, then register workspace routes.
-5. Create the GitHub provider and load the project module. The project module starts its periodic repository-sync goroutine when a database is configured.
-6. Build the terminal project adapter, load sandbox policy, create Docker/runtime/repository services, and start three sandbox workers.
-7. Register Git routes with the terminal service as executor/access validator and the auth repository as account/token store; register terminal and agent routes.
-8. Attach project create/delete/branch callbacks to the terminal module, then load member and invite routes.
-9. Start the Gin HTTP server. Shutdown cancels workers and stops the terminal/email modules.
+The sequence is:
 
-The database and JWT manager are conditionally created in the composition root; configuration parsing does not itself guarantee that every runtime dependency is present. A deployable environment must provide the settings required by the protected modules.
+1. Load configuration via `config.Load()`.
+2. Build the logger and initialize Gin.
+3. Configure middleware for recovery, logging, and CORS.
+4. Create the OAuth provider factory.
+5. Create the JWT manager if `JWTSecret` is configured.
+6. Open the PostgreSQL connection if `DATABASE_URL` is set.
+7. Initialize the email module and start its background workers.
+8. Load auth module and create the protected router.
+9. Load workspace and project modules.
+10. Create the terminal module and sandbox workers.
+11. Register Git, terminal, and agent HTTP routes.
+12. Attach project lifecycle callbacks to terminal sandbox behavior.
+13. Start Gin and wait for shutdown.
 
-The server config also wires together project lifecycle hooks with terminal lifecycle behavior:
-- project creation triggers sandbox creation
-- project deletion triggers sandbox cleanup
+This is important: the backend is not a set of isolated packages. It is a single composed runtime where modules are registered directly into the same HTTP server and share dependencies such as DB, logger, JWT manager, and sandbox service interfaces.
 
-This wiring is important because it shows the backend is designed as a connected system, not just isolated services.
+### Key design point
+
+The project root uses dependency injection at startup instead of an application container framework. Each module has a `ModuleConfig` and a `LoadModule()` function that wires its repository, service, handler, and routes.
 
 ---
 
-## 3. Module structure and responsibilities
+## 3. Runtime module composition
 
 ### 3.1 Auth module
 
@@ -48,27 +57,21 @@ Location:
 - `Backend/internal/modules/auth/`
 
 Responsibilities:
-- user registration
+- registration
 - login
-- OAuth login with GitHub
-- JWT issuance and validation
-- email verification flow
+- email verification
+- OAuth GitHub login
+- token issuance and validation
+- identity lookup for protected requests
 
-Core files:
-- `module.go`
-- `service.go`
-- `handler.go`
-- `route.go`
-- `provider/`
+This module is central to the runtime. It owns user data and provides identity access for every protected API.
 
-Important concept:
-- Auth is a real first-class backend module and is not just a middleware.
-- It owns user identity and identity-related access control.
-- Password credentials are bcrypt-hashed; access and refresh JWTs are signed HS256 tokens validated by middleware.
-- GitHub OAuth requests `read:user`, `user:email`, `repo`, and `read:org`; GitHub REST calls use `github.com/google/go-github/v92`.
-- OAuth access tokens are stored in `tbl_oauth_account.access_token` and read directly by the auth repository.
-
----
+Important implementation details:
+- password hashing is done with the bcrypt utility package
+- JWTs are created and validated through `pkg/jwt`
+- OAuth data is stored through `tbl_oauth_account`
+- the provider factory supports GitHub and Google flows
+- the auth repository is also used by the Git module to fetch the user’s GitHub token for push operations
 
 ### 3.2 Workspace module
 
@@ -78,76 +81,91 @@ Location:
 - `Backend/internal/modules/workspaces/invite/`
 
 Responsibilities:
-- create workspace
-- load workspace by ID
-- manage workspace members
+- create and read workspaces
+- manage workspace membership
 - invite users
-- accept workspace invites
+- accept invites
+- enforce workspace boundaries for project access
 
-Important concept:
-- Workspaces are the top-level tenant/container for projects and team access.
-- Project data belongs to a workspace.
-
----
+This is the top-level tenant boundary of the product. A project belongs inside a workspace, and many APIs require workspace membership.
 
 ### 3.3 Project module
 
 Location:
 - `Backend/internal/modules/project/`
 
-Responsibilities:
-- create projects
-- list and find projects
-- update project metadata
-- delete projects
-- connect a GitHub repository to a project
-- store repository URL and default branch
-- sync project data with GitHub metadata
+This is the main domain aggregate for user projects and repository-linked work.
 
-Main implementation layers:
-- `core/` - project core entity and repository operations
-- `repository/` - repository connection metadata to GitHub repo
-- `orchestrator/` - composite orchestration logic between core project and repo
-- `sync/` - sync logic with GitHub and project state
-- `github/` - GitHub repo discovery and import logic
+#### Structure
+- `core/` — project entity + core DB operations
+- `repository/` — repository metadata operations
+- `sync/` — GitHub sync polling and state refresh
+- `github/` — GitHub repo discovery and metadata logic
+- `orchestrator/` — orchestration logic between core project and repo state
+- `service.go` — facade service with lifecycle hooks
+- `handler.go` — HTTP layer
+- `route.go` — route registration
 
-This module is the bridge between the application’s project domain and external GitHub metadata.
+#### Real responsibilities
+- create/delete/update project rows
+- connect a GitHub repository to the project
+- persist repository URL, default branch, and GitHub metadata
+- sync GitHub state into project records
+- trigger sandbox provisioning and cleanup via lifecycle events
 
-Important logic:
-- `ProjectOrchestrator.Create()` creates the project row and optionally the repository metadata row.
-- `SetOnCreate` and `SetOnDelete` are used to trigger sandbox worker lifecycle events.
-- Repository metadata sync is a separate 30-second background poller; it updates GitHub metadata, not the sandbox checkout.
-- Create-project and bulk-import flows trigger sandbox provisioning. The separate `ConnectRepository` operation currently stores metadata without triggering the sandbox callback, so attaching a repository to an existing empty project does not itself clone it.
+#### Important lifecycle hooks
+The project service exposes methods like:
+- `SetOnCreate(...)`
+- `SetOnDelete(...)`
+- `SetOnBranchUpdated(...)`
 
----
+Those are connected in the server startup to terminal lifecycle behavior:
+- project creation triggers sandbox creation
+- project deletion triggers sandbox cleanup
+- branch changes trigger downstream updates
 
-### 3.4 Terminal / sandbox module
+This means the project module is definitely not just CRUD; it is integrated with execution runtime lifecycle management.
+
+### 3.4 Terminal and sandbox module
 
 Location:
 - `Backend/internal/modules/terminal/`
 
-This is one of the most important modules because it provides the execution environment for code work.
+This is the execution runtime of the system.
 
 Responsibilities:
-- create a sandbox for a project
-- start/stop/restart/destroy sandbox instances
-- track sandbox status
-- create a Docker container and workspace volume
-- clone a repository into a workspace folder
-- list, read, and write files inside the sandbox
+- create project sandboxes
+- run commands inside a container
+- mount workspace directories
+- clone repositories into a workspace
+- read/write files inside the sandbox
+- check git status/diff and manage commit/push workflows
 
-Subareas:
-- `application/` - service layer for sandbox lifecycle and file operations
-- `infrastructure/` - Docker runtime and DB-backed repository persistence
-- `policy/` - sandbox configuration policy
-- `worker/` - background async workers for project lifecycle events
-- `domain/` - sandbox domain entities and status rules
+This module is the key operational layer behind the AI coding experience.
 
-This module is effectively the execution environment where the AI actually interacts with code.
+#### Execution model
+The service is built around:
+- store for sandbox state
+- runtime for Docker operations
+- filesystem abstraction for file operations
+- repository cloner logic
+- repository pusher logic
+- sandbox policy config
 
-The configured sandbox image is `alpine/git:latest`, and the runtime explicitly starts `sh` so Git commands are available inside the main workspace container. The sandbox itself uses `network_mode: none`. Repository clone and push operations that need GitHub network access run in separate short-lived helper containers with the workspace volume mounted; the main sandbox remains network-isolated.
+The configured image is declared in `Backend/configs/sandbox.yaml`:
 
----
+```yaml
+sandbox:
+  image: alpine/git:latest
+  git_image: alpine/git:latest
+```
+
+This matches the running container output and is the built-in execution environment used for repo operations.
+
+#### Important runtime design
+The sandbox runs with `network_mode: none` and a read-only rootfs policy. The main workspace container is isolated, but repo operations requiring network interaction are done via short-lived helper containers that mount the workspace volume.
+
+This is a strong design constraint: most project coding happens in isolated local sandbox files, while GitHub network actions are delegated with temporary scoped access.
 
 ### 3.5 Agent module
 
@@ -155,36 +173,34 @@ Location:
 - `Backend/internal/modules/agent/`
 
 Responsibilities:
-- read project files from the sandbox workspace
-- build a context payload for the LLM
-- send prompts to the configured AI model
-- validate AI response structure
-- apply returned file changes into the sandbox
+- gather project context from sandbox files
+- send prompt payload to the configured model
+- validate response payloads
+- apply file edits back into the sandbox
 
-Main file:
-- `service.go`
+This is the AI coding loop. It reads the repository state from the running sandbox, gives the model context, and writes the returned edits into the working tree.
 
-Important behavior:
-- `RunTask()` validates access, collects file context, calls the model, validates returned changes, and writes files into the sandbox.
-- It does not directly push to GitHub; it modifies files inside the sandboxed repository workspace.
+In plain terms, the AI does not edit the user’s GitHub repo directly. It edits the sandbox workspace and then the system can diff, commit, and push those changes.
 
-This is the key “AI coding loop” in the current implementation.
-
-### 3.6 Git source-control module
+### 3.6 Git module
 
 Location:
 - `Backend/internal/modules/git/`
 
 Responsibilities:
-- inspect Git status and diffs inside a sandbox workspace
-- commit sandbox workspace changes
-- push commits to an HTTPS GitHub remote
+- inspect git status
+- get file diffs
+- commit changes
+- push to GitHub using OAuth access token
 
-The Git handler is registered on the protected router and checks sandbox access before each operation. Commits use the authenticated user's name and email from the auth repository as command-scoped Git identity; these values are not persisted in Git configuration. For pushes, the handler loads the authenticated user's GitHub OAuth token from the auth repository. A short-lived `alpine/git` helper mounts the sandbox workspace, uses bridge networking, and receives the token over stdin. The helper exposes it to Git as a temporary HTTP authorization header; the token is not saved in the repository's Git configuration or Docker arguments.
+The Git module is registered on the protected router and uses the terminal/sandbox execution service as its backend. It does not own the sandbox. It delegates actual repository operations to the terminal runtime infrastructure.
 
-GitHub API operations use `github.com/google/go-github/v92`. Git status, diff, and commit operations use the Git CLI inside the sandbox. The Git module depends on the terminal application, which delegates authenticated pushes to the terminal infrastructure's helper. Docker remains an infrastructure detail of the terminal module.
+Key detail:
+- commit author name and email come from the authenticated user
+- push operations load the user’s GitHub OAuth token from the auth repository
+- the token is fed into a short-lived Git helper container and not stored in repo config
 
----
+This is a strong security pattern because the system leaves the repository environment clean, while using auth tokens on-demand for push actions.
 
 ### 3.7 Email module
 
@@ -192,69 +208,132 @@ Location:
 - `Backend/internal/shared/email/`
 
 Responsibilities:
-- send transactional emails in the background
-- queue jobs for email sending
-- worker pool consumes jobs
+- queue transactional emails
+- process them asynchronously with a worker pool
 
-This is not the main business flow, but it is an important async infrastructure layer.
+This is support infrastructure, not the primary business domain. It is started in the server process and runs as a background worker queue.
 
 ---
 
-## 4. Current execution flow in plain English
+## 4. Request and command architecture
 
-The real implemented flow is:
+### HTTP layer
+The backend uses Gin. Each module usually does this:
 
-1. User logs in through auth and receives a valid JWT.
-2. User creates or selects a workspace.
+- define a `ModuleConfig`
+- create a repository/service instance
+- build a handler
+- register routes through `RegisterRoutes(...)`
+
+The server composes modules in one place, then mounts them on the same engine. This keeps the main server file readable while preserving clear module boundaries.
+
+### Protected access model
+Protected routes are created with `middleware.ProtectedGroup(engine, jwtManager, appLogger)`. This means any authenticated route gets JWT validation before reaching the module handler.
+
+### Shared concerns
+The system centralizes common concerns in:
+- config
+- logger
+- errors
+- filesystem helpers
+- executor interfaces
+- database utilities
+- JWT utilities
+
+This is a classic layered backend design: HTTP → module handler → service → repository/data access → shared infrastructure.
+
+---
+
+## 5. Data flow in plain English
+
+The real working flow of the app is:
+
+1. User signs in and receives a JWT.
+2. User creates or joins a workspace.
 3. User creates a project inside that workspace.
-4. Project metadata is stored in PostgreSQL.
-5. If the project includes a GitHub repo, that repo metadata is also stored.
-6. The project lifecycle triggers a sandbox creation event.
-7. The terminal module creates a sandbox and starts a container.
-8. The runtime bind-mounts a host directory into the container workspace. Although the application calls it a volume, `HostWorkspacePath()` stores it under `os.TempDir()/forgeai-workspaces`; it is not a Docker-managed named volume.
-9. Terminal infrastructure clones the GitHub repository into the sandbox workspace using a short-lived Git helper with network access.
-10. The AI agent reads files from the sandbox workspace.
-11. The AI model creates file-level changes.
-12. The backend writes those changes back into the sandbox files.
-13. The user can review status and diffs in the Git panel, commit workspace changes, and push commits to the connected HTTPS GitHub remote.
+4. The project module stores project metadata and optional repository metadata in PostgreSQL.
+5. The project lifecycle triggers sandbox creation via terminal workers.
+6. The sandbox mounts a workspace, clones repo content, and prepares the working tree.
+7. The AI agent reads files from the mounted workspace.
+8. The model returns file edits.
+9. The backend writes those edits into the sandbox filesystem.
+10. The user can inspect git status and diff.
+11. The user can commit and push these changes to GitHub with the authenticated account.
 
-This means the actual AI interaction is with the sandboxed workspace, not directly with the remote GitHub repo itself.
+This means the core product loop is:
+
+workspace → project → sandbox → AI edits → git review → GitHub push
+
+Not:
+
+frontend direct GitHub edits
 
 ---
 
-## 5. Background workers
+## 6. Background workers and async processing
 
-There are worker patterns in the backend, but they are lightweight in-process workers, not distributed queue systems.
+The backend uses lightweight in-process asynchronous workers rather than a distributed queue system.
 
-### 5.1 Terminal sandbox worker
+### Sandbox event worker
+The terminal system publishes project lifecycle events like:
+- project created
+- project deleted
+- project branch updated
 
-Location:
-- `Backend/internal/modules/terminal/worker/sandbox_worker.go`
+These are processed by a worker that provisions or tears down sandbox resources.
 
-This worker owns a buffered channel:
-- `events chan ProjectEvent`
+### Email worker queue
+Email sending is queued in memory and processed asynchronously by worker goroutines.
 
-It works like this:
-- `Publish(event)` adds a project event to the channel
-- `process()` consumes events in goroutines
-- `handleEvent()` dispatches by type
-- `project.created` causes sandbox provisioning
-- `project.deleted` causes sandbox cleanup
+This is good for application-level background processing, but it is not a multi-node distributed queue.
 
-This is the core async background system for project state transitions.
+---
 
-### 5.2 Email worker queue
+## 7. Architectural reality check
 
-Location:
-- `Backend/internal/shared/email/queue.go`
-- `Backend/internal/shared/email/worker.go`
-- `Backend/internal/shared/email/module.go`
+The codebase is already much more structured than a simple monolith, but it is still a single-process backend with modular components.
 
-This is a classic FIFO in-memory queue for async email sending.
+Current reality:
+- Go + Gin backend
+- PostgreSQL for persistence
+- modular domain structure
+- Docker-based execution runtime
+- GitHub OAuth and repo sync
+- AI task execution on a sandboxed repo
+- workspace-level multi-user model
 
-Important note:
-- this is not a distributed queue like Kafka or RabbitMQ
-- it is a local Go-channel-based async queue
+The backend is therefore best understood as:
+
+a modular monolith with strong infrastructure boundaries and sandboxed execution capabilities
+
+not a microservice system.
+
+---
+
+## 8. Most important files to read first
+
+If you want to understand the product quickly, read these in order:
+
+1. `Backend/cmd/agent/server.go`
+2. `Backend/internal/modules/auth/module.go`
+3. `Backend/internal/modules/project/module.go`
+4. `Backend/internal/modules/terminal/module.go`
+5. `Backend/internal/modules/agent/service.go`
+6. `Backend/internal/modules/git/service.go`
+7. `Backend/configs/sandbox.yaml`
+
+These files explain the runtime composition, the security model, the project lifecycle, and the real code execution path.
+
+---
+
+## 9. Bottom line
+
+The backend is built around one central idea:
+
+AI work happens inside a secure, sandboxed workspace attached to a project, and all user, repo, and Git operations are coordinated through a modular Go service layer.
+
+That is the true architecture of ForgeAI as implemented today.
+
 
 ---
 
@@ -508,6 +587,21 @@ Git operations are request-time operations on the existing sandbox; they do not 
 
 The push succeeds only when the user has a connected GitHub account with repository write access and the sandbox repository has a valid HTTPS GitHub remote. The sandbox container itself has no network access; only the one-shot clone/push helpers use bridge networking.
 
+### 11.11 Realtime workspace synchronization
+
+Realtime updates reuse the terminal module and existing file/Git APIs:
+
+1. `WorkspaceWatcher` recursively watches directories under the host bind mount for a running sandbox. Newly created directories are added to the watch set.
+2. Filesystem paths are normalized to project-relative paths (for example, `/workspace/src/App.tsx` becomes `src/App.tsx`). `.git`, `node_modules`, `dist`, `build`, `cache`, and other generated directories are ignored.
+3. Events for one path are coalesced for 100 ms. File create/change/delete/rename events include path metadata only; the Git status event follows workspace changes.
+4. The terminal module's in-memory event hub routes messages by `project_id`. Subscriber buffers are bounded; if a client falls behind, the hub replaces queued data with `sync.required` instead of blocking filesystem writes.
+5. `GET /projects/:project_id/ws` uses the existing protected router. Browser clients provide the existing JWT in the `forgeai-auth.<token>` WebSocket subprotocol; the handler validates project/workspace access before subscription and periodically while connected. WebSocket origins use configured CORS/frontend origins.
+6. Agent start/progress/completed and sandbox status events use this same project-scoped hub. Existing Agent, Git, and sandbox operations remain the source of truth; no duplicate file or Git APIs were added.
+7. React consumes events on the project detail page. It updates the existing lazy file-tree cache for loaded directories, marks changed files, refreshes only the selected file through the existing read API, and refreshes Git status/diff through the existing Git APIs. Monaco can show a before/after `DiffEditor` snapshot; unsaved editor drafts are preserved when external changes arrive.
+8. On socket open/reconnect or `sync.required`, the page resynchronizes the sandbox, root and loaded directories, current file, and Git status/diff using existing APIs. Events are notifications, not durable state.
+
+The user's Ctrl+S path is unchanged: Monaco calls the existing save API, Terminal writes to `/workspace`, fsnotify observes that bind-mounted filesystem change, and the hub notifies project subscribers. The realtime consumer never writes the file back, so the notification cannot create a save loop.
+
 ---
 
 ## 12. Queue and worker inventory
@@ -611,5 +705,8 @@ The design is suitable for a single backend process and development or early-sta
 - Connecting a repository to an existing project does not trigger sandbox clone/provisioning; create/import flows do.
 - Agent tasks have no durable job record and no rollback if applying a multi-file response fails partway through.
 - `conversation`, `llm`, `permission`, and `tool` packages are not wired into `runServer()`; the agent currently makes its model HTTP call directly.
+- Realtime events are process-local and not replayed after a server restart; clients rely on reconnect resync through the existing APIs.
+- A full subscriber buffer loses individual events and sends `sync.required`; exact intermediate history is intentionally not retained.
+- Watcher behavior is covered by local filesystem tests, but a Docker Desktop/container-to-host file-event integration test is still needed for each supported deployment environment.
 
 These are current-state observations, not missing pieces that are silently assumed to exist.

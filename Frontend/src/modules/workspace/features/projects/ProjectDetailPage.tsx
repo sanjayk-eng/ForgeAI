@@ -1,11 +1,16 @@
 import { ArrowLeft, Bot, Code2, FileText, FolderGit2, Loader2 } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../auth/useAuth";
+import { getGitStatus } from "../../api/git.api";
+import type { ProjectRealtimeEvent, SequencedProjectRealtimeEvent } from "../../api/project-realtime.types";
 import { useWorkspaceId } from "../../hooks/useWorkspaceId";
 import { useSandbox } from "./hooks/useSandbox";
+import { useProjectRealtime } from "./hooks/useProjectRealtime";
 import { SandboxStatus } from "./components/SandboxStatus";
 import { FileExplorer } from "./components/files/FileExplorer";
+import { sandboxFileKeys, WORKSPACE_ROOT } from "./components/files/fileTree";
 import { AgentPanel } from "./components/AgentPanel";
 import { GitPanel } from "./components/GitPanel";
 import { ProjectSidePanel } from "./components/ProjectSidePanel";
@@ -21,16 +26,123 @@ export function ProjectDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const workspaceId = useWorkspaceId();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { tokens } = useAuth();
   const accessToken = tokens?.access_token ?? null;
 
   const { sandbox, isLoading, error } = useSandbox(accessToken, projectId ?? null, true);
   const sandboxStatus = typeof sandbox?.status === "string" ? sandbox.status : null;
   const [selectedFile, setSelectedFile] = useState<{ name: string; path: string } | null>(null);
+  const [changedPaths, setChangedPaths] = useState<string[]>([]);
+  const [realtimeEvents, setRealtimeEvents] = useState<SequencedProjectRealtimeEvent[]>([]);
+  const [resyncVersion, setResyncVersion] = useState(0);
+  const eventSequence = useRef(0);
   const panelParam = searchParams.get("panel");
   const activePanel = panelParam === "agent" || panelParam === "git" ? panelParam : "files";
   const workspaceLabel = workspaceId || "workspace";
   const projectLabel = projectId || "project";
+
+  useEffect(() => {
+    eventSequence.current = 0;
+    setRealtimeEvents([]);
+    setChangedPaths([]);
+    setSelectedFile(null);
+  }, [projectId]);
+
+  function refreshGitStatus() {
+    if (!accessToken || !sandbox?.id) return;
+    void queryClient.fetchQuery({
+      queryKey: ["git-status", sandbox.id],
+      queryFn: () => getGitStatus(accessToken, sandbox.id),
+      staleTime: 0,
+    }).then(({ status }) => {
+      const paths = [...(status.staged ?? []), ...(status.modified ?? []), ...(status.untracked ?? [])]
+        .map(toWorkspacePath);
+      setChangedPaths([...new Set(paths)]);
+    }).catch(() => undefined);
+  }
+
+  function resyncProject() {
+    setResyncVersion((current) => current + 1);
+    if (projectId) void queryClient.invalidateQueries({ queryKey: ["sandbox", projectId] });
+    if (!sandbox?.id) return;
+    if (activePanel === "git") {
+      void queryClient.invalidateQueries({ queryKey: ["git-diff", sandbox.id] });
+    }
+    refreshGitStatus();
+  }
+
+  function handleRealtimeEvent(event: ProjectRealtimeEvent) {
+    if (event.project_id !== projectId) return;
+    const sequence = ++eventSequence.current;
+    setRealtimeEvents((current) => [...current.slice(-255), { sequence, event }]);
+    if (sequence > 0 && sequence % 256 === 0) setResyncVersion((current) => current + 1);
+
+    if (event.event === "sync.required") {
+      resyncProject();
+      return;
+    }
+
+    if (event.event.startsWith("file.")) {
+      const path = event.path ? toWorkspacePath(event.path) : "";
+      const oldPath = event.old_path ? toWorkspacePath(event.old_path) : "";
+      if (sandbox?.id && path) {
+        if (path !== selectedFile?.path) {
+          void queryClient.invalidateQueries({
+            queryKey: sandboxFileKeys.content(sandbox.id, path),
+            exact: true,
+          });
+        }
+        if (activePanel === "git") {
+          void queryClient.invalidateQueries({ queryKey: ["git-diff", sandbox.id] });
+        }
+      }
+      if (sandbox?.id && oldPath && oldPath !== selectedFile?.path) {
+        void queryClient.invalidateQueries({
+          queryKey: sandboxFileKeys.content(sandbox.id, oldPath),
+          exact: true,
+        });
+      }
+
+      if (event.event === "file.deleted") {
+        setChangedPaths((current) => current.filter((currentPath) => !isPathWithin(currentPath, path)));
+        setSelectedFile((current) => current && isPathWithin(current.path, path) ? null : current);
+      } else if (event.event === "file.renamed" && oldPath) {
+        setChangedPaths((current) => [...new Set([
+          ...current.filter((currentPath) => !isPathWithin(currentPath, oldPath)),
+          path,
+        ])]);
+        setSelectedFile((current) => {
+          if (!current || !isPathWithin(current.path, oldPath)) return current;
+          const newPath = `${path}${current.path.slice(oldPath.length)}`;
+          return { name: newPath.split("/").at(-1) ?? current.name, path: newPath };
+        });
+      } else if (path) {
+        setChangedPaths((current) => current.includes(path) ? current : [...current, path]);
+      }
+      return;
+    }
+
+    if (event.event === "git.status.changed") {
+      refreshGitStatus();
+      if (activePanel === "git" && sandbox?.id) {
+        void queryClient.invalidateQueries({ queryKey: ["git-diff", sandbox.id] });
+      }
+      return;
+    }
+
+    if (event.event === "sandbox.status.changed") {
+      void queryClient.invalidateQueries({ queryKey: ["sandbox", projectId] });
+    }
+  }
+
+  useEffect(() => {
+    if (activePanel === "git" && sandbox?.id) {
+      void queryClient.invalidateQueries({ queryKey: ["git-diff", sandbox.id] });
+    }
+  }, [activePanel, queryClient, sandbox?.id]);
+
+  useProjectRealtime(accessToken, projectId ?? null, handleRealtimeEvent, resyncProject);
 
   if (!workspaceId || !projectId) {
     return <div>Invalid project</div>;
@@ -98,6 +210,9 @@ export function ProjectDetailPage() {
                 accessToken={accessToken ?? ""}
                 sandboxId={sandbox?.id ?? ""}
                 selectedPath={selectedFile?.path}
+                changedPaths={changedPaths}
+                realtimeEvents={realtimeEvents}
+                resyncVersion={resyncVersion}
                 onSelect={(file) => setSelectedFile({ name: file.name, path: file.path })}
                 onPathChanged={(oldPath, newPath) => {
                   setSelectedFile((current) => {
@@ -136,6 +251,8 @@ export function ProjectDetailPage() {
                     sandboxId={sandbox?.id ?? null}
                     filePath={selectedFile.path}
                     fileName={selectedFile.name}
+                    realtimeEvents={realtimeEvents}
+                    resyncVersion={resyncVersion}
                   />
                 </Suspense>
               ) : (
@@ -192,6 +309,7 @@ export function ProjectDetailPage() {
               accessToken={accessToken}
               sandboxId={sandbox?.id ?? null}
               sandboxStatus={sandboxStatus}
+              realtimeEvents={realtimeEvents}
             />
           </ProjectSidePanel>
         )}
@@ -212,5 +330,16 @@ export function ProjectDetailPage() {
       </div>
     </div>
   );
+}
+
+function toWorkspacePath(path: string) {
+  const normalized = path.replaceAll("\\", "/").replace(/^\/+/, "");
+  return normalized === "workspace" || normalized.startsWith("workspace/")
+    ? `/${normalized}`
+    : `${WORKSPACE_ROOT}/${normalized}`;
+}
+
+function isPathWithin(candidate: string, parent: string) {
+  return candidate === parent || candidate.startsWith(`${parent}/`);
 }
 

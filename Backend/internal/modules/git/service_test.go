@@ -68,6 +68,71 @@ func TestParseStatusOutputTracksDivergenceAndRenames(t *testing.T) {
 	}
 }
 
+func TestDiffForFileReturnsGitBaseContentAndScopesPath(t *testing.T) {
+	executor := &fileDiffExecutor{}
+	service := NewService("/workspace", executor)
+
+	result, err := service.Diff(context.Background(), "sandbox-1", "src/App.tsx")
+	if err != nil {
+		t.Fatalf("Diff() error = %v", err)
+	}
+	if len(result.Files) != 1 || result.Files[0].Path != "src/App.tsx" {
+		t.Fatalf("Diff() files = %#v, want only src/App.tsx", result.Files)
+	}
+	if result.Files[0].OriginalContent == nil || *result.Files[0].OriginalContent != "<h1>Hello</h1>\n" {
+		t.Fatalf("Diff() original content = %#v, want Git base content", result.Files[0].OriginalContent)
+	}
+	if len(executor.commands) != 2 || !strings.Contains(executor.commands[0], "'--' 'src/App.tsx'") || !strings.Contains(executor.commands[1], "'show' 'HEAD:src/App.tsx'") {
+		t.Fatalf("Diff() commands = %#v, want a scoped diff and Git base read", executor.commands)
+	}
+}
+
+func TestDiffForTrackedFileReturnsBaseEvenWhenPatchIsEmpty(t *testing.T) {
+	executor := &fileDiffExecutor{unchanged: true}
+	service := NewService("/workspace", executor)
+
+	result, err := service.Diff(context.Background(), "sandbox-1", "src/App.tsx")
+	if err != nil {
+		t.Fatalf("Diff() error = %v", err)
+	}
+	if len(result.Files) != 1 || result.Files[0].Status != "unchanged" {
+		t.Fatalf("Diff() files = %#v, want the tracked file baseline", result.Files)
+	}
+	if result.Files[0].OriginalContent == nil || *result.Files[0].OriginalContent != "<h1>Hello</h1>\n" {
+		t.Fatalf("Diff() original content = %#v, want Git base content", result.Files[0].OriginalContent)
+	}
+}
+
+func TestDiffForRenamedFileReadsOriginalFromOldPath(t *testing.T) {
+	executor := &renamedFileDiffExecutor{}
+	service := NewService("/workspace", executor)
+
+	result, err := service.Diff(context.Background(), "sandbox-1", "src/App.tsx")
+	if err != nil {
+		t.Fatalf("Diff() error = %v", err)
+	}
+	if len(result.Files) != 1 || result.Files[0].Path != "src/App.tsx" || result.Files[0].OldPath != "src/App.ts" {
+		t.Fatalf("Diff() files = %#v, want src/App.ts renamed to src/App.tsx", result.Files)
+	}
+	if result.Files[0].OriginalContent == nil || *result.Files[0].OriginalContent != "export const App = () => null;\n" {
+		t.Fatalf("Diff() original content = %#v, want content from old Git path", result.Files[0].OriginalContent)
+	}
+	if len(executor.commands) != 2 || !strings.Contains(executor.commands[1], "'show' 'HEAD:src/App.ts'") {
+		t.Fatalf("Diff() commands = %#v, want the renamed file's old Git path", executor.commands)
+	}
+}
+
+func TestDiffRejectsPathsOutsideWorkspace(t *testing.T) {
+	executor := &fileDiffExecutor{}
+	service := NewService("/workspace", executor)
+	if _, err := service.Diff(context.Background(), "sandbox-1", "../outside.tsx"); err == nil {
+		t.Fatal("Diff() accepted a path outside the workspace")
+	}
+	if len(executor.commands) != 0 {
+		t.Fatalf("Diff() executed commands for an invalid path: %#v", executor.commands)
+	}
+}
+
 func TestPushPassesGitHubTokenThroughStdin(t *testing.T) {
 	executor := &pushExecutor{remoteURL: "https://github.com/acme/project.git"}
 	service := NewService("/workspace", executor)
@@ -113,6 +178,40 @@ type pushExecutor struct {
 	pushRemote string
 	pushToken  string
 	commands   []string
+}
+
+type fileDiffExecutor struct {
+	commands  []string
+	unchanged bool
+}
+
+type renamedFileDiffExecutor struct {
+	commands []string
+}
+
+func (executor *renamedFileDiffExecutor) Execute(_ context.Context, _ string, command string) (terminalapp.ExecutionResult, error) {
+	executor.commands = append(executor.commands, command)
+	if strings.Contains(command, "'diff'") {
+		return terminalapp.ExecutionResult{Output: "diff --git a/src/App.ts b/src/App.tsx\nsimilarity index 95%\nrename from src/App.ts\nrename to src/App.tsx\n"}, nil
+	}
+	if strings.Contains(command, "'show' 'HEAD:src/App.ts'") {
+		return terminalapp.ExecutionResult{Output: "export const App = () => null;\n"}, nil
+	}
+	return terminalapp.ExecutionResult{}, nil
+}
+
+func (executor *fileDiffExecutor) Execute(_ context.Context, _ string, command string) (terminalapp.ExecutionResult, error) {
+	executor.commands = append(executor.commands, command)
+	if strings.Contains(command, "'diff'") {
+		if executor.unchanged {
+			return terminalapp.ExecutionResult{}, nil
+		}
+		return terminalapp.ExecutionResult{Output: "diff --git a/src/App.tsx b/src/App.tsx\nindex 1..2 100644\n--- a/src/App.tsx\n+++ b/src/App.tsx\n@@ -1 +1 @@\n-<h1>Hello</h1>\n+<h1>Welcome</h1>\n"}, nil
+	}
+	if strings.Contains(command, "'show' 'HEAD:src/App.tsx'") {
+		return terminalapp.ExecutionResult{Output: "<h1>Hello</h1>\n"}, nil
+	}
+	return terminalapp.ExecutionResult{}, nil
 }
 
 func (executor *pushExecutor) Execute(_ context.Context, _ string, command string) (terminalapp.ExecutionResult, error) {

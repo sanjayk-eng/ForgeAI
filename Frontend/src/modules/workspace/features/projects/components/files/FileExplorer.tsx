@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Tree } from "react-arborist";
 import { FilePlus2, FolderPlus } from "lucide-react";
-import type { FileEntry } from "../../../../api/sandbox.api";
+import type { FileEntry } from "../../../../api/sandbox-files.api";
+import type { SequencedProjectRealtimeEvent } from "../../../../api/project-realtime.types";
 import { FileActionDialog, type FileActionDialogState } from "./FileActionDialog";
 import { FileExplorerActionsContext } from "./FileExplorerActionsContext";
 import { FileExplorerNode } from "./FileExplorerNode";
@@ -22,6 +23,9 @@ interface FileExplorerProps {
   onSelect: (file: FileEntry) => void;
   onPathChanged?: (oldPath: string, newPath: string) => void;
   onPathDeleted?: (path: string) => void;
+  realtimeEvents?: SequencedProjectRealtimeEvent[];
+  resyncVersion?: number;
+  changedPaths?: string[];
 }
 
 export function FileExplorer({
@@ -31,6 +35,9 @@ export function FileExplorer({
   onSelect,
   onPathChanged,
   onPathDeleted,
+  realtimeEvents = [],
+  resyncVersion = 0,
+  changedPaths = [],
 }: FileExplorerProps) {
   const treeContainer = useRef<HTMLDivElement>(null);
   const [treeHeight, setTreeHeight] = useState(1);
@@ -43,6 +50,23 @@ export function FileExplorer({
   const [createName, setCreateName] = useState("");
   const [createError, setCreateError] = useState("");
   const explorer = useFileExplorer(sandboxId, accessToken);
+  const processedRealtimeSequence = useRef(0);
+
+  useEffect(() => {
+    const pending = realtimeEvents.filter(({ sequence }) => sequence > processedRealtimeSequence.current);
+    if (pending.length === 0) return;
+    if (pending[0].sequence > processedRealtimeSequence.current + 1) {
+      void explorer.refreshLoadedDirectories();
+    }
+    for (const update of pending) {
+      explorer.applyRealtimeEvent(update.event);
+      processedRealtimeSequence.current = update.sequence;
+    }
+  }, [explorer.applyRealtimeEvent, explorer.refreshLoadedDirectories, realtimeEvents]);
+
+  useEffect(() => {
+    if (resyncVersion > 0) void explorer.refreshLoadedDirectories();
+  }, [explorer.refreshLoadedDirectories, resyncVersion]);
 
   useEffect(() => {
     const element = treeContainer.current;
@@ -131,7 +155,13 @@ export function FileExplorer({
     });
   }
 
-  const treeData = addCreatePlaceholder(explorer.data);
+  const changedPathSet = new Set(changedPaths);
+  const markChanged = (entries: FileTreeItem[]): FileTreeItem[] => entries.map((entry) => ({
+    ...entry,
+    is_modified: !entry.is_directory && changedPathSet.has(entry.path),
+    ...(entry.children ? { children: markChanged(entry.children) } : {}),
+  }));
+  const treeData = addCreatePlaceholder(markChanged(explorer.data));
 
   return (
     <FileExplorerActionsContext.Provider value={actions}>
