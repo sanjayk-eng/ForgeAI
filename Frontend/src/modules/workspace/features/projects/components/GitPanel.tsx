@@ -1,8 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, GitBranch, Loader2, Send } from "lucide-react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { getGitDiff, getGitStatus, pushGitChanges, commitGitChanges } from "../../../api/git.api";
 import { GitDiffPreview } from "./GitDiffPreview";
+import {
+  buildCommitFileList,
+  getGitSelectionSummary,
+  nextGitSelection,
+  resetGitSelection,
+  type GitSelectionState,
+} from "./gitPanelState";
 
 export function GitPanel({
   accessToken,
@@ -17,7 +24,7 @@ export function GitPanel({
 }) {
   const [message, setMessage] = useState("Initial commit");
   const [error, setError] = useState<string | null>(null);
-  const [fileSelection, setFileSelection] = useState<{ pathsKey: string; excluded: Set<string> }>(() => ({
+  const [fileSelection, setFileSelection] = useState<GitSelectionState>(() => ({
     pathsKey: "",
     excluded: new Set(),
   }));
@@ -50,24 +57,22 @@ export function GitPanel({
 
   const status = sandboxReady ? statusQuery.data?.status : undefined;
   const files = diffQuery.data?.files ?? [];
-  const changedPaths = [...new Set([
+  const changedPaths = useMemo(() => [...new Set([
     ...(status?.staged ?? []),
     ...(status?.modified ?? []),
     ...(status?.untracked ?? []),
     ...files.map((file) => file.path),
-  ])].sort();
-  const changedPathsKey = `${sandboxId ?? ""}\0${changedPaths.join("\0")}`;
-  const excludedFiles = fileSelection.pathsKey === changedPathsKey ? fileSelection.excluded : new Set<string>();
-  const selectedPaths = changedPaths.filter((path) => !excludedFiles.has(path));
+  ])].sort(), [files, status]);
+  const selectionSummary = useMemo(
+    () => getGitSelectionSummary(changedPaths, fileSelection),
+    [changedPaths, fileSelection],
+  );
+  const selectedPaths = selectionSummary.selectedPaths;
 
   const commitMutation = useMutation({
     mutationFn: (paths: string[]) => {
       if (!accessToken || !sandboxId) throw new Error("Missing sandbox context");
-      const commitPaths = paths.flatMap((filePath) => {
-        const oldPath = files.find((file) => file.path === filePath)?.old_path;
-        return oldPath ? [oldPath, filePath] : [filePath];
-      });
-      return commitGitChanges(accessToken, sandboxId, message.trim(), [...new Set(commitPaths)]);
+      return commitGitChanges(accessToken, sandboxId, message.trim(), buildCommitFileList(paths, files));
     },
     onSuccess: () => {
       setError(null);
@@ -239,10 +244,26 @@ export function GitPanel({
       </div>
       <section className="flex min-h-0 flex-1 flex-col gap-2">
         <div className="flex shrink-0 items-center justify-between text-[10px] font-semibold uppercase tracking-[0.12em] text-forge-muted">
-          <span>File changes · {selectedPaths.length}/{changedPaths.length} selected</span>
+          <span>
+            File changes · {selectionSummary.selectedCount}/{selectionSummary.totalCount} selected
+          </span>
           <span className="flex items-center gap-2">
-            <button type="button" onClick={() => setFileSelection({ pathsKey: changedPathsKey, excluded: new Set() })} disabled={changedPaths.length === 0} className="hover:text-forge-text disabled:opacity-40">All</button>
-            <button type="button" onClick={() => setFileSelection({ pathsKey: changedPathsKey, excluded: new Set(changedPaths) })} disabled={changedPaths.length === 0} className="hover:text-forge-text disabled:opacity-40">None</button>
+            <button
+              type="button"
+              onClick={() => setFileSelection(resetGitSelection(changedPaths, "all"))}
+              disabled={changedPaths.length === 0}
+              className="hover:text-forge-text disabled:opacity-40"
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setFileSelection(resetGitSelection(changedPaths, "none"))}
+              disabled={changedPaths.length === 0}
+              className="hover:text-forge-text disabled:opacity-40"
+            >
+              None
+            </button>
           </span>
         </div>
         {status ? (
@@ -252,12 +273,7 @@ export function GitPanel({
             status={status}
             files={files}
             selectedPaths={selectedPaths}
-            onToggleFile={(path, selected) => setFileSelection((current) => {
-              const next = new Set(current.pathsKey === changedPathsKey ? current.excluded : []);
-              if (selected) next.delete(path);
-              else next.add(path);
-              return { pathsKey: changedPathsKey, excluded: next };
-            })}
+            onToggleFile={(path, selected) => setFileSelection((current) => nextGitSelection(current, changedPaths, path, selected))}
           />
         ) : (
           <div className="flex min-h-0 flex-1 items-center justify-center border border-[var(--border)] text-xs text-forge-muted">

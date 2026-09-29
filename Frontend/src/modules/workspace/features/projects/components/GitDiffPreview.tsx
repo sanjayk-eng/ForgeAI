@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useTheme } from "../../../../../shared/ui/themeContextStore";
 import { getGitDiff, type GitDiffEntry, type GitStatusPayload } from "../../../api/git.api";
 import { readFile } from "../../../api/sandbox-files.api";
+import { collectChangedFiles } from "./gitPanelState";
 import { getFileLanguage } from "./files/fileLanguage";
 
 interface GitDiffPreviewProps {
@@ -14,11 +15,6 @@ interface GitDiffPreviewProps {
   files: GitDiffEntry[];
   selectedPaths: string[];
   onToggleFile: (path: string, selected: boolean) => void;
-}
-
-interface ChangedFile {
-  path: string;
-  status: string;
 }
 
 export function GitDiffPreview({ accessToken, sandboxId, status, files, selectedPaths, onToggleFile }: GitDiffPreviewProps) {
@@ -125,16 +121,6 @@ export function GitDiffPreview({ accessToken, sandboxId, status, files, selected
       </section>
     </div>
   );
-}
-
-function collectChangedFiles(status: GitStatusPayload | undefined, diffs: GitDiffEntry[]): ChangedFile[] {
-  const files = new Map<string, string>();
-  for (const file of diffs) files.set(file.path, file.status);
-  for (const path of status?.staged ?? []) if (!files.has(path)) files.set(path, "staged");
-  for (const path of status?.modified ?? []) if (!files.has(path)) files.set(path, "modified");
-  for (const path of status?.untracked ?? []) files.set(path, "untracked");
-  return [...files].map(([path, fileStatus]) => ({ path, status: fileStatus }))
-    .sort((left, right) => left.path.localeCompare(right.path));
 }
 
 function fileStatusLabel(status: string) {

@@ -1,5 +1,5 @@
-import { ArrowLeft, Bot, Code2, FileText, FolderGit2, Loader2, Terminal } from "lucide-react";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Bot, FileText } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../auth/useAuth";
@@ -8,27 +8,12 @@ import type { ProjectRealtimeEvent, SequencedProjectRealtimeEvent } from "../../
 import { useWorkspaceId } from "../../hooks/useWorkspaceId";
 import { useSandbox } from "./hooks/useSandbox";
 import { useProjectRealtime } from "./hooks/useProjectRealtime";
-import { SandboxStatus } from "./components/SandboxStatus";
 import { FileExplorer } from "./components/files/FileExplorer";
 import { sandboxFileKeys, WORKSPACE_ROOT } from "./components/files/fileTree";
 import { AgentPanel } from "./components/AgentPanel";
 import { ProjectSidePanel } from "./components/ProjectSidePanel";
-
-const CodeEditor = lazy(() =>
-  import("./components/files/CodeEditor").then(({ CodeEditor: component }) => ({
-    default: component,
-  })),
-);
-const GitPanel = lazy(() =>
-  import("./components/GitPanel").then(({ GitPanel: component }) => ({
-    default: component,
-  })),
-);
-const ManualTerminal = lazy(() =>
-  import("./components/ManualTerminal").then(({ ManualTerminal: component }) => ({
-    default: component,
-  })),
-);
+import { ProjectDetailHeader } from "./components/ProjectDetailHeader";
+import { ProjectDetailMainContent } from "./components/ProjectDetailMainContent";
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
@@ -46,6 +31,8 @@ export function ProjectDetailPage() {
   const [realtimeEvents, setRealtimeEvents] = useState<SequencedProjectRealtimeEvent[]>([]);
   const [resyncVersion, setResyncVersion] = useState(0);
   const eventSequence = useRef(0);
+  const gitRefreshCooldownRef = useRef(0);
+  const gitStatusRefreshCooldownRef = useRef(0);
   const panelParam = searchParams.get("panel");
   const activePanel = panelParam === "agent" || panelParam === "git" || panelParam === "terminal" ? panelParam : "files";
   const [terminalVisited, setTerminalVisited] = useState(activePanel === "terminal");
@@ -59,8 +46,11 @@ export function ProjectDetailPage() {
     setSelectedFile(null);
   }, [projectId]);
 
-  function refreshGitStatus() {
+  function refreshGitStatus(force = false) {
     if (!accessToken || !sandbox?.id) return;
+    const now = Date.now();
+    if (!force && now - gitStatusRefreshCooldownRef.current < 1500) return;
+    gitStatusRefreshCooldownRef.current = now;
     void queryClient.fetchQuery({
       queryKey: ["git-status", sandbox.id],
       queryFn: () => getGitStatus(accessToken, sandbox.id),
@@ -72,13 +62,21 @@ export function ProjectDetailPage() {
     }).catch(() => undefined);
   }
 
+  function refreshGitPanel(force = false) {
+    if (!sandbox?.id || activePanel !== "git") return;
+    const now = Date.now();
+    if (!force && now - gitRefreshCooldownRef.current < 1500) return;
+    gitRefreshCooldownRef.current = now;
+    invalidateGitDiffs(queryClient, sandbox.id);
+    refreshGitStatus(force);
+  }
+
   function resyncProject() {
     setResyncVersion((current) => current + 1);
     if (projectId) void queryClient.invalidateQueries({ queryKey: ["sandbox", projectId] });
     if (!sandbox?.id) return;
     if (activePanel === "git") {
-      invalidateGitDiffs(queryClient, sandbox.id);
-      refreshGitStatus();
+      refreshGitPanel(true);
     }
   }
 
@@ -104,7 +102,7 @@ export function ProjectDetailPage() {
           });
         }
         if (activePanel === "git") {
-          invalidateGitDiffs(queryClient, sandbox.id);
+          refreshGitPanel();
         }
       }
       if (sandbox?.id && oldPath && oldPath !== selectedFile?.path) {
@@ -136,7 +134,7 @@ export function ProjectDetailPage() {
     if (event.event === "git.status.changed") {
       refreshGitStatus();
       if (activePanel === "git" && sandbox?.id) {
-        invalidateGitDiffs(queryClient, sandbox.id);
+        refreshGitPanel();
       }
       return;
     }
@@ -148,10 +146,9 @@ export function ProjectDetailPage() {
 
   useEffect(() => {
     if (activePanel === "git" && sandbox?.id) {
-      void queryClient.invalidateQueries({ queryKey: ["git-status", sandbox.id] });
-      invalidateGitDiffs(queryClient, sandbox.id);
+      refreshGitPanel(true);
     }
-  }, [activePanel, queryClient, sandbox?.id]);
+  }, [activePanel, sandbox?.id]);
 
   useProjectRealtime(accessToken, projectId ?? null, handleRealtimeEvent, resyncProject);
 
@@ -171,52 +168,14 @@ export function ProjectDetailPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-forge-bg text-forge-text">
-      <header className="flex shrink-0 items-center justify-between border-b border-[var(--border)] bg-forge-bg px-4 py-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(`/workspace/projects?workspace=${encodeURIComponent(workspaceId)}`)}
-            aria-label="Back to projects"
-            className="grid size-8 place-items-center rounded-md border border-[var(--border)] bg-forge-panel text-forge-muted transition hover:bg-[var(--surface-hover)] hover:text-forge-text"
-          >
-            <ArrowLeft size={15} />
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="grid size-7 place-items-center rounded-md bg-forge-accent text-[11px] font-bold text-[var(--primary-foreground)]">F</div>
-            <div className="text-sm font-semibold text-forge-text">{projectLabel}</div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            aria-pressed={activePanel === "agent"}
-            onClick={() => selectPanel(activePanel === "agent" ? "files" : "agent")}
-            className={`inline-flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition ${activePanel === "agent" ? "border-forge-accent/40 bg-forge-accent/[0.1] text-forge-accent" : "border-[var(--border)] text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"}`}
-          >
-            <Bot size={14} /> Agent
-          </button>
-          <button
-            type="button"
-            aria-pressed={activePanel === "git"}
-            onClick={() => selectPanel(activePanel === "git" ? "files" : "git")}
-            className={`inline-flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition ${activePanel === "git" ? "border-forge-accent/40 bg-forge-accent/[0.1] text-forge-accent" : "border-[var(--border)] text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"}`}
-          >
-            <FolderGit2 size={14} /> Git
-          </button>
-          <button
-            type="button"
-            aria-pressed={activePanel === "terminal"}
-            onClick={() => selectPanel(activePanel === "terminal" ? "files" : "terminal")}
-            className={`inline-flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition ${activePanel === "terminal" ? "border-forge-accent/40 bg-forge-accent/[0.1] text-forge-accent" : "border-[var(--border)] text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"}`}
-          >
-            <Terminal size={14} /> Terminal
-          </button>
-          <div className="rounded-md border border-[var(--border)] bg-forge-panel px-3 py-1.5 text-[11px] font-medium text-forge-muted">
-            {workspaceLabel}
-          </div>
-          {sandboxStatus && <SandboxStatus status={sandboxStatus} />}
-        </div>
-      </header>
+      <ProjectDetailHeader
+        workspaceId={workspaceLabel}
+        projectLabel={projectLabel}
+        activePanel={activePanel}
+        sandboxStatus={sandboxStatus}
+        onBack={() => navigate(`/workspace/projects?workspace=${encodeURIComponent(workspaceId)}`)}
+        onSelectPanel={selectPanel}
+      />
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-[270px] shrink-0 flex-col border-r border-[var(--border)] bg-forge-panel p-0">
@@ -261,83 +220,20 @@ export function ProjectDetailPage() {
         </aside>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-forge-bg">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="flex min-h-0 min-w-0 flex-1 bg-forge-bg p-0">
-              {activePanel === "git" ? (
-                <Suspense fallback={<div className="p-4 text-sm text-forge-muted">Loading Git review...</div>}>
-                  <GitPanel
-                    accessToken={accessToken}
-                    sandboxId={sandbox?.id ?? null}
-                    sandboxStatus={sandboxStatus}
-                    projectName={projectLabel}
-                  />
-                </Suspense>
-              ) : sandboxStatus === "RUNNING" ? (
-                selectedFile ? (
-                  <Suspense
-                    fallback={<div className="p-4 text-sm text-forge-muted">Loading editor...</div>}
-                  >
-                    <CodeEditor
-                      accessToken={accessToken}
-                      sandboxId={sandbox?.id ?? null}
-                      filePath={selectedFile.path}
-                      fileName={selectedFile.name}
-                      realtimeEvents={realtimeEvents}
-                      resyncVersion={resyncVersion}
-                    />
-                  </Suspense>
-                ) : (
-                  <div className="flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-3 text-center text-sm text-forge-muted">
-                    <Code2 size={28} strokeWidth={1.5} />
-                    <span>Select a file to view its contents</span>
-                  </div>
-                )
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <div className="text-center">
-                    {isLoading && (
-                      <>
-                        <Loader2 size={32} className="mx-auto animate-spin text-forge-accent" />
-                        <p className="mt-4 text-sm text-forge-muted">Loading environment...</p>
-                      </>
-                    )}
-                    {!isLoading && error && (
-                      <>
-                        <div className="text-forge-signal">Environment setup failed</div>
-                        <p className="mt-2 text-xs text-forge-muted">Please try again</p>
-                      </>
-                    )}
-                    {!isLoading && sandbox && sandboxStatus && (
-                      <>
-                        <div className="text-forge-accent">
-                          <SandboxStatus status={sandboxStatus} showLabel={false} className="justify-center" />
-                        </div>
-                        <p className="mt-4 text-sm text-forge-muted">
-                          Environment is {sandboxStatus.toLowerCase()}
-                        </p>
-                        {sandboxStatus === "FAILED" && sandbox.last_error && (
-                          <p className="mt-2 text-xs text-forge-signal">{sandbox.last_error}</p>
-                        )}
-                      </>
-                      )}
-                    {!isLoading && sandbox && !sandboxStatus && (
-                      <div className="text-forge-signal">Environment status is unavailable</div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-            {terminalVisited && (
-              <div
-                className={`min-h-0 shrink-0 border-t border-[var(--border)] ${activePanel === "terminal" ? "flex" : "hidden"}`}
-                style={{ height: "min(36vh, 320px)", minHeight: 180 }}
-              >
-                <Suspense fallback={<div className="p-4 text-sm text-forge-muted">Opening terminal...</div>}>
-                  <ManualTerminal key={projectId} projectId={projectId} accessToken={accessToken} />
-                </Suspense>
-              </div>
-            )}
-          </div>
+          <ProjectDetailMainContent
+            activePanel={activePanel}
+            accessToken={accessToken}
+            sandbox={sandbox}
+            sandboxStatus={sandboxStatus}
+            isLoading={isLoading}
+            error={error}
+            projectLabel={projectLabel}
+            selectedFile={selectedFile}
+            realtimeEvents={realtimeEvents}
+            resyncVersion={resyncVersion}
+            terminalVisited={terminalVisited}
+            projectId={projectId}
+          />
         </main>
         {activePanel === "agent" && (
           <ProjectSidePanel
