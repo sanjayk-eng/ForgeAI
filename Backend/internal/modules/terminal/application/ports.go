@@ -71,6 +71,12 @@ type Runtime interface {
 	StartTerminal(ctx context.Context, containerID, workspacePath, shellID string, cols, rows int) (InteractiveProcess, error)
 }
 
+type PreviewAddressResolver interface {
+	ResolvePreviewAddress(ctx context.Context, containerID string, containerPort int) (string, error)
+}
+
+const PreviewContainerPort = 5173
+
 type FileStore interface {
 	ListFiles(ctx context.Context, containerID, path string) ([]FileEntry, error)
 	ReadFile(ctx context.Context, containerID, path string) (string, error)

@@ -25,7 +25,8 @@ func TestLoadFromEnvUsesDefaults(t *testing.T) {
 func TestLoadFromEnvParsesValues(t *testing.T) {
 	values := map[string]string{
 		"APP_ENV": "production", "HOST": "0.0.0.0", "PORT": "9090",
-		"DATABASE_URL": "postgres://localhost/forgeai", "LOG_LEVEL": "debug",
+		"DATABASE_URL": "postgres://localhost/forgeai", "JWT_SECRET": "test-jwt-secret-long-enough",
+		"PREVIEW_PUBLIC_ORIGIN": "https://preview.example.com", "LOG_LEVEL": "debug",
 		"LOG_FORMAT": "text", "LOG_SOURCE": "false",
 		envAIBaseURL: "https://llm.example/v1", envAIAPIKey: "configured-test-key", envAIModel: "code-model",
 	}

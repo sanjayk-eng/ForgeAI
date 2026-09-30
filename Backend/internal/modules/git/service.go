@@ -141,6 +141,9 @@ func (s *Service) Revert(ctx context.Context, sandboxID string, req RevertReques
 			}
 			continue
 		}
+		if _, err := s.runGit(ctx, sandboxID, "rm", "--cached", "--ignore-unmatch", "-f", "--", file); err != nil {
+			return err
+		}
 		if _, err := s.runGit(ctx, sandboxID, "clean", "-fd", "--", file); err != nil {
 			return err
 		}
@@ -149,19 +152,11 @@ func (s *Service) Revert(ctx context.Context, sandboxID string, req RevertReques
 }
 
 func (s *Service) isTrackedFile(ctx context.Context, sandboxID, file string) (bool, error) {
-	output, err := s.runGitAllowExitCode(ctx, sandboxID, 1, "ls-files", "--error-unmatch", "--", file)
+	output, err := s.runGit(ctx, sandboxID, "--literal-pathspecs", "ls-tree", "-r", "--name-only", "HEAD", "--", file)
 	if err != nil {
 		return false, err
 	}
-	trimmed := strings.TrimSpace(output)
-	if trimmed == "" {
-		return false, nil
-	}
-	lower := strings.ToLower(trimmed)
-	if strings.Contains(lower, "did not match any file(s) known to git") || strings.Contains(lower, "pathspec") {
-		return false, nil
-	}
-	return true, nil
+	return strings.TrimSpace(output) == file, nil
 }
 
 func (s *Service) Push(ctx context.Context, sandboxID string, req PushRequest, accessToken string) (PushResult, error) {

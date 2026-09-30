@@ -7,6 +7,7 @@ import (
 	"ai-agent/internal/modules/auth"
 	"ai-agent/internal/modules/auth/provider"
 	gitmodule "ai-agent/internal/modules/git"
+	previewmodule "ai-agent/internal/modules/preview"
 	projectmodule "ai-agent/internal/modules/project"
 	terminalmodule "ai-agent/internal/modules/terminal"
 	terminalworker "ai-agent/internal/modules/terminal/worker"
@@ -169,6 +170,12 @@ func runServer() error {
 	if err != nil {
 		return fmt.Errorf("initialize terminal module: %w", err)
 	}
+	previewHandler, err := previewmodule.NewHandler(terminalModule.Service, terminalModule.Preview, settings.PreviewOrigin, settings.PreviewSigningKey)
+	if err != nil {
+		return fmt.Errorf("initialize preview module: %w", err)
+	}
+	previewmodule.RegisterRoutes(protectedRouter, previewHandler)
+	engine.NoRoute(previewHandler.Gateway)
 
 	terminalModule.Start(emailContext, 3)
 	defer terminalModule.Stop()

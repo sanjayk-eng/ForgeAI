@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -10,17 +11,19 @@ type getenv func(string) string
 
 func loadFromEnv(get getenv) (Config, error) {
 	config := Config{
-		AppEnv:          envOr(get, envAppEnv, defaultAppEnv),
-		Host:            envOr(get, envHost, defaultHost),
-		DatabaseURL:     get(envDatabaseURL),
-		JWTSecret:       get(envJWTSecret),
-		ResendAPIKey:    get(envResendAPIKey),
-		ResendFromEmail: get(envResendFromEmail),
-		FrontendURL:     envOr(get, envFrontendURL, defaultFrontendURL),
-		AIBaseURL:       envOr(get, envAIBaseURL, defaultAIBaseURL),
-		AIAPIKey:        get(envAIAPIKey),
-		AIModel:         envOr(get, envAIModel, defaultAIModel),
-		CORSOrigins:     envOr(get, envCORSOrigins, defaultCORSOrigins),
+		AppEnv:            envOr(get, envAppEnv, defaultAppEnv),
+		Host:              envOr(get, envHost, defaultHost),
+		DatabaseURL:       get(envDatabaseURL),
+		JWTSecret:         get(envJWTSecret),
+		ResendAPIKey:      get(envResendAPIKey),
+		ResendFromEmail:   get(envResendFromEmail),
+		FrontendURL:       envOr(get, envFrontendURL, defaultFrontendURL),
+		PreviewOrigin:     envOr(get, envPreviewOrigin, defaultPreviewOrigin),
+		PreviewSigningKey: get(envPreviewSigningKey),
+		AIBaseURL:         envOr(get, envAIBaseURL, defaultAIBaseURL),
+		AIAPIKey:          get(envAIAPIKey),
+		AIModel:           envOr(get, envAIModel, defaultAIModel),
+		CORSOrigins:       envOr(get, envCORSOrigins, defaultCORSOrigins),
 		OAuth: OAuthConfig{
 			GoogleClientID:     get("GOOGLE_CLIENT_ID"),
 			GoogleClientSecret: get("GOOGLE_CLIENT_SECRET"),
@@ -31,6 +34,22 @@ func loadFromEnv(get getenv) (Config, error) {
 		},
 		LogFormat: strings.ToLower(envOr(get, envLogFormat, defaultLogFormat)),
 		LogSource: defaultLogSource,
+	}
+	if config.PreviewSigningKey == "" {
+		config.PreviewSigningKey = config.JWTSecret
+		if config.PreviewSigningKey == "" && config.AppEnv != "production" {
+			config.PreviewSigningKey = defaultPreviewSigningKey
+		}
+	}
+	if config.AppEnv == "production" && len(config.PreviewSigningKey) < 16 {
+		return Config{}, fmt.Errorf("PREVIEW_SIGNING_KEY or JWT_SECRET must contain at least 16 bytes in production")
+	}
+	if config.AppEnv == "production" {
+		previewOrigin, err := url.Parse(config.PreviewOrigin)
+		if err != nil || previewOrigin.Scheme != "https" || previewOrigin.Hostname() == "" || previewOrigin.User != nil ||
+			(previewOrigin.Path != "" && previewOrigin.Path != "/") || previewOrigin.RawQuery != "" || previewOrigin.Fragment != "" {
+			return Config{}, fmt.Errorf("PREVIEW_PUBLIC_ORIGIN must be an HTTPS origin in production")
+		}
 	}
 
 	port, err := parsePort(envOr(get, envPort, defaultPort))

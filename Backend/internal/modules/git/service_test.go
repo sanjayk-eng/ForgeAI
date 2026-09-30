@@ -2,7 +2,6 @@ package git
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -215,21 +214,24 @@ func TestCommitRejectsPathsOutsideWorkspace(t *testing.T) {
 	}
 }
 
-func TestRevertRestoresSelectedFiles(t *testing.T) {
+func TestRevertRestoresFilesTrackedInHead(t *testing.T) {
 	executor := &pushExecutor{}
 	service := NewService("/workspace", executor)
-	selected := []string{"Backend/internal/config/env.go", "Backend/internal/config/validation.go"}
+	selected := []string{"Backend/internal/config/env.go", "Backend/internal/config/validation.go", "internal/scheduler/method.go"}
 
 	if err := service.Revert(context.Background(), "sandbox-1", RevertRequest{Files: selected}); err != nil {
 		t.Fatalf("Revert() error = %v", err)
 	}
-	if len(executor.commands) != 4 {
-		t.Fatalf("Revert() commands = %#v, want tracked-file check plus restore for each selected file", executor.commands)
+	if len(executor.commands) != 6 {
+		t.Fatalf("Revert() commands = %#v, want HEAD lookup plus restore for each selected file", executor.commands)
 	}
 	joined := strings.Join(executor.commands, "\n")
 	for _, file := range selected {
 		if !strings.Contains(joined, "'"+file+"'") {
 			t.Fatalf("selected file %q missing from revert command: %s", file, joined)
+		}
+		if !strings.Contains(joined, "'ls-tree' '-r' '--name-only' 'HEAD'") {
+			t.Fatalf("revert did not check whether %q exists in HEAD: %s", file, joined)
 		}
 		if !strings.Contains(joined, "'restore' '--source=HEAD' '--staged' '--worktree' '--' '"+file+"'") {
 			t.Fatalf("tracked file %q was not restored with HEAD source: %s", file, joined)
@@ -248,22 +250,22 @@ func TestRevertRemovesUntrackedNewFiles(t *testing.T) {
 		t.Fatalf("Revert() error = %v", err)
 	}
 	joined := strings.Join(executor.commands, "\n")
-	if !strings.Contains(joined, "'ls-files'") {
-		t.Fatalf("untracked revert should check whether the file is tracked: %s", joined)
+	if !strings.Contains(joined, "'ls-tree' '-r' '--name-only' 'HEAD'") {
+		t.Fatalf("untracked revert should check whether the file exists in HEAD: %s", joined)
 	}
-	if !strings.Contains(joined, "'clean'") && !strings.Contains(joined, "'rm'") {
+	if !strings.Contains(joined, "'rm' '--cached' '--ignore-unmatch' '-f'") || !strings.Contains(joined, "'clean'") {
 		t.Fatalf("reverting a new file should remove it from the workspace: %s", joined)
 	}
 }
 
-func TestIsTrackedFileAllowsExitCodeOneForUntrackedFiles(t *testing.T) {
+func TestIsTrackedFileReturnsFalseWhenAbsentFromHead(t *testing.T) {
 	service := NewService("/workspace", &untrackedFileExecutor{})
 	tracked, err := service.isTrackedFile(context.Background(), "sandbox-1", "demo1.go")
 	if err != nil {
 		t.Fatalf("isTrackedFile() error = %v", err)
 	}
 	if tracked {
-		t.Fatal("isTrackedFile() incorrectly marked an untracked file as tracked")
+		t.Fatal("isTrackedFile() incorrectly marked a file absent from HEAD as tracked")
 	}
 }
 
@@ -300,8 +302,8 @@ type pushExecutor struct {
 type untrackedFileExecutor struct{}
 
 func (executor *untrackedFileExecutor) Execute(_ context.Context, _ string, command string) (terminalapp.ExecutionResult, error) {
-	if strings.Contains(command, "'ls-files'") {
-		return terminalapp.ExecutionResult{Output: "fatal: pathspec 'demo1.go' did not match any file(s) known to git\n", ExitCode: 1}, fmt.Errorf("exit status 1")
+	if strings.Contains(command, "'ls-tree'") {
+		return terminalapp.ExecutionResult{Output: "", ExitCode: 0}, nil
 	}
 	return terminalapp.ExecutionResult{Output: "", ExitCode: 0}, nil
 }
@@ -366,16 +368,16 @@ func (executor *pushExecutor) Execute(_ context.Context, _ string, command strin
 	if strings.Contains(command, "'rev-parse' 'HEAD'") {
 		return terminalapp.ExecutionResult{Output: "commit-hash"}, nil
 	}
-	if strings.Contains(command, "'ls-files' '--error-unmatch' '--'") {
+	if strings.Contains(command, "'ls-tree' '-r' '--name-only' 'HEAD'") {
 		start := strings.Index(command, "'--' '")
 		if start >= 0 {
 			rest := command[start+len("'--' '"):]
 			if end := strings.Index(rest, "'"); end >= 0 {
-				tracked := rest[:end]
-				if tracked == "notes.txt" {
-					return terminalapp.ExecutionResult{}, nil
+				file := rest[:end]
+				if file == "notes.txt" {
+					return terminalapp.ExecutionResult{ExitCode: 0}, nil
 				}
-				return terminalapp.ExecutionResult{Output: tracked + "\n"}, nil
+				return terminalapp.ExecutionResult{Output: file + "\n"}, nil
 			}
 		}
 		return terminalapp.ExecutionResult{Output: "tracked.txt\n"}, nil

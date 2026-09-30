@@ -34,7 +34,7 @@ export function ProjectDetailPage() {
   const gitRefreshCooldownRef = useRef(0);
   const gitStatusRefreshCooldownRef = useRef(0);
   const panelParam = searchParams.get("panel");
-  const activePanel = panelParam === "agent" || panelParam === "git" || panelParam === "terminal" ? panelParam : "files";
+  const activePanel = panelParam === "agent" || panelParam === "git" || panelParam === "terminal" || panelParam === "preview" ? panelParam : "files";
   const [terminalVisited, setTerminalVisited] = useState(activePanel === "terminal");
   const workspaceLabel = workspaceId || "workspace";
   const projectLabel = projectId || "project";
@@ -156,12 +156,13 @@ export function ProjectDetailPage() {
     return <div>Invalid project</div>;
   }
 
-  function selectPanel(panel: "files" | "agent" | "git" | "terminal") {
+  function selectPanel(panel: "files" | "agent" | "git" | "terminal" | "preview") {
     if (panel === "terminal") setTerminalVisited(true);
     const nextParams = new URLSearchParams(searchParams);
     if (panel === "agent") nextParams.set("panel", "agent");
     else if (panel === "git") nextParams.set("panel", "git");
     else if (panel === "terminal") nextParams.set("panel", "terminal");
+    else if (panel === "preview") nextParams.set("panel", "preview");
     else nextParams.delete("panel");
     setSearchParams(nextParams, { replace: true });
   }
