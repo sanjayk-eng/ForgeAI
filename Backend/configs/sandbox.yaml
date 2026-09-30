@@ -3,6 +3,7 @@ sandbox:
   git_image: alpine/git:latest
   workspace_path: /workspace
   network_mode: bridge
+  preview_port: 4000
   read_only_rootfs: true
   no_new_privileges: true
   cap_drop:

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"ai-agent/internal/modules/terminal/application"
+	"ai-agent/internal/modules/terminal/policy"
 )
 
 type DockerRuntime struct {
@@ -57,7 +58,14 @@ func (runtime *DockerRuntime) CreateContainer(ctx context.Context, spec applicat
 	args = append(args, "--mount", cacheMount, "--env", "npm_config_cache=/npm-cache")
 	args = append(args, "--workdir", spec.WorkspacePath, "--network", spec.NetworkMode)
 	if spec.NetworkMode == "bridge" {
-		args = append(args, "--publish", fmt.Sprintf("127.0.0.1::%d/tcp", application.PreviewContainerPort))
+		previewPort := spec.PreviewPort
+		if previewPort == 0 {
+			previewPort = application.PreviewContainerPort
+		}
+		if previewPort < policy.MinPreviewPort || previewPort > policy.MaxPreviewPort {
+			return "", fmt.Errorf("preview port must be between %d and %d", policy.MinPreviewPort, policy.MaxPreviewPort)
+		}
+		args = append(args, "--publish", fmt.Sprintf("127.0.0.1::%d/tcp", previewPort))
 	}
 	if spec.ReadOnlyRootFS {
 		args = append(args, "--read-only")

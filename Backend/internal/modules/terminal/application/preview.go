@@ -9,29 +9,33 @@ import (
 )
 
 type PreviewService struct {
-	store    Store
-	resolver PreviewAddressResolver
+	store       Store
+	resolver    PreviewAddressResolver
+	previewPort int
 }
 
-func NewPreviewService(store Store, resolver PreviewAddressResolver) *PreviewService {
-	return &PreviewService{store: store, resolver: resolver}
+func NewPreviewService(store Store, resolver PreviewAddressResolver, previewPort int) *PreviewService {
+	if previewPort == 0 {
+		previewPort = PreviewContainerPort
+	}
+	return &PreviewService{store: store, resolver: resolver, previewPort: previewPort}
 }
 
-func (service *PreviewService) ResolvePreviewTarget(ctx context.Context, projectID string) (domain.Sandbox, string, error) {
+func (service *PreviewService) ResolvePreviewTarget(ctx context.Context, projectID string) (domain.Sandbox, string, int, error) {
 	projectID = strings.TrimSpace(projectID)
 	if projectID == "" || service.store == nil || service.resolver == nil {
-		return domain.Sandbox{}, "", domain.ErrInvalidSandbox
+		return domain.Sandbox{}, "", service.previewPort, domain.ErrInvalidSandbox
 	}
 	sandbox, err := service.store.FindActiveByProject(ctx, projectID)
 	if err != nil {
-		return domain.Sandbox{}, "", err
+		return domain.Sandbox{}, "", service.previewPort, err
 	}
 	if sandbox.Status != domain.StatusRunning || sandbox.ContainerID == "" {
-		return sandbox, "", nil
+		return sandbox, "", service.previewPort, nil
 	}
-	address, err := service.resolver.ResolvePreviewAddress(ctx, sandbox.ContainerID, PreviewContainerPort)
+	address, err := service.resolver.ResolvePreviewAddress(ctx, sandbox.ContainerID, service.previewPort)
 	if err != nil {
-		return sandbox, "", fmt.Errorf("resolve sandbox preview port: %w", err)
+		return sandbox, "", service.previewPort, fmt.Errorf("resolve sandbox preview port: %w", err)
 	}
-	return sandbox, address, nil
+	return sandbox, address, service.previewPort, nil
 }

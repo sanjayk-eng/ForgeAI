@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"ai-agent/internal/modules/terminal/domain"
+	"ai-agent/internal/modules/terminal/policy"
 )
 
 type Store interface {
@@ -25,6 +26,7 @@ type ContainerSpec struct {
 	VolumeName      string
 	WorkspacePath   string
 	NetworkMode     string
+	PreviewPort     int
 	ReadOnlyRootFS  bool
 	NoNewPrivileges bool
 	CapDrop         []string
@@ -75,7 +77,7 @@ type PreviewAddressResolver interface {
 	ResolvePreviewAddress(ctx context.Context, containerID string, containerPort int) (string, error)
 }
 
-const PreviewContainerPort = 5173
+const PreviewContainerPort = policy.DefaultPreviewPort
 
 type FileStore interface {
 	ListFiles(ctx context.Context, containerID, path string) ([]FileEntry, error)

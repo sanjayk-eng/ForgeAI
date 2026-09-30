@@ -12,6 +12,12 @@ import (
 	"ai-agent/internal/modules/terminal/domain"
 )
 
+const (
+	DefaultPreviewPort = 5173
+	MinPreviewPort     = 3000
+	MaxPreviewPort     = 9000
+)
+
 type File struct {
 	Sandbox Sandbox `yaml:"sandbox"`
 }
@@ -21,6 +27,7 @@ type Sandbox struct {
 	GitImage          string        `yaml:"git_image"`
 	WorkspacePath     string        `yaml:"workspace_path"`
 	NetworkMode       string        `yaml:"network_mode"`
+	PreviewPort       int           `yaml:"preview_port"`
 	ReadOnlyRootFS    bool          `yaml:"read_only_rootfs"`
 	NoNewPrivileges   bool          `yaml:"no_new_privileges"`
 	CapDrop           []string      `yaml:"cap_drop"`
@@ -74,6 +81,12 @@ func (sandbox *Sandbox) validate() error {
 	}
 	if sandbox.NetworkMode == "" {
 		return fmt.Errorf("sandbox policy network_mode is required")
+	}
+	if sandbox.PreviewPort == 0 {
+		sandbox.PreviewPort = DefaultPreviewPort
+	}
+	if sandbox.PreviewPort < MinPreviewPort || sandbox.PreviewPort > MaxPreviewPort {
+		return fmt.Errorf("sandbox policy preview_port must be between %d and %d", MinPreviewPort, MaxPreviewPort)
 	}
 	if sandbox.CommandTimeoutRaw == "" {
 		return fmt.Errorf("sandbox policy command_timeout is required")

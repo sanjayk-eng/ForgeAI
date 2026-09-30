@@ -181,6 +181,6 @@ func (service testSandboxService) ValidateProjectAccess(context.Context, string,
 	return service.accessErr
 }
 
-func (service testSandboxService) ResolvePreviewTarget(context.Context, string) (domain.Sandbox, string, error) {
-	return service.sandbox, service.target, service.resolveErr
+func (service testSandboxService) ResolvePreviewTarget(context.Context, string) (domain.Sandbox, string, int, error) {
+	return service.sandbox, service.target, 5173, service.resolveErr
 }

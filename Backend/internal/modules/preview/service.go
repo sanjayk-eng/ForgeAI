@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"ai-agent/internal/modules/terminal/application"
 	"ai-agent/internal/modules/terminal/domain"
 )
 
@@ -25,7 +24,7 @@ type projectAccessService interface {
 }
 
 type previewTargetService interface {
-	ResolvePreviewTarget(ctx context.Context, projectID string) (domain.Sandbox, string, error)
+	ResolvePreviewTarget(ctx context.Context, projectID string) (domain.Sandbox, string, int, error)
 }
 
 type Info struct {
@@ -80,7 +79,7 @@ func (service *Service) GetInfo(ctx context.Context, userID, projectID string) (
 	if err := service.access.ValidateProjectAccess(ctx, userID, projectID); err != nil {
 		return Info{}, ErrProjectAccessDenied
 	}
-	sandbox, target, err := service.preview.ResolvePreviewTarget(ctx, projectID)
+	sandbox, target, port, err := service.preview.ResolvePreviewTarget(ctx, projectID)
 	if errors.Is(err, domain.ErrSandboxNotFound) {
 		return Info{Status: "sandbox_unavailable"}, nil
 	}
@@ -96,7 +95,6 @@ func (service *Service) GetInfo(ctx context.Context, userID, projectID string) (
 		if err != nil {
 			return Info{}, err
 		}
-		port := application.PreviewContainerPort
 		return Info{Status: "running", Port: &port, URL: &previewURL}, nil
 	case domain.StatusStopped:
 		return Info{Status: "stopped"}, nil
@@ -108,7 +106,7 @@ func (service *Service) GetInfo(ctx context.Context, userID, projectID string) (
 }
 
 func (service *Service) ResolveTarget(ctx context.Context, projectID string) (string, error) {
-	sandbox, target, err := service.preview.ResolvePreviewTarget(ctx, projectID)
+	sandbox, target, _, err := service.preview.ResolvePreviewTarget(ctx, projectID)
 	if err != nil || sandbox.Status != domain.StatusRunning || !validTarget(target) {
 		return "", ErrPreviewUnavailable
 	}
