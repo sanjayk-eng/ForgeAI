@@ -1,10 +1,14 @@
 import { DiffEditor, Editor } from "@monaco-editor/react";
 import { Code2, FileCode2, GitCompareArrows, Save } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { editor as MonacoEditor } from "monaco-editor";
+import type * as Monaco from "monaco-editor";
 import "./monacoSetup";
 import { useTheme } from "../../../../../../shared/ui/themeContextStore";
+import { getGoDefinition, readFile } from "../../../../api/sandbox-files.api";
 import type { SequencedProjectRealtimeEvent } from "../../../../api/project-realtime.types";
 import { getFileLanguage } from "./fileLanguage";
+import { pathReferenceAt, resolveWorkspacePathCandidates } from "./navigationResolver";
 import { useFileEditor } from "./useFileEditor";
 
 export function CodeEditor({
@@ -12,6 +16,9 @@ export function CodeEditor({
   sandboxId,
   filePath,
   fileName,
+  selectedLine,
+  selectedColumn,
+  onNavigatePath,
   realtimeEvents = [],
   resyncVersion = 0,
 }: {
@@ -19,6 +26,9 @@ export function CodeEditor({
   sandboxId: string | null;
   filePath: string | null;
   fileName: string | null;
+  selectedLine: number | null;
+  selectedColumn: number | null;
+  onNavigatePath: (path: string, line: number | null, column: number | null) => void;
   realtimeEvents?: SequencedProjectRealtimeEvent[];
   resyncVersion?: number;
 }) {
@@ -26,8 +36,14 @@ export function CodeEditor({
   const editorState = useFileEditor(sandboxId, filePath, accessToken);
   const saveRef = useRef(editorState.save);
   const refreshRef = useRef(editorState.refreshWithDiff);
+  const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
+  const goProviderRef = useRef<{ dispose: () => void } | null>(null);
+  const definitionRequestInFlight = useRef(false);
   const processedRealtimeSequence = useRef(0);
   const [showDiff, setShowDiff] = useState(false);
+  const [navigationError, setNavigationError] = useState("");
+  const navigationContext = useRef({ accessToken, sandboxId, filePath, onNavigatePath });
+  navigationContext.current = { accessToken, sandboxId, filePath, onNavigatePath };
 
   useEffect(() => {
     saveRef.current = editorState.save;
@@ -54,6 +70,15 @@ export function CodeEditor({
   }, [filePath, resyncVersion]);
 
   useEffect(() => setShowDiff(false), [filePath]);
+
+  useEffect(() => () => goProviderRef.current?.dispose(), []);
+
+  useEffect(() => {
+    if (!selectedLine || !editorRef.current) return;
+    editorRef.current.revealLineInCenter(selectedLine);
+    editorRef.current.setPosition({ lineNumber: selectedLine, column: selectedColumn ?? 1 });
+    editorRef.current.focus();
+  }, [filePath, selectedLine, selectedColumn]);
 
   if (!filePath || !sandboxId) {
     return (
@@ -119,6 +144,84 @@ export function CodeEditor({
           value={editorState.content}
           onChange={(value) => editorState.updateDraft(value ?? "")}
           onMount={(editor, monaco) => {
+            editorRef.current = editor;
+            goProviderRef.current?.dispose();
+            goProviderRef.current = monaco.languages.registerDefinitionProvider("go", {
+              provideDefinition: async (
+                _model: Monaco.editor.ITextModel,
+                position: Monaco.Position,
+                token: Monaco.CancellationToken,
+              ) => {
+                const current = navigationContext.current;
+                if (!current.accessToken || !current.sandboxId || !current.filePath) return null;
+                if (definitionRequestInFlight.current) return null;
+                definitionRequestInFlight.current = true;
+                try {
+                  const definition = await getGoDefinition(
+                    current.accessToken,
+                    current.sandboxId,
+                    current.filePath,
+                    position.lineNumber,
+                    position.column,
+                  );
+                  if (token.isCancellationRequested) return null;
+                  current.onNavigatePath(definition.path, definition.line, definition.column);
+                  return {
+                    uri: monaco.Uri.file(definition.path),
+                    range: new monaco.Range(definition.line, definition.column, definition.line, definition.column),
+                  };
+                } catch {
+                  if (!token.isCancellationRequested) setNavigationError("Go definition could not be resolved.");
+                  return null;
+                } finally {
+                  definitionRequestInFlight.current = false;
+                }
+              },
+            });
+            if (selectedLine) {
+              editor.revealLineInCenter(selectedLine);
+              editor.setPosition({ lineNumber: selectedLine, column: selectedColumn ?? 1 });
+            }
+            async function openPathReference(position: { lineNumber: number; column: number } | null) {
+              const current = navigationContext.current;
+              const model = editor.getModel();
+              if (!position || !model || !current.filePath || !current.accessToken || !current.sandboxId) return false;
+              const reference = pathReferenceAt(model.getLineContent(position.lineNumber), position.column);
+              if (!reference) return false;
+              for (const candidate of resolveWorkspacePathCandidates(current.filePath, reference)) {
+                try {
+                  await readFile(current.accessToken, current.sandboxId, candidate);
+                  current.onNavigatePath(candidate, reference.line, reference.column);
+                  setNavigationError("");
+                  return true;
+                } catch {
+                  continue;
+                }
+              }
+              setNavigationError(`Workspace path not found: ${reference.path}`);
+              return true;
+            }
+
+            editor.onMouseDown((event) => {
+              const browserEvent = event.event.browserEvent;
+              if (!browserEvent.ctrlKey && !browserEvent.metaKey) return;
+              const position = event.target.position;
+              if (!position) return;
+              const model = editor.getModel();
+              if (!model || !pathReferenceAt(model.getLineContent(position.lineNumber), position.column)) return;
+              browserEvent.preventDefault();
+              void openPathReference(position);
+            });
+            editor.addAction({
+              id: "forge.go-to-file-or-definition",
+              label: "Go to File or Definition",
+              keybindings: [monaco.KeyCode.F12, monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+              run: async () => {
+                if (!await openPathReference(editor.getPosition())) {
+                  await editor.getAction("editor.action.revealDefinition")?.run();
+                }
+              },
+            });
             editor.addAction({
               id: "forge.save-file",
               label: "Save file",
@@ -137,6 +240,11 @@ export function CodeEditor({
           theme={resolvedTheme === "dark" ? "forge-dark" : "forge-light"}
         />}
       </div>
+      {navigationError && (
+        <div role="status" className="border-t border-[var(--border)] px-4 py-2 text-xs text-forge-signal">
+          {navigationError}
+        </div>
+      )}
       {editorState.externalChange && (
         <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-2 text-xs text-forge-signal">
           <span>The file changed in the workspace; your unsaved draft is preserved.</span>

@@ -53,3 +53,24 @@ export function renamePath(accessToken: string, sandboxId: string, oldPath: stri
     { method: "PATCH", body: JSON.stringify({ old_path: oldPath, new_path: newPath }) },
   );
 }
+
+export interface GoDefinition {
+  path: string;
+  line: number;
+  column: number;
+}
+
+export function getGoDefinition(accessToken: string, sandboxId: string, path: string, line: number, column: number) {
+  const payload = { path, line, column };
+  console.log("[ForgeAI] sending Go definition request", {
+    sandboxId,
+    endpoint: `/sandboxes/${sandboxId}/definition`,
+    payload,
+  });
+
+  return authenticatedRequest<GoDefinition>(
+    accessToken,
+    `/sandboxes/${sandboxId}/definition`,
+    { method: "POST", body: JSON.stringify(payload) },
+  );
+}

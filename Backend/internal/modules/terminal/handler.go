@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"ai-agent/internal/middleware"
+	"ai-agent/internal/modules/terminal/application"
 	"ai-agent/internal/modules/terminal/domain"
 	apierrors "ai-agent/internal/shared/errors"
 	"ai-agent/internal/shared/realtime"
@@ -98,6 +99,32 @@ func (h *Handler) ReadSandboxFile(c *gin.Context) {
 		return
 	}
 	apierrors.Success(c, http.StatusOK, "file fetched", gin.H{"path": filePath, "content": content})
+}
+
+func (h *Handler) GoDefinition(c *gin.Context) {
+	sandboxID, ok := h.requireSandboxAccess(c)
+	if !ok {
+		return
+	}
+	var payload struct {
+		Path   string `json:"path"`
+		Line   int    `json:"line"`
+		Column int    `json:"column"`
+	}
+	if err := c.ShouldBindJSON(&payload); err != nil || strings.TrimSpace(payload.Path) == "" {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "path, line and column are required", nil)
+		return
+	}
+	definition, err := h.module.Service.GoDefinition(c.Request.Context(), sandboxID, payload.Path, payload.Line, payload.Column)
+	if errors.Is(err, application.ErrDefinitionNotFound) {
+		apierrors.Error(c, http.StatusNotFound, apierrors.ErrCodeNotFound, err.Error(), nil)
+		return
+	}
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+	apierrors.Success(c, http.StatusOK, "Go definition resolved", definition)
 }
 
 func (h *Handler) SaveSandboxFile(c *gin.Context) {
@@ -246,6 +273,7 @@ func RegisterRoutes(router gin.IRouter, handler *Handler) {
 	router.GET("/projects/:project_id/terminals/:session_id/ws", handler.TerminalSessionWebSocket)
 	router.GET("/projects/:project_id/sandbox", handler.GetSandboxByProject)
 	router.GET("/sandboxes/:sandbox_id/files", handler.ListSandboxFiles)
+	router.POST("/sandboxes/:sandbox_id/definition", handler.GoDefinition)
 	router.GET("/sandboxes/:sandbox_id/files/*path", handler.ReadSandboxFile)
 	router.POST("/sandboxes/:sandbox_id/files/save", handler.SaveSandboxFile)
 	router.POST("/sandboxes/:sandbox_id/files/create", handler.CreateSandboxPath)

@@ -34,6 +34,8 @@ interface ProjectDetailMainContentProps {
   error: Error | null;
   projectLabel: string;
   selectedFile: { name: string; path: string } | null;
+  selectedLocation: { line: number | null; column: number | null } | null;
+  onNavigatePath: (path: string, line: number | null, column: number | null) => void;
   realtimeEvents: SequencedProjectRealtimeEvent[];
   resyncVersion: number;
   terminalVisited: boolean;
@@ -50,6 +52,8 @@ export function ProjectDetailMainContent({
   error,
   projectLabel,
   selectedFile,
+  selectedLocation,
+  onNavigatePath,
   realtimeEvents,
   resyncVersion,
   terminalVisited,
@@ -81,6 +85,9 @@ export function ProjectDetailMainContent({
                   sandboxId={sandbox?.id ?? null}
                   filePath={selectedFile.path}
                   fileName={selectedFile.name}
+                  selectedLine={selectedLocation?.line ?? null}
+                  selectedColumn={selectedLocation?.column ?? null}
+                  onNavigatePath={onNavigatePath}
                   realtimeEvents={realtimeEvents}
                   resyncVersion={resyncVersion}
                 />

@@ -28,6 +28,7 @@ export function ProjectDetailPage() {
   const { sandbox, isLoading, error } = useSandbox(accessToken, projectId ?? null, true);
   const sandboxStatus = typeof sandbox?.status === "string" ? sandbox.status : null;
   const [selectedFile, setSelectedFile] = useState<{ name: string; path: string } | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{ line: number | null; column: number | null } | null>(null);
   const [changedPaths, setChangedPaths] = useState<string[]>([]);
   const [realtimeEvents, setRealtimeEvents] = useState<SequencedProjectRealtimeEvent[]>([]);
   const [resyncVersion, setResyncVersion] = useState(0);
@@ -48,6 +49,7 @@ export function ProjectDetailPage() {
     setRealtimeEvents([]);
     setChangedPaths([]);
     setSelectedFile(null);
+    setSelectedLocation(null);
   }, [projectId]);
 
   useEffect(() => {
@@ -206,6 +208,12 @@ export function ProjectDetailPage() {
     }
   }
 
+  function navigateToFile(path: string, line: number | null, column: number | null) {
+    setSelectedFile({ name: path.split("/").at(-1) ?? path, path });
+    setSelectedLocation(line ? { line, column } : null);
+    selectPanel("files");
+  }
+
   return (
     <div ref={projectRoot} className="flex h-full min-h-0 flex-col overflow-hidden bg-forge-bg text-forge-text">
       <ProjectDetailHeader
@@ -239,7 +247,10 @@ export function ProjectDetailPage() {
                 changedPaths={changedPaths}
                 realtimeEvents={realtimeEvents}
                 resyncVersion={resyncVersion}
-                onSelect={(file) => setSelectedFile({ name: file.name, path: file.path })}
+                onSelect={(file) => {
+                  setSelectedFile({ name: file.name, path: file.path });
+                  setSelectedLocation(null);
+                }}
                 onPathChanged={(oldPath, newPath) => {
                   setSelectedFile((current) => {
                     if (!current || (current.path !== oldPath && !current.path.startsWith(`${oldPath}/`))) return current;
@@ -248,6 +259,7 @@ export function ProjectDetailPage() {
                   });
                 }}
                 onPathDeleted={(path) => {
+                  if (selectedFile && isPathWithin(selectedFile.path, path)) setSelectedLocation(null);
                   setSelectedFile((current) =>
                     current && (current.path === path || current.path.startsWith(`${path}/`))
                       ? null
@@ -275,6 +287,8 @@ export function ProjectDetailPage() {
             error={error}
             projectLabel={projectLabel}
             selectedFile={selectedFile}
+            selectedLocation={selectedLocation}
+            onNavigatePath={navigateToFile}
             realtimeEvents={realtimeEvents}
             resyncVersion={resyncVersion}
             terminalVisited={terminalVisited}

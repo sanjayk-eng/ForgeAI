@@ -2,10 +2,13 @@ FROM golang:1.26-alpine
 
 RUN apk add --no-cache bash git nodejs npm \
     && npm install --global typescript \
+    && go install golang.org/x/tools/gopls@v0.23.0 \
     && ln -s /usr/local/go/bin/go /usr/local/bin/go \
-    && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+    && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt \
+    && ln -s /go/bin/gopls /usr/local/bin/gopls
 
-ENV HOME=/tmp/.home \
+ENV PATH=/go/bin:/usr/local/go/bin:/usr/local/bin:$PATH \
+    HOME=/tmp/.home \
     GOCACHE=/tmp/go-build \
     GOMODCACHE=/tmp/go-mod \
     GOTMPDIR=/tmp \

@@ -13,9 +13,11 @@ import (
 )
 
 type DockerRuntime struct {
-	docker      *DockerCLI
-	previewMu   sync.Mutex
-	previewPort map[string]previewPortCache
+	docker          *DockerCLI
+	previewMu       sync.Mutex
+	previewPort     map[string]previewPortCache
+	definitionMu    sync.Mutex
+	definitionLocks map[string]*sync.Mutex
 }
 
 func NewDockerRuntime(binary string) *DockerRuntime {
@@ -23,7 +25,19 @@ func NewDockerRuntime(binary string) *DockerRuntime {
 }
 
 func NewDockerRuntimeWithCLI(docker *DockerCLI) *DockerRuntime {
-	return &DockerRuntime{docker: docker}
+	return &DockerRuntime{docker: docker, definitionLocks: make(map[string]*sync.Mutex)}
+}
+
+func (runtime *DockerRuntime) definitionLock(containerID string) *sync.Mutex {
+	runtime.definitionMu.Lock()
+	defer runtime.definitionMu.Unlock()
+	if runtime.definitionLocks == nil {
+		runtime.definitionLocks = make(map[string]*sync.Mutex)
+	}
+	if _, ok := runtime.definitionLocks[containerID]; !ok {
+		runtime.definitionLocks[containerID] = &sync.Mutex{}
+	}
+	return runtime.definitionLocks[containerID]
 }
 
 func (runtime *DockerRuntime) CreateVolume(ctx context.Context, name string) error {
