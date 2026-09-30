@@ -25,6 +25,7 @@ type ModuleConfig struct {
 
 type Module struct {
 	Service          *application.Service
+	Preview          *application.PreviewService
 	Worker           *worker.SandboxWorker
 	Handler          *Handler
 	Sessions         *SessionManager
@@ -50,6 +51,7 @@ func LoadModule(config ModuleConfig) (*Module, error) {
 
 	module := &Module{
 		Service:          service,
+		Preview:          application.NewPreviewService(repo, runtime),
 		Worker:           sandboxWorker,
 		Sessions:         NewSessionManager(service),
 		Events:           events,

@@ -33,6 +33,21 @@ func TestParseContainerID(t *testing.T) {
 	}
 }
 
+func TestParseLoopbackPort(t *testing.T) {
+	address, err := parseLoopbackPort("127.0.0.1:43127\n")
+	if err != nil {
+		t.Fatalf("parseLoopbackPort() error = %v", err)
+	}
+	if address != "127.0.0.1:43127" {
+		t.Fatalf("parseLoopbackPort() = %q, want loopback mapping", address)
+	}
+	for _, output := range []string{"172.18.0.2:5173", "0.0.0.0:43127", "127.0.0.1:0", "invalid"} {
+		if _, err := parseLoopbackPort(output); err == nil {
+			t.Errorf("parseLoopbackPort(%q) unexpectedly succeeded", output)
+		}
+	}
+}
+
 func TestParseTerminalShells(t *testing.T) {
 	shells := parseTerminalShells("sh\t/bin/sh\nbash\t/usr/bin/bash\npwsh\t/usr/bin/pwsh\npowershell\t\n")
 	if len(shells) != 3 {
@@ -71,6 +86,16 @@ func TestHostWorkspacePath(t *testing.T) {
 	}
 	if !strings.Contains(path, "forgeai-workspaces") {
 		t.Fatalf("expected host workspace path to live under forgeai-workspaces, got %q", path)
+	}
+}
+
+func TestHostNPMCachePath(t *testing.T) {
+	path := HostNPMCachePath("forgeai-workspace-abc123")
+	if path == "" {
+		t.Fatal("host npm cache path should not be empty")
+	}
+	if !strings.Contains(path, "forgeai-npm-cache") || !strings.Contains(path, "forgeai-workspace-abc123") {
+		t.Fatalf("expected host npm cache path to be isolated by sandbox, got %q", path)
 	}
 }
 

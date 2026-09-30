@@ -19,9 +19,14 @@ const ManualTerminal = lazy(() =>
     default: component,
   })),
 );
+const PreviewPanel = lazy(() =>
+  import("./PreviewPanel").then(({ PreviewPanel: component }) => ({
+    default: component,
+  })),
+);
 
 interface ProjectDetailMainContentProps {
-  activePanel: "files" | "agent" | "git" | "terminal";
+  activePanel: "files" | "agent" | "git" | "terminal" | "preview";
   accessToken: string | null;
   sandbox: Sandbox | undefined;
   sandboxStatus: SandboxStatusType | null;
@@ -53,7 +58,11 @@ export function ProjectDetailMainContent({
     <>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex min-h-0 min-w-0 flex-1 bg-forge-bg p-0">
-          {activePanel === "git" ? (
+          {activePanel === "preview" ? (
+            <Suspense fallback={<div className="p-4 text-sm text-forge-muted">Loading preview...</div>}>
+              <PreviewPanel key={projectId} accessToken={accessToken} projectId={projectId} />
+            </Suspense>
+          ) : activePanel === "git" ? (
             <Suspense fallback={<div className="p-4 text-sm text-forge-muted">Loading Git review...</div>}>
               <GitPanel
                 accessToken={accessToken}

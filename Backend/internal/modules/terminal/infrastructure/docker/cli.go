@@ -28,6 +28,12 @@ func HostWorkspacePath(name string) string {
 	return filepath.Join(root, name)
 }
 
+func HostNPMCachePath(name string) string {
+	root := filepath.Join(os.TempDir(), "forgeai-npm-cache")
+	_ = os.MkdirAll(root, 0o755)
+	return filepath.Join(root, name)
+}
+
 func (docker *DockerCLI) Run(ctx context.Context, args ...string) (string, error) {
 	return docker.RunWithInput(ctx, nil, args...)
 }

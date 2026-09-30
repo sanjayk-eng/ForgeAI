@@ -12,24 +12,26 @@ import (
 )
 
 type Config struct {
-	AppEnv          string
-	Host            string
-	Port            int
-	DatabaseURL     string
-	JWTSecret       string
-	ResendAPIKey    string
-	ResendFromEmail string
-	FrontendURL     string
-	AIBaseURL       string
-	AIAPIKey        string
-	AIModel         string
-	JWTAccessTTL    time.Duration
-	JWTRefreshTTL   time.Duration
-	CORSOrigins     string
-	OAuth           OAuthConfig
-	LogLevel        zapcore.Level
-	LogFormat       string
-	LogSource       bool
+	AppEnv            string
+	Host              string
+	Port              int
+	DatabaseURL       string
+	JWTSecret         string
+	ResendAPIKey      string
+	ResendFromEmail   string
+	FrontendURL       string
+	PreviewOrigin     string
+	PreviewSigningKey string
+	AIBaseURL         string
+	AIAPIKey          string
+	AIModel           string
+	JWTAccessTTL      time.Duration
+	JWTRefreshTTL     time.Duration
+	CORSOrigins       string
+	OAuth             OAuthConfig
+	LogLevel          zapcore.Level
+	LogFormat         string
+	LogSource         bool
 }
 
 type OAuthConfig struct {
@@ -42,36 +44,40 @@ type OAuthConfig struct {
 }
 
 const (
-	envAppEnv          = "APP_ENV"
-	envHost            = "HOST"
-	envPort            = "PORT"
-	envDatabaseURL     = "DATABASE_URL"
-	envJWTSecret       = "JWT_SECRET"
-	envResendAPIKey    = "RESEND_API_KEY"
-	envResendFromEmail = "RESEND_FROM_EMAIL"
-	envFrontendURL     = "FRONTEND_URL"
-	envAIBaseURL       = "AI_BASE_URL"
-	envAIAPIKey        = "AI_API_KEY"
-	envAIModel         = "AI_MODEL"
-	envJWTAccessTTL    = "JWT_ACCESS_TTL"
-	envJWTRefreshTTL   = "JWT_REFRESH_TTL"
-	envCORSOrigins     = "CORS_ALLOWED_ORIGINS"
-	envLogLevel        = "LOG_LEVEL"
-	envLogFormat       = "LOG_FORMAT"
-	envLogSource       = "LOG_SOURCE"
+	envAppEnv            = "APP_ENV"
+	envHost              = "HOST"
+	envPort              = "PORT"
+	envDatabaseURL       = "DATABASE_URL"
+	envJWTSecret         = "JWT_SECRET"
+	envResendAPIKey      = "RESEND_API_KEY"
+	envResendFromEmail   = "RESEND_FROM_EMAIL"
+	envFrontendURL       = "FRONTEND_URL"
+	envPreviewOrigin     = "PREVIEW_PUBLIC_ORIGIN"
+	envPreviewSigningKey = "PREVIEW_SIGNING_KEY"
+	envAIBaseURL         = "AI_BASE_URL"
+	envAIAPIKey          = "AI_API_KEY"
+	envAIModel           = "AI_MODEL"
+	envJWTAccessTTL      = "JWT_ACCESS_TTL"
+	envJWTRefreshTTL     = "JWT_REFRESH_TTL"
+	envCORSOrigins       = "CORS_ALLOWED_ORIGINS"
+	envLogLevel          = "LOG_LEVEL"
+	envLogFormat         = "LOG_FORMAT"
+	envLogSource         = "LOG_SOURCE"
 
-	defaultAppEnv        = "development"
-	defaultHost          = "127.0.0.1"
-	defaultPort          = "8080"
-	defaultCORSOrigins   = "*"
-	defaultJWTAccessTTL  = "15m"
-	defaultJWTRefreshTTL = "168h"
-	defaultLogLevel      = "info"
-	defaultLogFormat     = "json"
-	defaultLogSource     = true
-	defaultFrontendURL   = "http://localhost:5173"
-	defaultAIBaseURL     = "https://api.openai.com/v1"
-	defaultAIModel       = "gpt-4.1-mini"
+	defaultAppEnv            = "development"
+	defaultHost              = "127.0.0.1"
+	defaultPort              = "8080"
+	defaultCORSOrigins       = "*"
+	defaultJWTAccessTTL      = "15m"
+	defaultJWTRefreshTTL     = "168h"
+	defaultLogLevel          = "info"
+	defaultLogFormat         = "json"
+	defaultLogSource         = true
+	defaultFrontendURL       = "http://localhost:5173"
+	defaultPreviewOrigin     = "http://preview.localhost:8080"
+	defaultPreviewSigningKey = "forgeai-preview-local-signing-key"
+	defaultAIBaseURL         = "https://api.openai.com/v1"
+	defaultAIModel           = "gpt-4.1-mini"
 )
 
 var (

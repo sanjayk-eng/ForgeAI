@@ -1,12 +1,12 @@
-import { ArrowLeft, Bot, FolderGit2, Terminal } from "lucide-react";
+import { ArrowLeft, Bot, Eye, FolderGit2, Terminal } from "lucide-react";
 
 interface ProjectDetailHeaderProps {
   workspaceId: string;
   projectLabel: string;
-  activePanel: "files" | "agent" | "git" | "terminal";
+  activePanel: "files" | "agent" | "git" | "terminal" | "preview";
   sandboxStatus: string | null;
   onBack: () => void;
-  onSelectPanel: (panel: "files" | "agent" | "git" | "terminal") => void;
+  onSelectPanel: (panel: "files" | "agent" | "git" | "terminal" | "preview") => void;
 }
 
 export function ProjectDetailHeader({
@@ -57,6 +57,14 @@ export function ProjectDetailHeader({
           className={`inline-flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition ${activePanel === "terminal" ? "border-forge-accent/40 bg-forge-accent/[0.1] text-forge-accent" : "border-[var(--border)] text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"}`}
         >
           <Terminal size={14} /> Terminal
+        </button>
+        <button
+          type="button"
+          aria-pressed={activePanel === "preview"}
+          onClick={() => onSelectPanel(activePanel === "preview" ? "files" : "preview")}
+          className={`inline-flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition ${activePanel === "preview" ? "border-forge-accent/40 bg-forge-accent/[0.1] text-forge-accent" : "border-[var(--border)] text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"}`}
+        >
+          <Eye size={14} /> Preview
         </button>
         <div className="rounded-md border border-[var(--border)] bg-forge-panel px-3 py-1.5 text-[11px] font-medium text-forge-muted">
           {workspaceId}

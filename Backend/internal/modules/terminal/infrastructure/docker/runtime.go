@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -28,6 +29,10 @@ func (runtime *DockerRuntime) CreateVolume(ctx context.Context, name string) err
 	if err := os.MkdirAll(hostPath, 0o755); err != nil {
 		return fmt.Errorf("prepare host workspace path %s: %w", hostPath, err)
 	}
+	cachePath := HostNPMCachePath(name)
+	if err := os.MkdirAll(cachePath, 0o755); err != nil {
+		return fmt.Errorf("prepare host npm cache path %s: %w", cachePath, err)
+	}
 	return nil
 }
 
@@ -35,6 +40,10 @@ func (runtime *DockerRuntime) RemoveVolume(ctx context.Context, name string) err
 	hostPath := HostWorkspacePath(name)
 	if err := os.RemoveAll(hostPath); err != nil {
 		return fmt.Errorf("remove host workspace path %s: %w", hostPath, err)
+	}
+	cachePath := HostNPMCachePath(name)
+	if err := os.RemoveAll(cachePath); err != nil {
+		return fmt.Errorf("remove host npm cache path %s: %w", cachePath, err)
 	}
 	return nil
 }
@@ -44,9 +53,15 @@ func (runtime *DockerRuntime) CreateContainer(ctx context.Context, spec applicat
 	localMount := fmt.Sprintf("type=bind,src=%s,dst=%s", hostPath, spec.WorkspacePath)
 	args := []string{"create", "--quiet", "--name", spec.Name, "--label", "com.forgeai.managed=true"}
 	args = append(args, "--mount", localMount)
+	cacheMount := fmt.Sprintf("type=bind,src=%s,dst=/npm-cache", HostNPMCachePath(spec.VolumeName))
+	args = append(args, "--mount", cacheMount, "--env", "npm_config_cache=/npm-cache")
 	args = append(args, "--workdir", spec.WorkspacePath, "--network", spec.NetworkMode)
+	if spec.NetworkMode == "bridge" {
+		args = append(args, "--publish", fmt.Sprintf("127.0.0.1::%d/tcp", application.PreviewContainerPort))
+	}
 	if spec.ReadOnlyRootFS {
 		args = append(args, "--read-only")
+		args = append(args, "--tmpfs", "/tmp:rw,exec,nosuid,size=256m")
 	}
 	if spec.NoNewPrivileges {
 		args = append(args, "--security-opt", "no-new-privileges:true")
@@ -107,6 +122,37 @@ func (runtime *DockerRuntime) Execute(ctx context.Context, containerID, command 
 		result.ExitCode = 1
 	}
 	return result, err
+}
+
+func (runtime *DockerRuntime) ResolvePreviewAddress(ctx context.Context, containerID string, containerPort int) (string, error) {
+	if strings.TrimSpace(containerID) == "" || containerPort < 1 || containerPort > 65535 {
+		return "", fmt.Errorf("container and valid preview port are required")
+	}
+	output, err := runtime.docker.Run(ctx, "port", containerID, strconv.Itoa(containerPort)+"/tcp")
+	if err != nil {
+		return "", err
+	}
+	address, err := parseLoopbackPort(output)
+	if err != nil {
+		return "", err
+	}
+	return "http://" + address, nil
+}
+
+func parseLoopbackPort(output string) (string, error) {
+	for _, line := range strings.Fields(output) {
+		host, port, err := net.SplitHostPort(strings.TrimSpace(line))
+		if err != nil {
+			continue
+		}
+		ip := net.ParseIP(host)
+		parsedPort, portErr := strconv.Atoi(port)
+		if ip == nil || !ip.IsLoopback() || portErr != nil || parsedPort < 1 || parsedPort > 65535 {
+			continue
+		}
+		return net.JoinHostPort(host, port), nil
+	}
+	return "", fmt.Errorf("Docker did not report a loopback preview port")
 }
 
 func parseContainerID(output string) (string, error) {

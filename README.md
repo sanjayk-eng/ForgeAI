@@ -31,6 +31,9 @@ The frontend is built in React 19 with Vite and TypeScript. It uses React Router
 - Terminal and sandbox execution
   - Secure command execution, container lifecycle management, and workspace operations.
   - Located under Backend/internal/modules/terminal and related shared executor packages.
+- Browser preview
+  - Signed project preview hosts, loopback-only Docker port forwarding, and an HTTP/WebSocket gateway.
+  - Located under Backend/internal/modules/preview and uses the existing terminal sandbox runtime.
 - Git and agent flows
   - Git automation, repository actions, and AI agent integrations.
   - Managed through Backend/internal/modules/git and Backend/internal/modules/agent.
@@ -42,7 +45,7 @@ The development sandbox uses a dedicated image with Go, Node.js/npm, Git, and Ba
 - Backend/configs/sandbox.yaml
 - Image: forgeai-sandbox:latest
 
-React, TypeScript, and JavaScript projects use their normal npm dependencies. The sandbox currently has `network_mode: none`, so npm and Go dependencies must already be available locally; registry downloads are unavailable during sandbox execution.
+React, TypeScript, and JavaScript projects use their normal npm dependencies. The configured sandbox uses Docker's `bridge` network. Preview forwarding binds only an ephemeral host port on `127.0.0.1`; it does not publish the application port on a public interface. Changing the sandbox to `network_mode: none` keeps that isolation and disables this preview transport until a separate gateway network is configured.
 
 ### Backend structure
 ```text
@@ -178,6 +181,17 @@ Build the image from the repository root before starting the backend:
 ```bash
 docker build -f Backend/Dockerfile.sandbox -t forgeai-sandbox:latest Backend
 ```
+
+### Browser preview
+Start a web server inside the project terminal with an externally bound container interface:
+
+```bash
+npm run dev -- --host 0.0.0.0
+```
+
+Vite must listen on `0.0.0.0:5173`; a process bound to container-local `localhost:5173` is not reachable through Docker port forwarding. The backend maps container port `5173/tcp` to an ephemeral `127.0.0.1` host port and proxies preview HTTP and WebSocket/HMR traffic. The browser receives only a signed project preview URL; it never receives the Docker address or mapped host port.
+
+Local development defaults to `http://preview.localhost:8080`. For deployment, set `PREVIEW_PUBLIC_ORIGIN` to an HTTPS origin such as `https://preview.example.com`, route `*.preview.example.com` to the backend gateway while preserving the `Host` header, and configure TLS for that wildcard domain. Set `PREVIEW_SIGNING_KEY` to a strong secret (or use the configured `JWT_SECRET`). The backend/gateway must run on the Docker host so its loopback-only published ports resolve locally. Do not expose the mapped host ports through ingress or a public firewall.
 
 ---
 
