@@ -16,6 +16,7 @@ import { ProjectDetailHeader } from "./components/ProjectDetailHeader";
 import { ProjectDetailMainContent } from "./components/ProjectDetailMainContent";
 
 export function ProjectDetailPage() {
+  const projectRoot = useRef<HTMLDivElement | null>(null);
   const { projectId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const workspaceId = useWorkspaceId();
@@ -34,8 +35,11 @@ export function ProjectDetailPage() {
   const gitRefreshCooldownRef = useRef(0);
   const gitStatusRefreshCooldownRef = useRef(0);
   const panelParam = searchParams.get("panel");
-  const activePanel = panelParam === "agent" || panelParam === "git" || panelParam === "terminal" || panelParam === "preview" ? panelParam : "files";
-  const [terminalVisited, setTerminalVisited] = useState(activePanel === "terminal");
+  const activePanel = panelParam === "git" || panelParam === "preview" ? panelParam : "files";
+  const agentOpen = searchParams.get("agent") === "1" || panelParam === "agent";
+  const terminalOpen = searchParams.get("terminal") === "1" || panelParam === "terminal";
+  const [terminalVisited, setTerminalVisited] = useState(terminalOpen);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const workspaceLabel = workspaceId || "workspace";
   const projectLabel = projectId || "project";
 
@@ -45,6 +49,14 @@ export function ProjectDetailPage() {
     setChangedPaths([]);
     setSelectedFile(null);
   }, [projectId]);
+
+  useEffect(() => {
+    function syncFullscreenState() {
+      setIsFullscreen(document.fullscreenElement === projectRoot.current);
+    }
+    document.addEventListener("fullscreenchange", syncFullscreenState);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreenState);
+  }, []);
 
   function refreshGitStatus(force = false) {
     if (!accessToken || !sandbox?.id) return;
@@ -156,26 +168,59 @@ export function ProjectDetailPage() {
     return <div>Invalid project</div>;
   }
 
-  function selectPanel(panel: "files" | "agent" | "git" | "terminal" | "preview") {
-    if (panel === "terminal") setTerminalVisited(true);
+  function selectPanel(panel: "files" | "git" | "preview") {
     const nextParams = new URLSearchParams(searchParams);
-    if (panel === "agent") nextParams.set("panel", "agent");
-    else if (panel === "git") nextParams.set("panel", "git");
-    else if (panel === "terminal") nextParams.set("panel", "terminal");
-    else if (panel === "preview") nextParams.set("panel", "preview");
-    else nextParams.delete("panel");
+    if (panelParam === "agent") nextParams.set("agent", "1");
+    if (panelParam === "terminal") {
+      nextParams.set("terminal", "1");
+      setTerminalVisited(true);
+    }
+    nextParams.delete("panel");
+    if (panel === "git" || panel === "preview") nextParams.set("panel", panel);
     setSearchParams(nextParams, { replace: true });
   }
 
+  function toggleToolPanel(panel: "agent" | "terminal") {
+    const nextParams = new URLSearchParams(searchParams);
+    const legacyPanel = nextParams.get("panel");
+    const wasOpen = panel === "agent" ? agentOpen : terminalOpen;
+    if (legacyPanel === "agent" || legacyPanel === "terminal") {
+      if (legacyPanel !== panel) nextParams.set(legacyPanel, "1");
+      nextParams.delete("panel");
+    }
+    if (wasOpen) nextParams.delete(panel);
+    else nextParams.set(panel, "1");
+    if (panel === "terminal" && !wasOpen) setTerminalVisited(true);
+    setSearchParams(nextParams, { replace: true });
+  }
+
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement === projectRoot.current) {
+        await document.exitFullscreen();
+      } else {
+        await projectRoot.current?.requestFullscreen();
+      }
+    } catch {
+      setIsFullscreen(false);
+    }
+  }
+
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-forge-bg text-forge-text">
+    <div ref={projectRoot} className="flex h-full min-h-0 flex-col overflow-hidden bg-forge-bg text-forge-text">
       <ProjectDetailHeader
         workspaceId={workspaceLabel}
         projectLabel={projectLabel}
         activePanel={activePanel}
+        agentOpen={agentOpen}
+        terminalOpen={terminalOpen}
+        isFullscreen={isFullscreen}
         sandboxStatus={sandboxStatus}
         onBack={() => navigate(`/workspace/projects?workspace=${encodeURIComponent(workspaceId)}`)}
         onSelectPanel={selectPanel}
+        onToggleAgent={() => toggleToolPanel("agent")}
+        onToggleTerminal={() => toggleToolPanel("terminal")}
+        onToggleFullscreen={() => void toggleFullscreen()}
       />
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
@@ -233,14 +278,15 @@ export function ProjectDetailPage() {
             realtimeEvents={realtimeEvents}
             resyncVersion={resyncVersion}
             terminalVisited={terminalVisited}
+            terminalOpen={terminalOpen}
             projectId={projectId}
           />
         </main>
-        {activePanel === "agent" && (
+        {agentOpen && (
           <ProjectSidePanel
             title="Agent"
             icon={<Bot size={15} className="text-forge-accent" />}
-            onClose={() => selectPanel("files")}
+            onClose={() => toggleToolPanel("agent")}
           >
             <AgentPanel
               projectName={projectLabel}

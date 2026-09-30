@@ -37,6 +37,7 @@ interface ProjectDetailMainContentProps {
   realtimeEvents: SequencedProjectRealtimeEvent[];
   resyncVersion: number;
   terminalVisited: boolean;
+  terminalOpen: boolean;
   projectId: string;
 }
 
@@ -52,6 +53,7 @@ export function ProjectDetailMainContent({
   realtimeEvents,
   resyncVersion,
   terminalVisited,
+  terminalOpen,
   projectId,
 }: ProjectDetailMainContentProps) {
   return (
@@ -126,7 +128,7 @@ export function ProjectDetailMainContent({
         </div>
         {terminalVisited && (
           <div
-            className={`min-h-0 shrink-0 border-t border-[var(--border)] ${activePanel === "terminal" ? "flex" : "hidden"}`}
+            className={`min-h-0 shrink-0 border-t border-[var(--border)] ${terminalOpen ? "flex" : "hidden"}`}
             style={{ height: "min(36vh, 320px)", minHeight: 180 }}
           >
             <Suspense fallback={<div className="p-4 text-sm text-forge-muted">Opening terminal...</div>}>

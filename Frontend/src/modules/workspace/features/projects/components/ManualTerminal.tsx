@@ -1,5 +1,5 @@
 import "@xterm/xterm/css/xterm.css";
-import { Eraser, Plus, RotateCcw, Terminal as TerminalIcon, X } from "lucide-react";
+import { Eraser, Maximize2, Minimize2, Plus, RotateCcw, Terminal as TerminalIcon, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "../../../../../shared/ui/themeContextStore";
 import {
@@ -13,6 +13,7 @@ import { TerminalSessionView, type ConnectionState, type SessionActions } from "
 import { TerminalToolButton } from "./terminal/TerminalToolButton";
 
 export function ManualTerminal({ projectId, accessToken }: { projectId: string; accessToken: string | null }) {
+  const terminalRoot = useRef<HTMLElement | null>(null);
   const { resolvedTheme } = useTheme();
   const [shellResult, setShellResult] = useState<TerminalShell[] | null>(null);
   const [selectedShell, setSelectedShell] = useState("");
@@ -21,12 +22,20 @@ export function ManualTerminal({ projectId, accessToken }: { projectId: string; 
   const [states, setStates] = useState<Record<string, ConnectionState>>({});
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const actions = useRef(new Map<string, SessionActions>());
   const sessionsRef = useRef(sessions);
   const accessTokenRef = useRef(accessToken);
   useEffect(() => {
     sessionsRef.current = sessions;
   }, [sessions]);
+  useEffect(() => {
+    function syncFullscreenState() {
+      setIsFullscreen(document.fullscreenElement === terminalRoot.current);
+    }
+    document.addEventListener("fullscreenchange", syncFullscreenState);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreenState);
+  }, []);
   useEffect(() => {
     accessTokenRef.current = accessToken;
   }, [accessToken]);
@@ -101,8 +110,20 @@ export function ManualTerminal({ projectId, accessToken }: { projectId: string; 
   const activeState = activeSessionId ? states[activeSessionId] ?? "Connecting" : "Disconnected";
   const activeSession = sessions.find((session) => session.session_id === activeSessionId);
 
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement === terminalRoot.current) {
+        await document.exitFullscreen();
+      } else {
+        await terminalRoot.current?.requestFullscreen();
+      }
+    } catch {
+      setError("Could not enter fullscreen mode.");
+    }
+  }
+
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-forge-bg text-forge-text">
+    <section ref={terminalRoot} className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-forge-bg text-forge-text">
       <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border)] bg-forge-panel px-3 py-2">
         <span className="mr-1 inline-flex items-center gap-2 text-xs font-semibold text-forge-text"><TerminalIcon size={15} /> Terminal</span>
         <div className="mr-1 flex items-center gap-2 text-xs font-semibold text-forge-muted">
@@ -128,6 +149,9 @@ export function ManualTerminal({ projectId, accessToken }: { projectId: string; 
         </button>
         {activeSession && <span className="min-w-0 truncate text-[11px] text-forge-muted">{activeSession.cwd}</span>}
         <div className="ml-auto flex items-center gap-1">
+          <TerminalToolButton label={isFullscreen ? "Exit fullscreen" : "Fullscreen"} disabled={false} onClick={() => void toggleFullscreen()}>
+            {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+          </TerminalToolButton>
           <TerminalToolButton label="Reconnect" disabled={!activeSession} onClick={() => activeSessionId && actions.current.get(activeSessionId)?.reconnect()}>
             <RotateCcw size={15} />
           </TerminalToolButton>
