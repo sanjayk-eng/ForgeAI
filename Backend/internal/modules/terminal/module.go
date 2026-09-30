@@ -51,7 +51,7 @@ func LoadModule(config ModuleConfig) (*Module, error) {
 
 	module := &Module{
 		Service:          service,
-		Preview:          application.NewPreviewService(repo, runtime, sandboxPolicy.PreviewPort),
+		Preview:          application.NewPreviewService(repo, runtime),
 		Worker:           sandboxWorker,
 		Sessions:         NewSessionManager(service),
 		Events:           events,

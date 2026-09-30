@@ -14,11 +14,34 @@ func TestLoadFromEnvUsesDefaults(t *testing.T) {
 	if config.AppEnv != "development" || config.Port != 8080 {
 		t.Fatalf("unexpected defaults: %+v", config)
 	}
+	if config.PreviewOrigin != "http://preview.localhost:8080" {
+		t.Fatalf("unexpected default preview origin: %q", config.PreviewOrigin)
+	}
 	if config.LogLevel != zapcore.InfoLevel || config.LogFormat != "json" || !config.LogSource {
 		t.Fatalf("unexpected logging defaults: %+v", config)
 	}
 	if config.AIBaseURL != defaultAIBaseURL || config.AIModel != defaultAIModel || config.AIAPIKey != "" {
 		t.Fatalf("unexpected AI defaults: %+v", config)
+	}
+}
+
+func TestPreviewOriginDefaultsToConfiguredBackendPort(t *testing.T) {
+	values := map[string]string{"PORT": "8081"}
+	config, err := loadFromEnv(func(key string) string { return values[key] })
+	if err != nil {
+		t.Fatalf("loadFromEnv returned error: %v", err)
+	}
+	if config.PreviewOrigin != "http://preview.localhost:8081" {
+		t.Fatalf("preview origin = %q, want API port in origin", config.PreviewOrigin)
+	}
+
+	values[envPreviewOrigin] = "http://custom-preview.localhost:9090"
+	config, err = loadFromEnv(func(key string) string { return values[key] })
+	if err != nil {
+		t.Fatalf("loadFromEnv with explicit preview origin returned error: %v", err)
+	}
+	if config.PreviewOrigin != values[envPreviewOrigin] {
+		t.Fatalf("explicit preview origin = %q, want %q", config.PreviewOrigin, values[envPreviewOrigin])
 	}
 }
 

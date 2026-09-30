@@ -2,11 +2,12 @@ package application
 
 import (
 	"context"
+	"errors"
 	"io"
+	"net"
 	"time"
 
 	"ai-agent/internal/modules/terminal/domain"
-	"ai-agent/internal/modules/terminal/policy"
 )
 
 type Store interface {
@@ -26,7 +27,6 @@ type ContainerSpec struct {
 	VolumeName      string
 	WorkspacePath   string
 	NetworkMode     string
-	PreviewPort     int
 	ReadOnlyRootFS  bool
 	NoNewPrivileges bool
 	CapDrop         []string
@@ -71,13 +71,15 @@ type Runtime interface {
 	Execute(ctx context.Context, containerID, command string, timeoutSeconds int) (ExecutionResult, error)
 	ListTerminalShells(ctx context.Context, containerID string) ([]TerminalShell, error)
 	StartTerminal(ctx context.Context, containerID, workspacePath, shellID string, cols, rows int) (InteractiveProcess, error)
+	PreviewRuntime
 }
 
-type PreviewAddressResolver interface {
-	ResolvePreviewAddress(ctx context.Context, containerID string, containerPort int) (string, error)
+type PreviewRuntime interface {
+	DetectPreviewPort(ctx context.Context, containerID string) (int, error)
+	OpenPreviewTunnel(ctx context.Context, containerID string, containerPort int) (net.Conn, error)
 }
 
-const PreviewContainerPort = policy.DefaultPreviewPort
+var ErrPreviewPortNotFound = errors.New("no HTTP preview server is listening in the sandbox")
 
 type FileStore interface {
 	ListFiles(ctx context.Context, containerID, path string) ([]FileEntry, error)

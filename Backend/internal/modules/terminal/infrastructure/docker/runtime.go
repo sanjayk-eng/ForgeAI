@@ -3,18 +3,19 @@ package docker
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"ai-agent/internal/modules/terminal/application"
-	"ai-agent/internal/modules/terminal/policy"
 )
 
 type DockerRuntime struct {
-	docker *DockerCLI
+	docker      *DockerCLI
+	previewMu   sync.Mutex
+	previewPort map[string]previewPortCache
 }
 
 func NewDockerRuntime(binary string) *DockerRuntime {
@@ -57,16 +58,6 @@ func (runtime *DockerRuntime) CreateContainer(ctx context.Context, spec applicat
 	cacheMount := fmt.Sprintf("type=bind,src=%s,dst=/npm-cache", HostNPMCachePath(spec.VolumeName))
 	args = append(args, "--mount", cacheMount, "--env", "npm_config_cache=/npm-cache")
 	args = append(args, "--workdir", spec.WorkspacePath, "--network", spec.NetworkMode)
-	if spec.NetworkMode == "bridge" {
-		previewPort := spec.PreviewPort
-		if previewPort == 0 {
-			previewPort = application.PreviewContainerPort
-		}
-		if previewPort < policy.MinPreviewPort || previewPort > policy.MaxPreviewPort {
-			return "", fmt.Errorf("preview port must be between %d and %d", policy.MinPreviewPort, policy.MaxPreviewPort)
-		}
-		args = append(args, "--publish", fmt.Sprintf("127.0.0.1::%d/tcp", previewPort))
-	}
 	if spec.ReadOnlyRootFS {
 		args = append(args, "--read-only")
 		args = append(args, "--tmpfs", "/tmp:rw,exec,nosuid,size=256m")
@@ -103,13 +94,20 @@ func (runtime *DockerRuntime) StartContainer(ctx context.Context, containerID st
 
 func (runtime *DockerRuntime) StopContainer(ctx context.Context, containerID string) error {
 	_, err := runtime.docker.Run(ctx, "stop", "--time", "10", containerID)
+	if err == nil {
+		runtime.forgetPreviewPort(containerID)
+	}
 	return err
 }
 
 func (runtime *DockerRuntime) RemoveContainer(ctx context.Context, containerID string) error {
 	_, err := runtime.docker.Run(ctx, "rm", "--force", containerID)
 	if isMissingDockerResource(err, "container") {
+		runtime.forgetPreviewPort(containerID)
 		return nil
+	}
+	if err == nil {
+		runtime.forgetPreviewPort(containerID)
 	}
 	return err
 }
@@ -130,37 +128,6 @@ func (runtime *DockerRuntime) Execute(ctx context.Context, containerID, command 
 		result.ExitCode = 1
 	}
 	return result, err
-}
-
-func (runtime *DockerRuntime) ResolvePreviewAddress(ctx context.Context, containerID string, containerPort int) (string, error) {
-	if strings.TrimSpace(containerID) == "" || containerPort < 1 || containerPort > 65535 {
-		return "", fmt.Errorf("container and valid preview port are required")
-	}
-	output, err := runtime.docker.Run(ctx, "port", containerID, strconv.Itoa(containerPort)+"/tcp")
-	if err != nil {
-		return "", err
-	}
-	address, err := parseLoopbackPort(output)
-	if err != nil {
-		return "", err
-	}
-	return "http://" + address, nil
-}
-
-func parseLoopbackPort(output string) (string, error) {
-	for _, line := range strings.Fields(output) {
-		host, port, err := net.SplitHostPort(strings.TrimSpace(line))
-		if err != nil {
-			continue
-		}
-		ip := net.ParseIP(host)
-		parsedPort, portErr := strconv.Atoi(port)
-		if ip == nil || !ip.IsLoopback() || portErr != nil || parsedPort < 1 || parsedPort > 65535 {
-			continue
-		}
-		return net.JoinHostPort(host, port), nil
-	}
-	return "", fmt.Errorf("Docker did not report a loopback preview port")
 }
 
 func parseContainerID(output string) (string, error) {

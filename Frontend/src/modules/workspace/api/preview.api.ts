@@ -2,7 +2,10 @@ import { authenticatedRequest } from "./sandbox-client";
 
 export type PreviewInfo = {
   status: "starting" | "running" | "stopped" | "sandbox_unavailable" | "application_unavailable";
-  port: number | null;
+  sandbox_id?: string;
+  container_port: number | null;
+  host_port?: number | null;
+  protocol: "http" | "https";
   url: string | null;
 };
 

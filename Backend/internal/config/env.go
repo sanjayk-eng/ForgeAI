@@ -10,15 +10,20 @@ import (
 type getenv func(string) string
 
 func loadFromEnv(get getenv) (Config, error) {
+	port, err := parsePort(envOr(get, envPort, defaultPort))
+	if err != nil {
+		return Config{}, err
+	}
 	config := Config{
 		AppEnv:            envOr(get, envAppEnv, defaultAppEnv),
 		Host:              envOr(get, envHost, defaultHost),
+		Port:              port,
 		DatabaseURL:       get(envDatabaseURL),
 		JWTSecret:         get(envJWTSecret),
 		ResendAPIKey:      get(envResendAPIKey),
 		ResendFromEmail:   get(envResendFromEmail),
 		FrontendURL:       envOr(get, envFrontendURL, defaultFrontendURL),
-		PreviewOrigin:     envOr(get, envPreviewOrigin, defaultPreviewOrigin),
+		PreviewOrigin:     get(envPreviewOrigin),
 		PreviewSigningKey: get(envPreviewSigningKey),
 		AIBaseURL:         envOr(get, envAIBaseURL, defaultAIBaseURL),
 		AIAPIKey:          get(envAIAPIKey),
@@ -34,6 +39,9 @@ func loadFromEnv(get getenv) (Config, error) {
 		},
 		LogFormat: strings.ToLower(envOr(get, envLogFormat, defaultLogFormat)),
 		LogSource: defaultLogSource,
+	}
+	if config.PreviewOrigin == "" {
+		config.PreviewOrigin = fmt.Sprintf("http://preview.localhost:%d", config.Port)
 	}
 	if config.PreviewSigningKey == "" {
 		config.PreviewSigningKey = config.JWTSecret
@@ -52,11 +60,6 @@ func loadFromEnv(get getenv) (Config, error) {
 		}
 	}
 
-	port, err := parsePort(envOr(get, envPort, defaultPort))
-	if err != nil {
-		return Config{}, err
-	}
-	config.Port = port
 	config.JWTAccessTTL, err = time.ParseDuration(envOr(get, envJWTAccessTTL, defaultJWTAccessTTL))
 	if err != nil || config.JWTAccessTTL <= 0 {
 		return Config{}, fmt.Errorf("JWT_ACCESS_TTL must be a positive duration")

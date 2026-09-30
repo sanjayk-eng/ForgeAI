@@ -33,17 +33,17 @@ func TestParseContainerID(t *testing.T) {
 	}
 }
 
-func TestParseLoopbackPort(t *testing.T) {
-	address, err := parseLoopbackPort("127.0.0.1:43127\n")
+func TestParsePreviewPort(t *testing.T) {
+	port, err := parsePreviewPort("5174\n")
 	if err != nil {
-		t.Fatalf("parseLoopbackPort() error = %v", err)
+		t.Fatalf("parsePreviewPort() error = %v", err)
 	}
-	if address != "127.0.0.1:43127" {
-		t.Fatalf("parseLoopbackPort() = %q, want loopback mapping", address)
+	if port != 5174 {
+		t.Fatalf("parsePreviewPort() = %d, want 5174", port)
 	}
-	for _, output := range []string{"172.18.0.2:5173", "0.0.0.0:43127", "127.0.0.1:0", "invalid"} {
-		if _, err := parseLoopbackPort(output); err == nil {
-			t.Errorf("parseLoopbackPort(%q) unexpectedly succeeded", output)
+	for _, output := range []string{"", "0", "65536", "not-a-port"} {
+		if _, err := parsePreviewPort(output); err == nil {
+			t.Errorf("parsePreviewPort(%q) unexpectedly succeeded", output)
 		}
 	}
 }

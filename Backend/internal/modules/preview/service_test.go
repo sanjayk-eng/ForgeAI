@@ -2,6 +2,7 @@ package preview
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -32,7 +33,7 @@ func TestGetInfoReturnsSignedPreviewOnlyWhenApplicationResponds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetInfo() error = %v", err)
 	}
-	if info.Status != "running" || info.Port == nil || *info.Port != 5173 || info.URL == nil {
+	if info.Status != "running" || info.ContainerPort == nil || *info.ContainerPort != 5173 || info.URL == nil {
 		t.Fatalf("unexpected preview info: %+v", info)
 	}
 	parsedURL, err := url.Parse(*info.URL)
@@ -58,7 +59,7 @@ func TestGetInfoReportsApplicationUnavailable(t *testing.T) {
 		t.Fatal(err)
 	}
 	info, err := service.GetInfo(context.Background(), "user-1", "project-123")
-	if err != nil || info.Status != "application_unavailable" || info.URL != nil || info.Port != nil {
+	if err != nil || info.Status != "application_unavailable" || info.URL != nil || info.ContainerPort != nil {
 		t.Fatalf("GetInfo() = %+v, %v; want application_unavailable", info, err)
 	}
 }
@@ -182,5 +183,13 @@ func (service testSandboxService) ValidateProjectAccess(context.Context, string,
 }
 
 func (service testSandboxService) ResolvePreviewTarget(context.Context, string) (domain.Sandbox, string, int, error) {
-	return service.sandbox, service.target, 5173, service.resolveErr
+	return service.sandbox, "test-container", 5173, service.resolveErr
+}
+
+func (service testSandboxService) OpenPreviewTunnel(_ context.Context, _ string, _ int) (net.Conn, error) {
+	upstream, err := url.Parse(service.target)
+	if err != nil {
+		return nil, err
+	}
+	return net.Dial("tcp", upstream.Host)
 }

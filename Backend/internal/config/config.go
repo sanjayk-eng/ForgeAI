@@ -74,7 +74,6 @@ const (
 	defaultLogFormat         = "json"
 	defaultLogSource         = true
 	defaultFrontendURL       = "http://localhost:5173"
-	defaultPreviewOrigin     = "http://preview.localhost:8080"
 	defaultPreviewSigningKey = "forgeai-preview-local-signing-key"
 	defaultAIBaseURL         = "https://api.openai.com/v1"
 	defaultAIModel           = "gpt-4.1-mini"

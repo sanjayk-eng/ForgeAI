@@ -189,9 +189,9 @@ Start a web server inside the project terminal with an externally bound containe
 npm run dev -- --host 0.0.0.0
 ```
 
-Vite must listen on `0.0.0.0:5173`; a process bound to container-local `localhost:5173` is not reachable through Docker port forwarding. The backend maps container port `5173/tcp` to an ephemeral `127.0.0.1` host port and proxies preview HTTP and WebSocket/HMR traffic. The browser receives only a signed project preview URL; it never receives the Docker address or mapped host port.
+The preview gateway detects the running HTTP server's listening port inside the same sandbox container and proxies HTTP and WebSocket/HMR traffic through Docker Exec. The browser receives only a signed project preview URL; it never receives the Docker address or container port.
 
-Local development defaults to `http://preview.localhost:8080`. For deployment, set `PREVIEW_PUBLIC_ORIGIN` to an HTTPS origin such as `https://preview.example.com`, route `*.preview.example.com` to the backend gateway while preserving the `Host` header, and configure TLS for that wildcard domain. Set `PREVIEW_SIGNING_KEY` to a strong secret (or use the configured `JWT_SECRET`). The backend/gateway must run on the Docker host so its loopback-only published ports resolve locally. Do not expose the mapped host ports through ingress or a public firewall.
+Local development defaults to `http://preview.localhost:<PORT>` (the backend `PORT`, defaulting to `8080`). For deployment, set `PREVIEW_PUBLIC_ORIGIN` to an HTTPS origin such as `https://preview.example.com`, route `*.preview.example.com` to the backend gateway while preserving the `Host` header, and configure TLS for that wildcard domain. Set `PREVIEW_SIGNING_KEY` to a strong secret (or use the configured `JWT_SECRET`). Preview requests are tunneled to the same sandbox container by the backend; containers do not publish project ports on the host.
 
 ---
 

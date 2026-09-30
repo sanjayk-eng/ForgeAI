@@ -5,24 +5,15 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"time"
+	"strconv"
 )
 
 type Gateway struct {
-	service   *Service
-	transport *http.Transport
+	service *Service
 }
 
 func NewGateway(service *Service) *Gateway {
-	return &Gateway{
-		service: service,
-		transport: &http.Transport{
-			Proxy:                 nil,
-			DialContext:           (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
-			ResponseHeaderTimeout: 30 * time.Second,
-			IdleConnTimeout:       90 * time.Second,
-		},
-	}
+	return &Gateway{service: service}
 }
 
 func (gateway *Gateway) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -31,14 +22,16 @@ func (gateway *Gateway) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 		http.NotFound(writer, request)
 		return
 	}
-	target, err := gateway.service.ResolveTarget(request.Context(), projectID)
+	containerID, containerPort, err := gateway.service.ResolveTarget(request.Context(), projectID)
 	if err != nil {
 		http.Error(writer, "Project preview is unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	targetURL, _ := url.Parse(target)
+	targetURL := &url.URL{Scheme: "http", Host: net.JoinHostPort("preview.internal", strconv.Itoa(containerPort))}
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
-	proxy.Transport = gateway.transport
+	transport := gateway.service.previewTransport(containerID, containerPort)
+	defer transport.CloseIdleConnections()
+	proxy.Transport = transport
 	proxy.FlushInterval = -1
 	proxy.ErrorHandler = func(writer http.ResponseWriter, _ *http.Request, _ error) {
 		http.Error(writer, "Project application is not responding", http.StatusBadGateway)

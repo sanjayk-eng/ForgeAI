@@ -75,7 +75,6 @@ func (service *Service) Create(ctx context.Context, userID, projectID string) (d
 	containerID, err := service.runtime.CreateContainer(ctx, ContainerSpec{
 		Name: containerName, Image: service.policy.Image, VolumeName: volumeName,
 		WorkspacePath: service.policy.WorkspacePath, NetworkMode: service.policy.NetworkMode,
-		PreviewPort:    service.policy.PreviewPort,
 		ReadOnlyRootFS: service.policy.ReadOnlyRootFS, NoNewPrivileges: service.policy.NoNewPrivileges,
 		CapDrop: service.policy.CapDrop, Limits: service.policy.ResourceLimits(),
 	})
