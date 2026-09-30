@@ -1,5 +1,5 @@
 import { AlertCircle, ExternalLink, Loader2, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useProjectPreview } from "../hooks/useProjectPreview";
 
 type PreviewPanelProps = {
@@ -8,12 +8,13 @@ type PreviewPanelProps = {
 };
 
 export function PreviewPanel({ projectId, accessToken }: PreviewPanelProps) {
-  const { data: preview, isError, refetch } = useProjectPreview(accessToken, projectId);
+  const { data: preview, isError, refetch, waitTimedOut } = useProjectPreview(accessToken, projectId);
   const [frameFailed, setFrameFailed] = useState(false);
+  const [frameTimedOut, setFrameTimedOut] = useState(false);
   const [frameVersion, setFrameVersion] = useState(0);
   const [loadedFrame, setLoadedFrame] = useState("");
 
-  const status = isError || frameFailed ? "gateway_error" : preview?.status ?? "starting";
+  const status = isError || frameFailed || !accessToken ? "gateway_error" : preview?.status ?? "starting";
   const message = status === "running"
     ? "Preview running"
     : status === "stopped"
@@ -21,13 +22,22 @@ export function PreviewPanel({ projectId, accessToken }: PreviewPanelProps) {
       : status === "sandbox_unavailable"
         ? "Sandbox unavailable"
         : status === "application_unavailable"
-          ? "Detecting project server..."
+          ? waitTimedOut ? "No project server detected. Start it in Terminal." : "Detecting project server..."
+          : status === "starting" && waitTimedOut
+            ? "Sandbox is taking longer than expected."
           : status === "gateway_error"
             ? "Unable to load preview"
             : "Starting sandbox...";
   const previewUrl = status === "running" ? preview?.url ?? null : null;
   const containerPort = status === "running" ? preview?.container_port ?? null : null;
   const frameKey = previewUrl ? `${previewUrl}:${frameVersion}` : "";
+
+  useEffect(() => {
+    setFrameTimedOut(false);
+    if (!previewUrl || loadedFrame === frameKey) return;
+    const timer = setTimeout(() => setFrameTimedOut(true), 15_000);
+    return () => clearTimeout(timer);
+  }, [frameKey, loadedFrame, previewUrl]);
 
   function retry() {
     setFrameFailed(false);
@@ -36,6 +46,7 @@ export function PreviewPanel({ projectId, accessToken }: PreviewPanelProps) {
 
   function reloadFrame() {
     setLoadedFrame("");
+    setFrameTimedOut(false);
     setFrameVersion((current) => current + 1);
   }
 
@@ -49,7 +60,7 @@ export function PreviewPanel({ projectId, accessToken }: PreviewPanelProps) {
           </span>
         )}
         <span className="flex items-center gap-1.5 text-[11px] text-forge-muted" aria-live="polite">
-          {(status === "starting" || status === "application_unavailable") && <Loader2 size={13} className="animate-spin" />}
+          {(status === "starting" || status === "application_unavailable") && !waitTimedOut && <Loader2 size={13} className="animate-spin" />}
           {status !== "starting" && status !== "running" && status !== "application_unavailable" && <AlertCircle size={13} />}
           {message}
         </span>
@@ -87,7 +98,10 @@ export function PreviewPanel({ projectId, accessToken }: PreviewPanelProps) {
             />
             {loadedFrame !== frameKey && (
               <div className="absolute inset-0 grid place-items-center bg-forge-bg text-xs text-forge-muted">
-                <span className="inline-flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Connecting to preview...</span>
+                <span className="inline-flex items-center gap-2">
+                  {frameTimedOut ? <AlertCircle size={14} className="text-forge-signal" /> : <Loader2 size={14} className="animate-spin" />}
+                  {frameTimedOut ? "Preview is taking too long. Retry or reload it." : "Connecting to preview..."}
+                </span>
               </div>
             )}
           </>
