@@ -40,7 +40,7 @@ type ResourceLimits struct {
 
 type Sandbox struct {
 	ID            string         `json:"id"`
-	WorkspaceID   string         `json:"workspace_id"`
+	organizationID   string         `json:"organization_id"`
 	ProjectID     string         `json:"project_id"`
 	ContainerID   string         `json:"container_id"`
 	ContainerName string         `json:"container_name"`

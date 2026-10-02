@@ -11,7 +11,7 @@ import (
 )
 
 type Store interface {
-	CanAccessWorkspace(ctx context.Context, workspaceID, userID string) (bool, error)
+	CanAccessWorkspace(ctx context.Context, organizationID, userID string) (bool, error)
 	FindProjectWorkspace(ctx context.Context, projectID string) (string, error)
 	FindActiveByProject(ctx context.Context, projectID string) (domain.Sandbox, error)
 	FindByID(ctx context.Context, sandboxID string) (domain.Sandbox, error)

@@ -21,28 +21,28 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
-func (repository *Repository) CanAccessWorkspace(ctx context.Context, workspaceID, userID string) (bool, error) {
+func (repository *Repository) CanAccessWorkspace(ctx context.Context, organizationID, userID string) (bool, error) {
 	var allowed bool
 	err := repository.db.GetContext(ctx, &allowed, `
 		SELECT EXISTS (
 			SELECT 1 FROM tbl_workspace w WHERE w.id = $1 AND w.owner_id = $2
 			UNION ALL
 			SELECT 1 FROM tbl_workspace_member wm
-			WHERE wm.workspace_id = $1 AND wm.user_id = $2 AND wm.deleted_at IS NULL
-		)`, workspaceID, userID)
+			WHERE wm.organization_id = $1 AND wm.user_id = $2 AND wm.deleted_at IS NULL
+		)`, organizationID, userID)
 	return allowed, err
 }
 
 func (repository *Repository) FindProjectWorkspace(ctx context.Context, projectID string) (string, error) {
-	var workspaceID string
-	err := repository.db.GetContext(ctx, &workspaceID, `SELECT workspace_id FROM tbl_project WHERE id = $1`, projectID)
+	var organizationID string
+	err := repository.db.GetContext(ctx, &organizationID, `SELECT organization_id FROM tbl_project WHERE id = $1`, projectID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", domain.ErrSandboxNotFound
 	}
 	if err != nil {
 		return "", fmt.Errorf("find project workspace: %w", err)
 	}
-	return workspaceID, nil
+	return organizationID, nil
 }
 
 func (repository *Repository) FindActiveByProject(ctx context.Context, projectID string) (domain.Sandbox, error) {
@@ -63,10 +63,10 @@ func (repository *Repository) Create(ctx context.Context, sandbox domain.Sandbox
 	defer tx.Rollback()
 
 	if err := tx.GetContext(ctx, &sandbox.ID, `
-		INSERT INTO tbl_sandbox (workspace_id, project_id, status_id, volume_config, resource_limit, last_error)
+		INSERT INTO tbl_sandbox (organization_id, project_id, status_id, volume_config, resource_limit, last_error)
 		SELECT $1, $2, e.id, '{}'::jsonb, '{}'::jsonb, NULL FROM tbl_enum e
 		WHERE e.category = 'SANDBOX_STATUS' AND e.code = $3
-		RETURNING id`, sandbox.WorkspaceID, sandbox.ProjectID, string(domain.StatusCreating)); err != nil {
+		RETURNING id`, sandbox.organizationID, sandbox.ProjectID, string(domain.StatusCreating)); err != nil {
 		return "", fmt.Errorf("create sandbox state: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -132,7 +132,7 @@ func (repository *Repository) SetLastError(ctx context.Context, sandboxID, messa
 func (repository *Repository) find(ctx context.Context, suffix string, args ...any) (domain.Sandbox, error) {
 	var row struct {
 		ID              string `db:"id"`
-		WorkspaceID     string `db:"workspace_id"`
+		organizationID     string `db:"organization_id"`
 		ProjectID       string `db:"project_id"`
 		Status          string `db:"status"`
 		ContainerID     string `db:"container_id"`
@@ -142,7 +142,7 @@ func (repository *Repository) find(ctx context.Context, suffix string, args ...a
 		LastError       string `db:"last_error"`
 	}
 	err := repository.db.GetContext(ctx, &row, `
-		SELECT s.id, s.workspace_id, s.project_id, status_enum.code AS status,
+		SELECT s.id, s.organization_id, s.project_id, status_enum.code AS status,
 		       c.source_id AS container_id, c.config AS container_config,
 		       s.volume_config, s.resource_limit, COALESCE(s.last_error, '') AS last_error
 		FROM tbl_sandbox s
@@ -174,7 +174,7 @@ func (repository *Repository) find(ctx context.Context, suffix string, args ...a
 		return domain.Sandbox{}, fmt.Errorf("decode sandbox resource limit: %w", err)
 	}
 	return domain.Sandbox{
-		ID: row.ID, WorkspaceID: row.WorkspaceID, ProjectID: row.ProjectID,
+		ID: row.ID, organizationID: row.organizationID, ProjectID: row.ProjectID,
 		ContainerID: row.ContainerID, ContainerName: containerConfig.Name,
 		VolumeName: volumeConfig.Name, Image: containerConfig.Image, ImageActual: containerConfig.ImageActual,
 		WorkspacePath: volumeConfig.MountPath, Status: domain.SandboxStatus(row.Status),

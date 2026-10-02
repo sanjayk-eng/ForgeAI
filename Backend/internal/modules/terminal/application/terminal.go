@@ -44,7 +44,7 @@ func (service *Service) terminalSandbox(ctx context.Context, userID, projectID s
 	if service.runtime == nil || service.store == nil {
 		return domain.Sandbox{}, domain.ErrInvalidSandbox
 	}
-	workspaceID, err := service.workspaceForUser(ctx, userID, projectID)
+	organizationID, err := service.workspaceForUser(ctx, userID, projectID)
 	if err != nil {
 		return domain.Sandbox{}, err
 	}
@@ -52,7 +52,7 @@ func (service *Service) terminalSandbox(ctx context.Context, userID, projectID s
 	if err != nil {
 		return domain.Sandbox{}, err
 	}
-	if sandbox.ProjectID != strings.TrimSpace(projectID) || sandbox.WorkspaceID != workspaceID {
+	if sandbox.ProjectID != strings.TrimSpace(projectID) || sandbox.organizationID != organizationID {
 		return domain.Sandbox{}, domain.ErrSandboxAccessDenied
 	}
 	if sandbox.Status != domain.StatusRunning || sandbox.ContainerID == "" {

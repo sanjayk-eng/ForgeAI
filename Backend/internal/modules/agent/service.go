@@ -125,7 +125,7 @@ func (service *Service) publishAgentEvent(sandbox domain.Sandbox, eventType, sta
 		return
 	}
 	service.events.Publish(realtime.Event{
-		Version: 1, Event: eventType, WorkspaceID: sandbox.WorkspaceID,
+		Version: 1, Event: eventType, organizationID: sandbox.organizationID,
 		ProjectID: sandbox.ProjectID, SandboxID: sandbox.ID, Status: status, Message: message,
 	})
 }

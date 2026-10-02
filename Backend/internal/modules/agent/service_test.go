@@ -126,7 +126,7 @@ func (sandbox *fakeSandbox) ValidateSandboxAccess(context.Context, string, strin
 }
 
 func (sandbox *fakeSandbox) Get(context.Context, string) (domain.Sandbox, error) {
-	return domain.Sandbox{ID: "sandbox-1", ProjectID: "project-1", WorkspaceID: "workspace-1", Status: domain.StatusRunning}, nil
+	return domain.Sandbox{ID: "sandbox-1", ProjectID: "project-1", organizationID: "workspace-1", Status: domain.StatusRunning}, nil
 }
 
 func (sandbox *fakeSandbox) ListFiles(_ context.Context, _ string, dir string) ([]terminalapp.FileEntry, error) {

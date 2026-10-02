@@ -11,9 +11,7 @@ import (
 	projectmodule "ai-agent/internal/modules/project"
 	terminalmodule "ai-agent/internal/modules/terminal"
 	terminalworker "ai-agent/internal/modules/terminal/worker"
-	workspaceinvite "ai-agent/internal/modules/workspaces/invite"
-	member "ai-agent/internal/modules/workspaces/member"
-	workspacecore "ai-agent/internal/modules/workspaces/workspace"
+	organizationmodule "ai-agent/internal/modules/organization"
 	"ai-agent/internal/shared/email"
 	"ai-agent/internal/shared/logger"
 	appdatabase "ai-agent/pkg/database"
@@ -122,37 +120,25 @@ func runServer() error {
 		FrontendURL:  settings.FrontendURL,
 	})
 	protectedRouter := middleware.ProtectedGroup(apiRouter, jwtManager, appLogger)
-	workspacecore.LoadModule(workspacecore.ModuleConfig{
+	
+	// Load organization module (replaces workspace)
+	organizationModule := organizationmodule.LoadModule(organizationmodule.ModuleConfig{
 		Router:   protectedRouter,
 		Database: db,
 		Logger:   appLogger,
 	})
-	githubProvider, err := oauthFactory.Create("github")
-	if err != nil {
-		return fmt.Errorf("initialize GitHub repository provider: %w", err)
-	}
-	githubInspector, _ := githubProvider.(provider.GitHubRepositoryInspector)
-
-	// Initialize GitHub client for project module
-	var githubClient projectmodule.GitHubClient
-	if githubInspector != nil {
-		// Import the github subpackage
-		githubClient = projectmodule.NewGitHubClient(githubInspector)
-	}
-
+	
+	
+	// Simplified project module (no GitHub client, no sync)
 	projectModule := projectmodule.LoadModule(projectmodule.ModuleConfig{
 		Router:        protectedRouter,
 		Database:      db,
 		Logger:        appLogger,
-		GitHubClient:  githubClient,
-		GitHubAccount: authModule.Repository,
-		SyncContext:   emailContext,
+		Organization:  organizationModule.CoreService,
 	})
 
 	projectAdapter := terminalworker.NewProjectAdapter(
 		projectModule.CoreService,
-		projectModule.RepoService,
-		authModule.Repository,
 	)
 	policyPath, err := sandboxPolicyPath()
 	if err != nil {

@@ -13,12 +13,15 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+type OrganizationService interface {
+	ValidateAccess(ctx context.Context, userID, organizationID string) error
+}
+
 type Service interface {
-	Create(ctx context.Context, tx *sqlx.Tx, workspaceID, createdBy string, input CreateProjectRequest) (Project, error)
-	ListByWorkspace(ctx context.Context, workspaceID string, query pagination.Query) (pagination.Result[Project], error)
+	Create(ctx context.Context, organizationID, createdBy string, input CreateProjectRequest) (Project, error)
+	ListByOrganization(ctx context.Context, organizationID string, query pagination.Query) (pagination.Result[Project], error)
 	FindByID(ctx context.Context, projectID string) (Project, error)
-	FindByWorkspaceSlug(ctx context.Context, workspaceID, slug string) (Project, error)
-	IsWorkspaceOwner(ctx context.Context, workspaceID, userID string) (bool, error)
+	FindByOrganizationSlug(ctx context.Context, organizationID, slug string) (Project, error)
 	Update(ctx context.Context, projectID, userID string, input UpdateProjectRequest) (Project, error)
 	Delete(ctx context.Context, projectID, userID string) error
 }
@@ -26,22 +29,28 @@ type Service interface {
 type service struct {
 	db   *sqlx.DB
 	repo Repository
+	org  OrganizationService
 }
 
-func NewService(db *sqlx.DB, repo Repository) Service {
-	return &service{db: db, repo: repo}
+func NewService(db *sqlx.DB, repo Repository, org OrganizationService) Service {
+	return &service{db: db, repo: repo, org: org}
 }
 
-func (s *service) Create(ctx context.Context, tx *sqlx.Tx, workspaceID, createdBy string, input CreateProjectRequest) (Project, error) {
-	workspaceID = strings.TrimSpace(workspaceID)
+func (s *service) Create(ctx context.Context, organizationID, createdBy string, input CreateProjectRequest) (Project, error) {
+	organizationID = strings.TrimSpace(organizationID)
 	createdBy = strings.TrimSpace(createdBy)
 	name := strings.TrimSpace(input.Name)
 
-	if s.db == nil || workspaceID == "" || createdBy == "" || name == "" {
+	if s.db == nil || organizationID == "" || createdBy == "" || name == "" {
 		return Project{}, ErrInvalidProjectInput
 	}
 
-	project, err := s.repo.Create(ctx, tx, workspaceID, name, slugify(name), input.Description, string(input.Type), createdBy)
+	// Validate organization access
+	if err := s.org.ValidateAccess(ctx, createdBy, organizationID); err != nil {
+		return Project{}, ErrOrganizationAccessRequired
+	}
+
+	project, err := s.repo.Create(ctx, organizationID, name, slugify(name), input.Description, createdBy)
 	if err != nil {
 		return Project{}, fmt.Errorf("create project: %w", err)
 	}
@@ -49,11 +58,11 @@ func (s *service) Create(ctx context.Context, tx *sqlx.Tx, workspaceID, createdB
 	return project, nil
 }
 
-func (s *service) ListByWorkspace(ctx context.Context, workspaceID string, query pagination.Query) (pagination.Result[Project], error) {
-	if strings.TrimSpace(workspaceID) == "" {
+func (s *service) ListByOrganization(ctx context.Context, organizationID string, query pagination.Query) (pagination.Result[Project], error) {
+	if strings.TrimSpace(organizationID) == "" {
 		return pagination.Result[Project]{}, ErrInvalidProjectInput
 	}
-	return s.repo.ListByWorkspace(ctx, workspaceID, query)
+	return s.repo.ListByOrganization(ctx, organizationID, query)
 }
 
 func (s *service) FindByID(ctx context.Context, projectID string) (Project, error) {
@@ -67,19 +76,15 @@ func (s *service) FindByID(ctx context.Context, projectID string) (Project, erro
 	return project, nil
 }
 
-func (s *service) FindByWorkspaceSlug(ctx context.Context, workspaceID, slug string) (Project, error) {
-	if strings.TrimSpace(workspaceID) == "" || strings.TrimSpace(slug) == "" {
+func (s *service) FindByOrganizationSlug(ctx context.Context, organizationID, slug string) (Project, error) {
+	if strings.TrimSpace(organizationID) == "" || strings.TrimSpace(slug) == "" {
 		return Project{}, ErrInvalidProjectInput
 	}
-	project, err := s.repo.FindByWorkspaceSlug(ctx, workspaceID, slug)
+	project, err := s.repo.FindByOrganizationSlug(ctx, organizationID, slug)
 	if err != nil {
 		return Project{}, ErrProjectNotFound
 	}
 	return project, nil
-}
-
-func (s *service) IsWorkspaceOwner(ctx context.Context, workspaceID, userID string) (bool, error) {
-	return s.repo.IsWorkspaceOwner(ctx, workspaceID, userID)
 }
 
 func (s *service) Update(ctx context.Context, projectID, userID string, input UpdateProjectRequest) (Project, error) {
@@ -99,12 +104,9 @@ func (s *service) Update(ctx context.Context, projectID, userID string, input Up
 		return Project{}, ErrProjectNotFound
 	}
 
-	owner, err := s.repo.IsWorkspaceOwner(ctx, existing.WorkspaceID, userID)
-	if err != nil {
-		return Project{}, fmt.Errorf("check project owner: %w", err)
-	}
-	if !owner {
-		return Project{}, ErrWorkspaceOwnerRequired
+	// Validate organization access
+	if err := s.org.ValidateAccess(ctx, userID, existing.OrganizationID); err != nil {
+		return Project{}, ErrOrganizationAccessRequired
 	}
 
 	project, err := s.repo.Update(ctx, projectID, name, input.Description, string(status))
@@ -131,12 +133,9 @@ func (s *service) Delete(ctx context.Context, projectID, userID string) error {
 		return ErrProjectNotFound
 	}
 
-	owner, err := s.repo.IsWorkspaceOwner(ctx, project.WorkspaceID, userID)
-	if err != nil {
-		return fmt.Errorf("check project owner: %w", err)
-	}
-	if !owner {
-		return ErrWorkspaceOwnerRequired
+	// Validate organization access
+	if err := s.org.ValidateAccess(ctx, userID, project.OrganizationID); err != nil {
+		return ErrOrganizationAccessRequired
 	}
 
 	if err := s.repo.Delete(ctx, projectID); err != nil {

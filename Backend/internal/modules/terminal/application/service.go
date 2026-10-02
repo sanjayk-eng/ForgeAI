@@ -40,7 +40,7 @@ func (service *Service) Create(ctx context.Context, userID, projectID string) (d
 	if userID == "" || projectID == "" || service.store == nil || service.runtime == nil {
 		return domain.Sandbox{}, domain.ErrInvalidSandbox
 	}
-	workspaceID, err := service.workspaceForUser(ctx, userID, projectID)
+	organizationID, err := service.workspaceForUser(ctx, userID, projectID)
 	if err != nil {
 		return domain.Sandbox{}, err
 	}
@@ -55,7 +55,7 @@ func (service *Service) Create(ctx context.Context, userID, projectID string) (d
 		return domain.Sandbox{}, err
 	}
 	sandbox := domain.Sandbox{
-		WorkspaceID: workspaceID, ProjectID: projectID, ContainerName: containerName,
+		organizationID: organizationID, ProjectID: projectID, ContainerName: containerName,
 		VolumeName: volumeName, Image: service.policy.Image, ImageActual: service.policy.Image,
 		WorkspacePath: service.policy.WorkspacePath, Status: domain.StatusCreating,
 		Limits: service.policy.ResourceLimits(),

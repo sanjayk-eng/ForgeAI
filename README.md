@@ -1,201 +1,338 @@
-# ForgeAI
+# ForgeAI - AI-Powered Development Workspace
 
-ForgeAI is a workspace-based AI development platform that combines a Go backend with a React + TypeScript frontend. The product is structured around user auth, project management, GitHub integration, AI agent orchestration, and sandboxed terminal execution.
+## 🚀 Quick Links
 
-## Overview
-
-### Backend
-The backend is built in Go using Gin and follows a modular architecture. It is organized under the Backend directory and exposes a REST API for authentication, workspaces, project management, terminal execution, Git operations, and AI-agent orchestration.
-
-### Frontend
-The frontend is built in React 19 with Vite and TypeScript. It uses React Router for navigation, TanStack Query for data fetching, Zustand-ready patterns, and a modular workspace UI structure.
+- **[Complete Refactoring Guide](./ORGANIZATION_REFACTORING_COMPLETE_GUIDE.md)** - Full guide for workspace → organization migration
+- **[Migration Script](./refactor.ps1)** - Automated refactoring script
 
 ---
 
-## Backend architecture
+## 📋 What's New
 
-### Core entry point
-- Backend/cmd/agent/main.go starts the application.
-- Backend/cmd/agent/server.go sets up the Gin server, config, middleware, JWT, OAuth providers, Postgres wiring, sandbox services, email workers, and all module registrations.
+### Version 2.0 - Organization-Based Architecture
 
-### Key responsibilities
-- Auth and sessions
-  - Login, registration, refresh, OAuth callback, email verification, and JWT-protected access.
-  - Managed by Backend/internal/modules/auth and middleware.
-- Workspace management
-  - Workspace creation, membership, invitations, and access control.
-  - Located under Backend/internal/modules/workspaces.
+ForgeAI has been refactored from a workspace-based to an organization-based architecture:
+
+**Key Changes**:
+- ✅ Organizations replace Workspaces (better multi-tenant model)
+- ✅ GitHub App integration at organization level
+- ✅ Manual project creation (no auto-import)
+- ✅ Optional repository linking
+- ✅ Simplified sandbox model
+- ❌ Removed: Background sync workers, repository import
+
+**Benefits**:
+- More scalable (enterprise-ready)
+- Simpler codebase (11 vs 15 tables)
+- Faster (no background workers)
+- Clearer architecture
+
+---
+
+## 🏗️ Architecture Overview
+
+```
+User
+ └─ Organization (multi-tenant boundary)
+     ├─ Members (OWNER, ADMIN, MEMBER roles)
+     ├─ Integrations (GitHub App per organization)
+     ├─ Projects (manual creation)
+     │   ├─ Repository (optional link to GitHub)
+     │   └─ Sandbox (Docker-based isolated environment)
+     └─ Settings
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Go 1.26+
+- Node.js 20+
+- PostgreSQL 16+
+- Docker (for sandboxes)
+
+### Quick Start
+
+1. **Run automated refactoring**:
+   ```powershell
+   .\refactor.ps1
+   ```
+
+2. **Setup database**:
+   ```powershell
+   cd Backend
+   goose -dir migrations postgres "connection-string" up
+   ```
+
+3. **Start backend**:
+   ```powershell
+   cd Backend
+   go build -o ./bin/agent ./cmd/agent
+   ./bin/agent
+   ```
+
+4. **Start frontend**:
+   ```powershell
+   cd Frontend
+   npm install
+   npm run dev
+   ```
+
+5. **Open browser**: http://localhost:5173
+
+For detailed instructions, see [ORGANIZATION_REFACTORING_COMPLETE_GUIDE.md](./ORGANIZATION_REFACTORING_COMPLETE_GUIDE.md)
+
+---
+
+## 📁 Project Structure
+
+```
+ForgeAI/
+├── Backend/
+│   ├── cmd/agent/                 # Main entry point
+│   ├── internal/
+│   │   ├── config/                # Configuration
+│   │   ├── middleware/            # HTTP middleware
+│   │   ├── modules/
+│   │   │   ├── organization/      # NEW: Organization module
+│   │   │   ├── project/           # Simplified project module
+│   │   │   ├── terminal/          # Sandbox management
+│   │   │   ├── agent/             # AI agent
+│   │   │   ├── git/               # Git operations
+│   │   │   └── auth/              # Authentication
+│   │   └── shared/                # Shared utilities
+│   ├── migrations/                # Database migrations
+│   └── go.mod
+│
+├── Frontend/
+│   ├── src/
+│   │   ├── app/                   # App initialization
+│   │   ├── modules/
+│   │   │   ├── organization/      # NEW: Organization features
+│   │   │   └── auth/              # Authentication
+│   │   └── shared/                # Shared components
+│   └── package.json
+│
+├── ORGANIZATION_REFACTORING_COMPLETE_GUIDE.md  # Main guide
+└── refactor.ps1                                 # Automated script
+```
+
+---
+
+## 🔧 Technology Stack
+
+### Backend
+- **Language**: Go 1.26
+- **Web Framework**: Gin
+- **Database**: PostgreSQL 16 with sqlx
+- **Migrations**: Goose
+- **Authentication**: JWT (HS256)
+- **OAuth**: GitHub & Google
+- **Containers**: Docker
+- **Logging**: Uber Zap
+
+### Frontend
+- **Framework**: React 19
+- **Language**: TypeScript
+- **Build Tool**: Vite
+- **Routing**: React Router v7
+- **State**: TanStack Query + Zustand
+- **Styling**: TailwindCSS 4
+- **Editor**: Monaco Editor
+- **Terminal**: xterm.js
+
+---
+
+## 📖 Key Features
+
+### 🏢 Organizations
+- Multi-tenant workspace
+- Role-based access (Owner, Admin, Member)
+- Team collaboration
+- Member invitations
+
+### 🔗 GitHub Integration
+- GitHub App installation (org-level)
+- Repository linking
+- OAuth authentication
+- Secure git operations
+
+### 📁 Projects
+- Manual project creation
+- Optional repository linking
 - Project management
-  - Project CRUD, repository integration, GitHub sync, and project orchestration.
-  - Located under Backend/internal/modules/project.
-- Terminal and sandbox execution
-  - Secure command execution, container lifecycle management, and workspace operations.
-  - Located under Backend/internal/modules/terminal and related shared executor packages.
-- Browser preview
-  - Signed project preview hosts, loopback-only Docker port forwarding, and an HTTP/WebSocket gateway.
-  - Located under Backend/internal/modules/preview and uses the existing terminal sandbox runtime.
-- Git and agent flows
-  - Git automation, repository actions, and AI agent integrations.
-  - Managed through Backend/internal/modules/git and Backend/internal/modules/agent.
-- Shared infrastructure
-  - Config, logger, database, validation, email service, executor, filesystem utilities, and error handling.
+- Sandbox provisioning
 
-### Current working config
-The development sandbox uses a dedicated image with Go, Node.js/npm, Git, and Bash:
-- Backend/configs/sandbox.yaml
-- Image: forgeai-sandbox:latest
+### 🖥️ Sandboxes
+- Docker-based isolation
+- File operations (CRUD)
+- Terminal access (WebSocket)
+- Resource limits
+- Network isolation
 
-React, TypeScript, and JavaScript projects use their normal npm dependencies. The configured sandbox uses Docker's `bridge` network. Preview forwarding binds only an ephemeral host port on `127.0.0.1`; it does not publish the application port on a public interface. Changing the sandbox to `network_mode: none` keeps that isolation and disables this preview transport until a separate gateway network is configured.
+### 🔄 Git Operations
+- Status tracking
+- File staging
+- Commits with author
+- Push to remote (OAuth)
+- Diff viewing
+- Revert changes
 
-### Backend structure
-```text
-Backend/
-├─ cmd/
-│  └─ agent/
-│     ├─ main.go
-│     └─ server.go
-├─ internal/
-│  ├─ config/
-│  ├─ middleware/
-│  ├─ modules/
-│  │  ├─ agent/
-│  │  ├─ auth/
-│  │  ├─ conversation/
-│  │  ├─ git/
-│  │  ├─ llm/
-│  │  ├─ permission/
-│  │  ├─ project/
-│  │  ├─ terminal/
-│  │  ├─ tool/
-│  │  └─ workspaces/
-│  ├─ shared/
-│  └─ database/
-├─ pkg/
-│  ├─ bcrypt/
-│  ├─ database/
-│  ├─ jwt/
-│  └─ validate/
-├─ configs/
-├─ migrations/
-├─ prompts/
-├─ go.mod
-├─ go.sum
-└─ schema.sql
-```
+### 🤖 AI Agent
+- Code generation
+- File modifications
+- Context-aware
+- Real-time progress
+- LLM integration (OpenAI-compatible)
+
+### 📡 Real-time Features
+- WebSocket events
+- File change notifications
+- Git status updates
+- Agent progress
+- Terminal I/O
 
 ---
 
-## Frontend architecture
+## 🔐 Security
 
-### App shell
-- Frontend/src/App.tsx wraps the app in:
-  - QueryClientProvider
-  - ThemeProvider
-  - ToastProvider
-  - AuthProvider
-  - RouterProvider
-
-### Routing
-- Frontend/src/app/router.tsx defines the app routes.
-- Auth routes include login, register, OAuth callback, and email verification.
-- Protected routes include workspace layout, overview, projects, project detail, members, and settings.
-
-### Frontend features
-- Auth flow:
-  - Login, register, protected route gating, OAuth callback handling.
-- Workspace UI:
-  - Overview pages, members, settings, invites, and project dashboard.
-- Project UI:
-  - Project listing and detail pages for repository-driven work.
-- UI stack:
-  - React Router
-  - TanStack Query
-  - Monaco editor for code editing
-  - Lucide icons
-  - Tailwind styling
-
-### Frontend structure
-```text
-Frontend/
-├─ public/
-├─ src/
-│  ├─ app/
-│  │  ├─ queryClient.ts
-│  │  └─ router.tsx
-│  ├─ modules/
-│  │  ├─ auth/
-│  │  └─ workspace/
-│  ├─ shared/
-│  │  ├─ api/
-│  │  ├─ auth/
-│  │  ├─ hooks/
-│  │  ├─ realtime/
-│  │  └─ ui/
-│  ├─ App.tsx
-│  ├─ index.css
-│  └─ main.tsx
-├─ index.html
-├─ package.json
-├─ tsconfig.json
-├─ vite.config.ts
-└─ README.md
-```
+- **Authentication**: JWT with refresh tokens
+- **Authorization**: Role-based access control
+- **Sandbox Isolation**: 
+  - No network access
+  - Read-only root filesystem
+  - Resource limits (CPU, memory, PIDs)
+  - Dropped capabilities
+- **OAuth Tokens**: Stored encrypted, passed via stdin
+- **Input Validation**: All endpoints validated
+- **CORS**: Configurable origins
 
 ---
 
-## How the system fits together
+## 📊 Database Schema
 
-1. The frontend authenticates users through the backend auth module.
-2. Protected pages rely on JWT-based access checks.
-3. Workspace and project APIs are served by the Go backend.
-4. The backend can create or manage sandboxed terminal containers for repos and commands.
-5. GitHub and project sync logic connect user accounts and repositories to workspace activities.
-6. The AI agent layer sits on top of these services and can interact with project and terminal execution workflows.
+### Core Tables
+1. `tbl_user` - User accounts
+2. `tbl_organization` - Organizations
+3. `tbl_organization_member` - Members with roles
+4. `tbl_organization_invite` - Pending invites
+5. `tbl_organization_integration` - GitHub App installations
+6. `tbl_project` - Projects
+7. `tbl_project_repository` - Repository links
+8. `tbl_sandbox` - Sandboxes
+9. `tbl_sandbox_resource_limit` - Resource configs
+
+See migration file: `Backend/migrations/20270101000000_initial_schema.sql`
 
 ---
 
-## Run locally
+## 🧪 Testing
 
 ### Backend
-```bash
+```powershell
 cd Backend
-go mod download
-go run ./cmd/agent
+go test ./internal/modules/...
+go build -o ./bin/agent ./cmd/agent
 ```
 
 ### Frontend
-```bash
+```powershell
 cd Frontend
-npm install
+npm run lint
+npm run build
 npm run dev
 ```
 
-### Build the sandbox image
-```yaml
-sandbox:
-  image: forgeai-sandbox:latest
+### API Testing
+```powershell
+# See API reference in ORGANIZATION_REFACTORING_COMPLETE_GUIDE.md
+$TOKEN = "your-jwt-token"
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/organizations" `
+  -Method POST `
+  -Headers @{"Authorization"="Bearer $TOKEN"; "Content-Type"="application/json"} `
+  -Body '{"name":"My Org"}'
 ```
-
-Build the image from the repository root before starting the backend:
-
-```bash
-docker build -f Backend/Dockerfile.sandbox -t forgeai-sandbox:latest Backend
-```
-
-### Browser preview
-Start a web server inside the project terminal with an externally bound container interface:
-
-```bash
-npm run dev -- --host 0.0.0.0
-```
-
-The preview gateway detects the running HTTP server's listening port inside the same sandbox container and proxies HTTP and WebSocket/HMR traffic through Docker Exec. The browser receives only a signed project preview URL; it never receives the Docker address or container port.
-
-Local development defaults to `http://preview.localhost:<PORT>` (the backend `PORT`, defaulting to `8080`). For deployment, set `PREVIEW_PUBLIC_ORIGIN` to an HTTPS origin such as `https://preview.example.com`, route `*.preview.example.com` to the backend gateway while preserving the `Host` header, and configure TLS for that wildcard domain. Set `PREVIEW_SIGNING_KEY` to a strong secret (or use the configured `JWT_SECRET`). Preview requests are tunneled to the same sandbox container by the backend; containers do not publish project ports on the host.
 
 ---
 
-## Notes
+## 🐛 Troubleshooting
 
-This project is currently in an active product-development phase: the backend is already modular and service-oriented, while the frontend is structured around a protected workspace experience. The overall direction is a full-stack AI coding workspace where project data, git operations, sandbox execution, and user workflows are all connected through a single platform.
+See the [Troubleshooting section](./ORGANIZATION_REFACTORING_COMPLETE_GUIDE.md#troubleshooting) in the complete guide.
 
+Common issues:
+- Import errors → Run `go mod tidy` / `npm install`
+- Database errors → Check schema matches migration
+- 404 errors → Verify routes updated
+- Access denied → Check organization membership
+- Git errors → Test commands manually in sandbox
+
+---
+
+## 📚 Documentation
+
+- **[Complete Refactoring Guide](./ORGANIZATION_REFACTORING_COMPLETE_GUIDE.md)** - Full implementation guide
+  - Architecture changes
+  - Database schema
+  - Backend implementation
+  - Frontend implementation
+  - Migration scripts
+  - API reference
+  - Testing guide
+  - Troubleshooting
+
+- **[Architecture Summary](./ARCHITECTURE_SUMMARY.md)** - Original architecture (outdated)
+
+---
+
+## 🤝 Contributing
+
+1. Read the refactoring guide
+2. Follow existing code patterns
+3. Write tests for new features
+4. Update documentation
+5. Submit pull request
+
+---
+
+## 📄 License
+
+[Your License Here]
+
+---
+
+## 🆘 Support
+
+For issues during refactoring:
+
+1. Check [ORGANIZATION_REFACTORING_COMPLETE_GUIDE.md](./ORGANIZATION_REFACTORING_COMPLETE_GUIDE.md)
+2. Review backend logs (set `LOG_LEVEL=debug`)
+3. Check browser console
+4. Test API endpoints individually
+5. Verify database schema
+
+---
+
+## 🎯 Roadmap
+
+### Completed
+- ✅ Organization-based architecture
+- ✅ Manual project creation
+- ✅ Optional repository linking
+- ✅ Simplified sandbox model
+- ✅ GitHub App integration
+
+### Planned
+- [ ] Multiple sandboxes per project
+- [ ] Sandbox templates (Node, Python, Rust, etc.)
+- [ ] Branch switching UI
+- [ ] File upload (drag-and-drop)
+- [ ] Real-time collaboration
+- [ ] Terminal multiplexing
+- [ ] Preview service (port forwarding)
+- [ ] Audit logging
+
+---
+
+**Version**: 2.0.0  
+**Last Updated**: 2027-01-01

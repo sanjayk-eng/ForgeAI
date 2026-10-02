@@ -207,7 +207,7 @@ func (interactiveTestStore) CanAccessWorkspace(_ context.Context, _ string, user
 
 func (interactiveTestStore) FindActiveByProject(context.Context, string) (domain.Sandbox, error) {
 	return domain.Sandbox{
-		ID: "sandbox-1", ProjectID: "project-1", WorkspaceID: "workspace-1",
+		ID: "sandbox-1", ProjectID: "project-1", organizationID: "workspace-1",
 		ContainerID: "container-1", WorkspacePath: "/workspace", Status: domain.StatusRunning,
 	}, nil
 }

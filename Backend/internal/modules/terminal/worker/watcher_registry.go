@@ -20,7 +20,7 @@ func (w *SandboxWorker) startWorkspaceWatcher(ctx context.Context, sandbox domai
 	w.watchersMu.Unlock()
 
 	watcher, err := NewWorkspaceWatcher(
-		docker.HostWorkspacePath(sandbox.VolumeName), sandbox.WorkspaceID, projectID, sandbox.ID,
+		docker.HostWorkspacePath(sandbox.VolumeName), sandbox.organizationID, projectID, sandbox.ID,
 		w.eventsPublisher, func(err error) {
 			if w.log != nil {
 				w.log.Warn(ctx, "sandbox filesystem watcher error", "sandbox_id", sandbox.ID, "error", err)
@@ -51,7 +51,7 @@ func (w *SandboxWorker) publishSandboxStatus(sandbox domain.Sandbox, status doma
 		return
 	}
 	w.eventsPublisher.Publish(realtime.Event{
-		Version: 1, Event: "sandbox.status.changed", WorkspaceID: sandbox.WorkspaceID,
+		Version: 1, Event: "sandbox.status.changed", organizationID: sandbox.organizationID,
 		ProjectID: sandbox.ProjectID, SandboxID: sandbox.ID, Status: string(status),
 	})
 }

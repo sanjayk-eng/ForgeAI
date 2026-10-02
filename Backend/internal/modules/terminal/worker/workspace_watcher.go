@@ -18,7 +18,7 @@ const watcherDebounce = 100 * time.Millisecond
 type WorkspaceWatcher struct {
 	root        string
 	projectID   string
-	workspaceID string
+	organizationID string
 	sandboxID   string
 	publisher   realtime.Publisher
 	watcher     *fsnotify.Watcher
@@ -27,7 +27,7 @@ type WorkspaceWatcher struct {
 	onError     func(error)
 }
 
-func NewWorkspaceWatcher(root, workspaceID, projectID, sandboxID string, publisher realtime.Publisher, onError func(error)) (*WorkspaceWatcher, error) {
+func NewWorkspaceWatcher(root, organizationID, projectID, sandboxID string, publisher realtime.Publisher, onError func(error)) (*WorkspaceWatcher, error) {
 	root, err := filepath.Abs(root)
 	if err != nil {
 		return nil, fmt.Errorf("resolve workspace watcher root: %w", err)
@@ -44,7 +44,7 @@ func NewWorkspaceWatcher(root, workspaceID, projectID, sandboxID string, publish
 		return nil, fmt.Errorf("create workspace watcher: %w", err)
 	}
 	workspaceWatcher := &WorkspaceWatcher{
-		root: root, workspaceID: workspaceID, projectID: projectID, sandboxID: sandboxID,
+		root: root, organizationID: organizationID, projectID: projectID, sandboxID: sandboxID,
 		publisher: publisher, watcher: fsWatcher, done: make(chan struct{}), onError: onError,
 	}
 	if err := workspaceWatcher.addTree(root); err != nil {

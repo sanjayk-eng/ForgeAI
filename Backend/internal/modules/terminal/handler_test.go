@@ -63,7 +63,7 @@ func TestProjectWebSocketRequiresProjectAccessAndStreamsEvents(t *testing.T) {
 	defer connection.Close(websocket.StatusNormalClosure, "test complete")
 
 	hub.Publish(realtime.Event{
-		Version: 1, Event: "file.changed", WorkspaceID: "workspace-1", ProjectID: "project-1",
+		Version: 1, Event: "file.changed", organizationID: "workspace-1", ProjectID: "project-1",
 		SandboxID: "sandbox-1", Path: "src/App.tsx", ChangeType: "changed",
 	})
 	readContext, cancel := context.WithTimeout(context.Background(), time.Second)

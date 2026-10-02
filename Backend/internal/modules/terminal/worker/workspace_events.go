@@ -103,7 +103,7 @@ func (watcher *WorkspaceWatcher) flush(observed map[string]fsnotify.Op) {
 	}
 	if published {
 		watcher.publisher.Publish(realtime.Event{
-			Version: 1, Event: "git.status.changed", WorkspaceID: watcher.workspaceID,
+			Version: 1, Event: "git.status.changed", organizationID: watcher.organizationID,
 			ProjectID: watcher.projectID, SandboxID: watcher.sandboxID,
 		})
 	}
@@ -123,7 +123,7 @@ func (watcher *WorkspaceWatcher) publishPathEvent(eventType, filePath, oldPath s
 	}
 	changeType := strings.TrimPrefix(eventType, "file.")
 	watcher.publisher.Publish(realtime.Event{
-		Version: 1, Event: eventType, WorkspaceID: watcher.workspaceID, ProjectID: watcher.projectID,
+		Version: 1, Event: eventType, organizationID: watcher.organizationID, ProjectID: watcher.projectID,
 		SandboxID: watcher.sandboxID, Path: relativePath, OldPath: relativeOldPath,
 		ChangeType: changeType, IsDirectory: directory,
 	})

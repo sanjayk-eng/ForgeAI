@@ -3,7 +3,7 @@ package realtime
 type Event struct {
 	Version     int    `json:"version"`
 	Event       string `json:"event"`
-	WorkspaceID string `json:"workspace_id,omitempty"`
+	organizationID string `json:"organization_id,omitempty"`
 	ProjectID   string `json:"project_id"`
 	SandboxID   string `json:"sandbox_id,omitempty"`
 	Path        string `json:"path,omitempty"`
