@@ -2,7 +2,7 @@ package project
 
 import (
 	"context"
-	
+
 	"ai-agent/internal/modules/project/core"
 	"ai-agent/internal/shared/logger"
 
@@ -43,4 +43,12 @@ func LoadModule(config ModuleConfig) *Module {
 		CoreService: coreService,
 		Handler:     handler,
 	}
+}
+
+func (m *Module) SetProjectCreatedHook(hook func(context.Context, string, string)) {
+	m.Handler.projectCreatedHook = hook
+}
+
+func (m *Module) SetProjectDeletedHook(hook func(context.Context, string)) {
+	m.Handler.projectDeletedHook = hook
 }

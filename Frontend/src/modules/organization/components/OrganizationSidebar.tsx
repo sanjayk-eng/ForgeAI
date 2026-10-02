@@ -2,14 +2,14 @@ import { Bot, FolderGit2, LayoutDashboard, LogOut, MessagesSquare, Plus, Setting
 import { NavLink, useLocation } from "react-router-dom";
 
 const items = [
-  { label: "Overview", to: "/organization", icon: LayoutDashboard, end: true },
-  { label: "Members", to: "/organization/members", icon: Users },
-  { label: "Settings", to: "/organization/settings", icon: Settings },
+  { label: "Overview", path: "", icon: LayoutDashboard, end: true },
+  { label: "Members", path: "/members", icon: Users },
+  { label: "Settings", path: "/settings", icon: Settings },
 ];
 
 const modules = [
-  { label: "Agent organization", to: "/organization/projects", query: "agent=1", icon: Bot },
-  { label: "Projects", to: "/organization/projects", icon: FolderGit2 },
+  { label: "Agent organization", path: "/projects", query: "agent=1", icon: Bot },
+  { label: "Projects", path: "/projects", icon: FolderGit2 },
   { label: "Conversations", icon: MessagesSquare },
 ];
 
@@ -23,13 +23,16 @@ export function OrganizationSidebar({
 }: {
   open: boolean;
   hasOrganization: boolean;
-  organizationId ?: string;
+  organizationId?: string;
   onCreateOrganization: () => void;
   onClose: () => void;
   onSignOut: () => void;
 }) {
   const location = useLocation();
   const agentMode = location.search.includes("agent=1") || location.search.includes("panel=agent");
+  const organizationPath = organizationId
+    ? `/organizations/${encodeURIComponent(organizationId)}`
+    : "";
 
   return (
     <>
@@ -52,10 +55,10 @@ export function OrganizationSidebar({
               organization
             </span>
             <nav className="grid gap-1" aria-label="organization navigation">
-              {items.map(({ label, to, icon: Icon, end }) => (
+              {items.map(({ label, path, icon: Icon, end }) => (
                 <NavLink
-                  key={to}
-                  to={`${to}?organization=${organizationId ?? ""}`}
+                  key={path}
+                  to={`${organizationPath}${path}`}
                   end={end}
                   onClick={onClose}
                   className={({ isActive }) =>
@@ -71,10 +74,10 @@ export function OrganizationSidebar({
               Modules
             </span>
             <div className="grid gap-1 text-[13px] font-semibold text-forge-muted">
-              {modules.map(({ label, to, query, icon: Icon }) => to ? (
+              {modules.map(({ label, path, query, icon: Icon }) => path ? (
                 <NavLink
                   key={label}
-                  to={`${to}?organization=${organizationId ?? ""}${query ? `&${query}` : ""}`}
+                  to={`${organizationPath}${path}${query ? `?${query}` : ""}`}
                   onClick={onClose}
                   className={({ isActive }) => {
                     const selected = isActive && (label === "Agent organization" ? agentMode : !agentMode);

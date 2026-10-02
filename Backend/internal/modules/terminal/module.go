@@ -87,11 +87,13 @@ func (m *Module) OnProjectCreated(ctx context.Context, projectID, userID string)
 	}
 }
 
-func (m *Module) OnProjectDeleted(ctx context.Context, projectID string) error {
-	if m.Worker == nil {
-		return nil
+func (m *Module) OnProjectDeleted(ctx context.Context, projectID string) {
+	if m.Worker != nil {
+		m.Worker.Publish(worker.ProjectEvent{
+			Type:      "project.deleted",
+			ProjectID: projectID,
+		})
 	}
-	return m.Worker.DeleteProject(ctx, projectID)
 }
 
 func (m *Module) OnProjectBranchUpdated(ctx context.Context, projectID string) error {

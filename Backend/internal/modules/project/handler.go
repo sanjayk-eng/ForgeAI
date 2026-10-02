@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -13,7 +14,9 @@ import (
 )
 
 type Handler struct {
-	service core.Service
+	service            core.Service
+	projectCreatedHook func(context.Context, string, string)
+	projectDeletedHook func(context.Context, string)
 }
 
 func NewHandler(service core.Service) *Handler {
@@ -27,10 +30,14 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	project, err := h.service.Create(c.Request.Context(), c.Param("organization_id"), userID(c), input)
+	createdBy := userID(c)
+	project, err := h.service.Create(c.Request.Context(), c.Param("organization_id"), createdBy, input)
 	if err != nil {
 		h.writeError(c, err)
 		return
+	}
+	if h.projectCreatedHook != nil {
+		h.projectCreatedHook(c.Request.Context(), project.ID, createdBy)
 	}
 
 	apierrors.Success(c, http.StatusCreated, "project created", project)
@@ -83,9 +90,13 @@ func (h *Handler) Update(c *gin.Context) {
 }
 
 func (h *Handler) Delete(c *gin.Context) {
-	if err := h.service.Delete(c.Request.Context(), c.Param("project_id"), userID(c)); err != nil {
+	projectID := c.Param("project_id")
+	if err := h.service.Delete(c.Request.Context(), projectID, userID(c)); err != nil {
 		h.writeError(c, err)
 		return
+	}
+	if h.projectDeletedHook != nil {
+		h.projectDeletedHook(c.Request.Context(), projectID)
 	}
 
 	apierrors.Success(c, http.StatusOK, "project deleted", nil)

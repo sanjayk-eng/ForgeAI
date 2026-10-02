@@ -6,6 +6,8 @@ import { AuthSwitch } from "./AuthLayout";
 import { oauthUrl } from "./api";
 import { useAuth } from "./useAuth";
 import { useToast } from "../../shared/ui/useToast";
+import { readTokens } from "../../shared/auth/storage";
+import { getPostLoginRedirect } from "./postLoginRedirect";
 
 const inputClass =
   "h-12 w-full rounded-[10px] border border-[var(--border)] bg-[var(--input)] px-3.5 text-sm text-forge-text outline-none transition placeholder:text-forge-muted focus:border-forge-accent focus:ring-4 focus:ring-forge-accent/10";
@@ -25,7 +27,9 @@ export function LoginPage() {
     try {
       setError("");
       await signIn({ email, password });
-      navigate("/workspace", { replace: true });
+      const accessToken = readTokens()?.access_token;
+      if (!accessToken) throw new Error("Sign-in did not return an access token");
+      navigate(await getPostLoginRedirect(accessToken), { replace: true });
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "Unable to sign in";
       setError(message);

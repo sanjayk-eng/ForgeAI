@@ -42,5 +42,5 @@ export function oauthUrl(provider: "google" | "github"): string {
     ? import.meta.env.VITE_GOOGLE_OAUTH_URL
     : import.meta.env.VITE_GITHUB_OAUTH_URL;
 
-  return configuredUrl || apiUrl(`/auth/callback?type=${provider}`);
+  return configuredUrl || apiUrl(`/${provider}/connect`);
 }

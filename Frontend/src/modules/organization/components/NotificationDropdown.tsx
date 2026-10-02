@@ -16,18 +16,19 @@ export function NotificationDropdown({ accessToken }: NotificationDropdownProps)
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
 
-  const { data: invites = [] } = useQuery({
+  const { data } = useQuery({
     queryKey: ["my-pending-invites"],
     queryFn: () => getMyPendingInvites(accessToken),
     enabled: Boolean(accessToken),
     refetchInterval: 30000,
   });
+  const invites = Array.isArray(data) ? data : [];
 
   const pendingCount = invites.length;
 
-  const handleInviteClick = (token: string) => {
+  const handleInviteClick = (inviteId: string) => {
     setIsOpen(false);
-    navigate(`/accept-invite/${token}`);
+    navigate(`/accept-invite/id/${encodeURIComponent(inviteId)}`);
   };
 
   return (
@@ -82,7 +83,7 @@ export function NotificationDropdown({ accessToken }: NotificationDropdownProps)
                 <InviteNotificationCard
                   key={invite.id}
                   invite={invite}
-                  onClick={() => handleInviteClick(invite.token!)}
+                  onClick={() => handleInviteClick(invite.id)}
                 />
               ))}
             </div>

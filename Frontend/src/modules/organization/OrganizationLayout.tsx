@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { Outlet, useLocation, useSearchParams } from "react-router-dom";
+import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { useAuth } from "../auth/useAuth";
 import { listOrganizations } from "./api/organization.api";
@@ -11,10 +11,12 @@ import { OrganizationSidebar } from "./components/OrganizationSidebar";
 import { useOrganizationStore } from "./organizationStore";
 
 export function OrganizationLayout() {
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { organizationId = "" } = useParams<{ organizationId: string }>();
+  const { pathname } = location;
   const isProjectDetail = /^\/organizations\/[^/]+\/projects\/[^/]+$/.test(pathname);
   const { user, tokens, signOut } = useAuth();
-  const [params, setParams] = useSearchParams();
   const mobileOpen = useOrganizationStore((state) => state.mobileNavigationOpen);
   const createOpen = useOrganizationStore((state) => state.createOrganizationOpen);
   const openMobileNavigation = useOrganizationStore(
@@ -36,19 +38,25 @@ export function OrganizationLayout() {
     enabled: Boolean(accessToken),
   });
   const organizations = query.data ?? [];
-  const selected =
-    organizations.find((item) => item.id === params.get("organization")) ??
-    organizations[0];
+  const selected = organizations.find((item) => item.id === organizationId) ?? organizations[0];
 
   useEffect(() => {
     if (query.isLoading || query.isError || !selected) return;
-    if (params.get("organization") !== selected.id) {
-      setParams({ organization: selected.id }, { replace: true });
+    if (organizationId !== selected.id) {
+      const suffix = pathname.replace(/^\/organizations\/[^/]+/, "");
+      navigate({
+        pathname: `/organizations/${encodeURIComponent(selected.id)}${suffix}`,
+        search: location.search,
+      }, { replace: true });
     }
-  }, [params, query.isError, query.isLoading, selected, setParams]);
+  }, [location.search, navigate, organizationId, pathname, query.isError, query.isLoading, selected]);
 
   function selectOrganization(organization: Organization) {
-    setParams({ organization: organization.id });
+    const suffix = pathname.replace(/^\/organizations\/[^/]+/, "");
+    navigate({
+      pathname: `/organizations/${encodeURIComponent(organization.id)}${suffix}`,
+      search: location.search,
+    });
   }
 
   return (
@@ -75,6 +83,11 @@ export function OrganizationLayout() {
           <div className={isProjectDetail ? "h-full min-h-0 w-full max-w-none" : "mx-auto w-[calc(100%-32px)] max-w-[1180px] py-8 sm:w-[calc(100%-64px)] sm:py-11 lg:w-[calc(100%-96px)]"}>
             {query.isLoading ? (
               <LoadingState />
+            ) : query.isError ? (
+              <div className="grid min-h-[380px] place-content-center gap-3 text-center text-sm text-forge-muted" role="alert">
+                <p>Organizations could not be loaded.</p>
+                <button className="text-forge-accent" onClick={() => void query.refetch()}>Try again</button>
+              </div>
             ) : selected ? (
               <Outlet />
             ) : (

@@ -8,6 +8,7 @@ import (
 	"ai-agent/internal/modules/organization/core"
 	"ai-agent/internal/modules/organization/member"
 	apierrors "ai-agent/internal/shared/errors"
+	"ai-agent/internal/shared/pagination"
 
 	"github.com/gin-gonic/gin"
 )
@@ -103,13 +104,14 @@ func (h *Handler) ListMembers(c *gin.Context) {
 		return
 	}
 
-	members, err := h.memberService.List(c.Request.Context(), orgID)
+	page := pagination.FromContext(c)
+	members, total, err := h.memberService.List(c.Request.Context(), orgID, page)
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
 
-	apierrors.Success(c, http.StatusOK, "members fetched", members)
+	apierrors.Success(c, http.StatusOK, "members fetched", pagination.NewResult(members, page, total))
 }
 
 func (h *Handler) UpdateMemberRole(c *gin.Context) {
@@ -121,12 +123,12 @@ func (h *Handler) UpdateMemberRole(c *gin.Context) {
 
 	// Validate access
 	orgID := c.Param("organization_id")
-	if err := h.coreService.ValidateAccess(c.Request.Context(), userID(c), orgID); err != nil {
+	if err := h.memberService.CanManage(c.Request.Context(), userID(c), orgID); err != nil {
 		h.writeError(c, err)
 		return
 	}
 
-	memberData, err := h.memberService.UpdateRole(c.Request.Context(), c.Param("member_id"), input.Role)
+	memberData, err := h.memberService.UpdateRole(c.Request.Context(), orgID, c.Param("user_id"), input.Role)
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -138,12 +140,12 @@ func (h *Handler) UpdateMemberRole(c *gin.Context) {
 func (h *Handler) RemoveMember(c *gin.Context) {
 	// Validate access
 	orgID := c.Param("organization_id")
-	if err := h.coreService.ValidateAccess(c.Request.Context(), userID(c), orgID); err != nil {
+	if err := h.memberService.CanManage(c.Request.Context(), userID(c), orgID); err != nil {
 		h.writeError(c, err)
 		return
 	}
 
-	if err := h.memberService.Remove(c.Request.Context(), c.Param("member_id")); err != nil {
+	if err := h.memberService.Remove(c.Request.Context(), orgID, c.Param("user_id")); err != nil {
 		h.writeError(c, err)
 		return
 	}
@@ -162,6 +164,12 @@ func (h *Handler) writeError(c *gin.Context, err error) {
 		status, code, message = http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error()
 	case errors.Is(err, member.ErrMemberNotFound):
 		status, code, message = http.StatusNotFound, apierrors.ErrCodeNotFound, "member not found"
+	case errors.Is(err, member.ErrManageDenied):
+		status, code, message = http.StatusForbidden, apierrors.ErrCodeForbidden, "organization owner or admin permission is required"
+	case errors.Is(err, member.ErrOwnerProtected):
+		status, code, message = http.StatusConflict, apierrors.ErrCodeConflict, err.Error()
+	case errors.Is(err, member.ErrInvalidRole):
+		status, code, message = http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error()
 	case err.Error() == "access denied to organization":
 		status, code, message = http.StatusForbidden, apierrors.ErrCodeForbidden, "access denied"
 	}

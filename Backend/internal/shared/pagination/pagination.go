@@ -41,6 +41,9 @@ type Result[T any] struct {
 }
 
 func NewResult[T any](items []T, query Query, total int) Result[T] {
+	if items == nil {
+		items = make([]T, 0)
+	}
 	totalPages := 0
 	if total > 0 {
 		totalPages = (total + query.PerPage - 1) / query.PerPage

@@ -124,7 +124,7 @@ export function OverviewPage() {
           <div className="mt-4 grid gap-2">
             <Link
               className="group flex items-center justify-between border border-[var(--border)] px-3 py-3 text-xs font-bold text-forge-soft no-underline transition hover:border-forge-accent/30 hover:bg-[var(--surface-hover)] hover:text-forge-text"
-              to={`/organization/members?organization=${id}`}
+              to={`/organizations/${encodeURIComponent(id)}/members`}
             >
               Invite a team member{" "}
               <ArrowUpRight
@@ -134,7 +134,7 @@ export function OverviewPage() {
             </Link>
             <Link
               className="group flex items-center justify-between border border-[var(--border)] px-3 py-3 text-xs font-bold text-forge-soft no-underline transition hover:border-forge-accent/30 hover:bg-[var(--surface-hover)] hover:text-forge-text"
-              to={`/organization/settings?organization=${id}`}
+              to={`/organizations/${encodeURIComponent(id)}/settings`}
             >
               Configure organization{" "}
               <Settings2
@@ -230,7 +230,7 @@ export function OverviewPage() {
           </p>
           <Link
             className="mt-6 inline-flex items-center gap-2 text-xs font-bold text-forge-accent no-underline"
-            to={`/organization/members?organization=${id}`}
+            to={`/organizations/${encodeURIComponent(id)}/members`}
           >
             Continue setup <ArrowUpRight size={14} />
           </Link>

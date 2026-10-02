@@ -12,7 +12,8 @@ import (
 )
 
 var (
-	ErrOwnerRequired = errors.New("organization owner is required")
+	ErrOwnerRequired         = errors.New("organization owner is required")
+	ErrOrganizationSlugTaken = errors.New("organization slug is already taken")
 )
 
 type Service interface {
@@ -40,14 +41,14 @@ func (s *service) Create(ctx context.Context, userID string, input CreateOrganiz
 		return Organization{}, ErrOwnerRequired
 	}
 
-	orgSlug := slug.Make(input.Name)
-	if orgSlug == "" {
-		orgSlug = fmt.Sprintf("org-%d", time.Now().Unix())
+	baseSlug := slug.Make(input.Name)
+	if baseSlug == "" {
+		baseSlug = fmt.Sprintf("org-%d", time.Now().Unix())
 	}
 
 	org := Organization{
 		Name:        input.Name,
-		Slug:        orgSlug,
+		Slug:        baseSlug,
 		Description: input.Description,
 		Settings:    make(map[string]interface{}),
 		Status:      StatusActive,
@@ -61,7 +62,17 @@ func (s *service) Create(ctx context.Context, userID string, input CreateOrganiz
 	}
 	defer tx.Rollback()
 
-	orgID, err := s.repo.Create(ctx, org)
+	var orgID string
+	for suffix := 0; ; suffix++ {
+		org.Slug = baseSlug
+		if suffix > 0 {
+			org.Slug = fmt.Sprintf("%s-%d", baseSlug, suffix)
+		}
+		orgID, err = s.repo.Create(ctx, tx, org)
+		if !errors.Is(err, ErrOrganizationSlugTaken) {
+			break
+		}
+	}
 	if err != nil {
 		return Organization{}, err
 	}

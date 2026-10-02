@@ -13,7 +13,8 @@ export function useProjects(accessToken: string, organizationId: string, params:
     placeholderData: keepPreviousData,
     refetchInterval: (query) => {
       const now = Date.now();
-      const active = query.state.data?.items.some((project) => {
+      const projects = query.state.data?.items;
+      const active = Array.isArray(projects) && projects.some((project) => {
         const repository = project.repository;
         if (!repository || !["PENDING", "SYNCING"].includes(repository.sync_status)) {
           return false;
@@ -21,8 +22,7 @@ export function useProjects(accessToken: string, organizationId: string, params:
 
         const statusUpdatedAt = Date.parse(repository.updated_at);
         return Number.isFinite(statusUpdatedAt) && now - statusUpdatedAt < syncPollingTimeoutMs;
-      }
-      );
+      });
       return active ? 1500 : false;
     },
   });

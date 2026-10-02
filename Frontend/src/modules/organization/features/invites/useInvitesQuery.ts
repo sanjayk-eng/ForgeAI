@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listInvites, revokeInvite } from "../../api/invites.api";
+import { listInvites, updateInviteStatus } from "../../api/invites.api";
 import { useToast } from "../../../../shared/ui/useToast";
 
 export function useInvitesQuery(accessToken: string, organizationId: string) {
@@ -14,7 +14,7 @@ export function useInvitesQuery(accessToken: string, organizationId: string) {
 
   const revokeMutation = useMutation({
     mutationFn: (inviteId: string) =>
-      revokeInvite(accessToken, organizationId, inviteId),
+      updateInviteStatus(accessToken, inviteId, "REVOKED"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invites", organizationId] });
       toast.pushSuccess("Invitation revoked");

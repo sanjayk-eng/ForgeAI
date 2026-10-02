@@ -39,7 +39,7 @@ export function OrganizationHeader({
     <header className="relative z-40 flex h-[72px] shrink-0 items-center gap-4 border-b border-[var(--border)] bg-forge-bg/90 px-4 backdrop-blur-sm sm:gap-7 sm:px-7">
       <Link
         className="flex min-w-0 items-center gap-2.5 font-extrabold tracking-[-0.03em] text-forge-text no-underline sm:min-w-[184px]"
-        to="/organization"
+        to={selected ? `/organizations/${encodeURIComponent(selected.id)}` : "/login"}
         aria-label="ForgeAI organization home"
       >
         <span className="grid size-7 shrink-0 place-items-center rounded-md bg-forge-accent font-mono text-sm font-extrabold text-[var(--primary-foreground)]">

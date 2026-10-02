@@ -90,9 +90,8 @@ func (w *SandboxWorker) Publish(event ProjectEvent) {
 	select {
 	case w.events <- event:
 	case <-w.stopChan:
-	default:
 		if w.log != nil {
-			w.log.Warn(context.Background(), "sandbox worker queue full", "event", event.Type)
+			w.log.Warn(context.Background(), "sandbox worker stopped before event was queued", "event", event.Type)
 		}
 	}
 }

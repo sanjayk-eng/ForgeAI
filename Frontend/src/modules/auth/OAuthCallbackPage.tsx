@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authenticateOAuth } from "./api";
 import { useAuth } from "./useAuth";
 import { useToast } from "../../shared/ui/useToast";
+import { getPostLoginRedirect } from "./postLoginRedirect";
 
 export function OAuthCallbackPage() {
   const location = useLocation();
@@ -28,8 +29,9 @@ export function OAuthCallbackPage() {
       handledCallbackRef.current = location.search;
 
       try {
-        await acceptTokens(await authenticateOAuth(provider, code));
-        navigate("/workspace", { replace: true });
+        const tokens = await authenticateOAuth(provider, code);
+        await acceptTokens(tokens);
+        navigate(await getPostLoginRedirect(tokens.access_token), { replace: true });
       } catch (reason) {
         const message = reason instanceof Error ? reason.message : "OAuth sign-in failed";
         setError(message);

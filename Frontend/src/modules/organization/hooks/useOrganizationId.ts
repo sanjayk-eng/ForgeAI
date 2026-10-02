@@ -1,5 +1,5 @@
-import { useSearchParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 export function useOrganizationId() {
-  return useSearchParams()[0].get("organization") ?? "";
+  return useParams<{ organizationId: string }>().organizationId ?? "";
 }

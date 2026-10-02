@@ -18,7 +18,11 @@ func (service *Service) ValidateSandboxAccess(ctx context.Context, userID, sandb
 	if err != nil {
 		return err
 	}
-	allowed, err := service.store.CanAccessWorkspace(ctx, sandbox.OrganizationID, strings.TrimSpace(userID))
+	userID = strings.TrimSpace(userID)
+	if sandbox.OrganizationID == "" || userID == "" {
+		return domain.ErrInvalidSandbox
+	}
+	allowed, err := service.store.CanAccessWorkspace(ctx, sandbox.OrganizationID, userID)
 	if err != nil {
 		return fmt.Errorf("check sandbox workspace access: %w", err)
 	}
@@ -37,6 +41,9 @@ func (service *Service) workspaceForUser(ctx context.Context, userID, projectID 
 	organizationID, err := service.store.FindProjectWorkspace(ctx, projectID)
 	if err != nil {
 		return "", err
+	}
+	if strings.TrimSpace(organizationID) == "" {
+		return "", domain.ErrInvalidSandbox
 	}
 	allowed, err := service.store.CanAccessWorkspace(ctx, organizationID, userID)
 	if err != nil {

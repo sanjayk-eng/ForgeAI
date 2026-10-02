@@ -12,6 +12,14 @@ import (
 func (w *SandboxWorker) handleProjectCreated(ctx context.Context, projectID, userID string) {
 	unlock := w.lockProject(projectID)
 	defer unlock()
+	if w.projectRepo != nil {
+		if _, err := w.projectRepo.FindByID(ctx, projectID); err != nil {
+			if w.log != nil {
+				w.log.Warn(ctx, "ignoring sandbox creation for missing project", "project_id", projectID, "error", err)
+			}
+			return
+		}
+	}
 
 	sandbox, err := w.service.GetByProject(ctx, projectID)
 	if err == nil && sandbox.ID != "" {

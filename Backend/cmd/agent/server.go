@@ -7,11 +7,11 @@ import (
 	"ai-agent/internal/modules/auth"
 	"ai-agent/internal/modules/auth/provider"
 	gitmodule "ai-agent/internal/modules/git"
+	organizationmodule "ai-agent/internal/modules/organization"
 	previewmodule "ai-agent/internal/modules/preview"
 	projectmodule "ai-agent/internal/modules/project"
 	terminalmodule "ai-agent/internal/modules/terminal"
 	terminalworker "ai-agent/internal/modules/terminal/worker"
-	organizationmodule "ai-agent/internal/modules/organization"
 	"ai-agent/internal/shared/email"
 	"ai-agent/internal/shared/logger"
 	appdatabase "ai-agent/pkg/database"
@@ -120,21 +120,23 @@ func runServer() error {
 		FrontendURL:  settings.FrontendURL,
 	})
 	protectedRouter := middleware.ProtectedGroup(apiRouter, jwtManager, appLogger)
-	
+
 	// Load organization module (replaces workspace)
 	organizationModule := organizationmodule.LoadModule(organizationmodule.ModuleConfig{
-		Router:   protectedRouter,
-		Database: db,
-		Logger:   appLogger,
+		Router:       protectedRouter,
+		PublicRouter: apiRouter,
+		Database:     db,
+		Logger:       appLogger,
+		Email:        emailModule.Service,
+		FrontendURL:  settings.FrontendURL,
 	})
-	
-	
+
 	// Simplified project module (no GitHub client, no sync)
 	projectModule := projectmodule.LoadModule(projectmodule.ModuleConfig{
-		Router:        protectedRouter,
-		Database:      db,
-		Logger:        appLogger,
-		Organization:  organizationModule.CoreService,
+		Router:       protectedRouter,
+		Database:     db,
+		Logger:       appLogger,
+		Organization: organizationModule.CoreService,
 	})
 
 	projectAdapter := terminalworker.NewProjectAdapter(
@@ -156,6 +158,8 @@ func runServer() error {
 	if err != nil {
 		return fmt.Errorf("initialize terminal module: %w", err)
 	}
+	projectModule.SetProjectCreatedHook(terminalModule.OnProjectCreated)
+	projectModule.SetProjectDeletedHook(terminalModule.OnProjectDeleted)
 	previewHandler, err := previewmodule.NewHandler(terminalModule.Service, terminalModule.Preview, settings.PreviewOrigin, settings.PreviewSigningKey)
 	if err != nil {
 		return fmt.Errorf("initialize preview module: %w", err)
@@ -182,9 +186,6 @@ func runServer() error {
 		Model:   settings.AIModel,
 	}, terminalModule.Events)
 	agentmodule.RegisterRoutes(protectedRouter, agentmodule.NewHandler(agentService))
-
-	// Project lifecycle hooks removed (no more sync/orchestrators)
-	// Sandbox provisioning happens via sandbox worker now
 
 	address := fmt.Sprintf("%s:%d", settings.Host, settings.Port)
 	appLogger.With("component", "agent", "environment", settings.AppEnv).Info(context.Background(), "HTTP server started", "address", address)

@@ -55,8 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const currentUser = await getCurrentUser(nextTokens.access_token);
       setUser(currentUser);
-    } catch {
+    } catch (error) {
+      clearTokens();
+      setTokens(null);
       setUser(null);
+      throw error;
     }
   }, []);
 

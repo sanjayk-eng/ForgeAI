@@ -4,21 +4,34 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
 import { useAuth } from "../../../auth/useAuth";
 import { useToast } from "../../../../shared/ui/useToast";
-import { acceptInvite, getInviteByToken, rejectInvite } from "../../api/invites.api";
+import {
+  acceptInvite,
+  getInviteByToken,
+  getMyPendingInvites,
+  rejectInvite,
+  updateInviteStatus,
+} from "../../api/invites.api";
 
 export function AcceptInvitePage() {
-  const { token } = useParams<{ token: string }>();
+  const { token, inviteId } = useParams<{ token?: string; inviteId?: string }>();
   const navigate = useNavigate();
   const { tokens, user, loading: authLoading } = useAuth();
+  const accessToken = tokens?.access_token ?? "";
   const toast = useToast();
   const queryClient = useQueryClient();
   const [rejecting, setRejecting] = useState(false);
 
   // Fetch invite details
   const inviteQuery = useQuery({
-    queryKey: ["invite", token],
-    queryFn: () => getInviteByToken(token!),
-    enabled: Boolean(token),
+    queryKey: ["invite", token ?? inviteId],
+    queryFn: async () => {
+      if (token) return getInviteByToken(token);
+      const pendingInvites = await getMyPendingInvites(accessToken);
+      const invite = pendingInvites.find((item) => item.id === inviteId);
+      if (!invite) throw new Error("Invitation not found");
+      return invite;
+    },
+    enabled: Boolean(token || (inviteId && accessToken)),
     retry: false,
   });
 
@@ -32,15 +45,19 @@ export function AcceptInvitePage() {
   // Accept mutation
   const acceptMutation = useMutation({
     mutationFn: () => {
-      if (!tokens?.access_token || !token || !user?.email) {
+      if (!accessToken || (!token && !inviteId) || !user?.email) {
         throw new Error("Missing required data");
       }
-      return acceptInvite(tokens.access_token, token, user.email);
+      return token
+        ? acceptInvite(accessToken, token, user.email)
+        : updateInviteStatus(accessToken, inviteId!, "ACCEPTED");
     },
     onSuccess: (data) => {
       toast.pushSuccess("Invitation accepted! Redirecting to workspace...");
       void queryClient.invalidateQueries({ queryKey: ["my-pending-invites"] });
-      navigate(`/workspace?organization=${data.organization_id}`, { replace: true });
+      navigate(data.organization_id
+        ? `/organizations/${encodeURIComponent(data.organization_id)}`
+        : "/", { replace: true });
     },
     onError: (error: Error) => {
       toast.pushError(error.message || "Failed to accept invitation");
@@ -50,10 +67,12 @@ export function AcceptInvitePage() {
   // Reject mutation
   const rejectMutation = useMutation({
     mutationFn: () => {
-      if (!token || !invite?.email) {
+      if ((!token && !inviteId) || !invite?.email) {
         throw new Error("Missing required data");
       }
-      return rejectInvite(token, invite.email);
+      return token
+        ? rejectInvite(token, invite.email)
+        : updateInviteStatus(accessToken, inviteId!, "REJECTED");
     },
     onSuccess: () => {
       toast.pushSuccess("Invitation rejected");
@@ -67,13 +86,19 @@ export function AcceptInvitePage() {
 
   // Auto-redirect to login if not authenticated
   useEffect(() => {
+    if (inviteId && !authLoading && !isAuthenticated) {
+      const redirectUrl = `/accept-invite/id/${encodeURIComponent(inviteId)}`;
+      localStorage.setItem("redirect_after_login", redirectUrl);
+      navigate("/login", { replace: true });
+      return;
+    }
     if (invite && !isAuthenticated && !rejecting) {
       const redirectUrl = `/accept-invite/${token}`;
       localStorage.setItem("redirect_after_login", redirectUrl);
     }
-  }, [invite, isAuthenticated, token, rejecting]);
+  }, [authLoading, invite, inviteId, isAuthenticated, navigate, token, rejecting]);
 
-  if (authLoading || inviteQuery.isLoading) {
+  if (authLoading || inviteQuery.isLoading || (inviteId && !isAuthenticated)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-forge-bg">
         <div className="text-center">

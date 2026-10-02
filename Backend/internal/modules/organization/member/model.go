@@ -21,8 +21,15 @@ type Member struct {
 
 type MemberWithUser struct {
 	Member
-	UserName  string `json:"user_name" db:"user_name"`
-	UserEmail string `json:"user_email" db:"user_email"`
+	User      UserProfile `json:"user" db:"-"`
+	UserName  string      `json:"-" db:"user_name"`
+	UserEmail string      `json:"-" db:"user_email"`
+}
+
+type UserProfile struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 type UpdateMemberRequest struct {

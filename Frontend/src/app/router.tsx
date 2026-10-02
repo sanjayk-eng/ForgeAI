@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AuthLayout } from "../modules/auth/AuthLayout";
 import { LoginPage } from "../modules/auth/LoginPage";
@@ -11,6 +12,8 @@ import { MembersPage } from "../modules/organization/features/members/MembersPag
 import { SettingsPage } from "../modules/organization/features/settings/SettingsPage";
 import { AcceptInvitePage } from "../modules/organization/features/invites/AcceptInvitePage";
 import { ProjectsPage } from "../modules/organization/features/projects/ProjectsPage";
+import { useAuth } from "../modules/auth/useAuth";
+import { getPostLoginRedirect } from "../modules/auth/postLoginRedirect";
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +27,10 @@ export const router = createBrowserRouter([
   },
   {
     path: "/accept-invite/:token",
+    element: <AcceptInvitePage />,
+  },
+  {
+    path: "/accept-invite/id/:inviteId",
     element: <AcceptInvitePage />,
   },
   {
@@ -50,6 +57,27 @@ export const router = createBrowserRouter([
       },
     ],
   },
-  { path: "/", element: <Navigate to="/login" replace /> },
+  { path: "/", element: <HomeRedirect /> },
   { path: "*", element: <Navigate to="/" replace /> },
 ]);
+
+function HomeRedirect() {
+  const { user, tokens, loading } = useAuth();
+  const redirectQuery = useQuery({
+    queryKey: ["post-login-redirect", tokens?.access_token],
+    queryFn: () => getPostLoginRedirect(tokens!.access_token),
+    enabled: !loading && Boolean(user && tokens),
+    retry: false,
+  });
+
+  if (loading) return <div className="grid min-h-screen place-content-center">Loading ForgeAI...</div>;
+  if (!user || !tokens) return <Navigate to="/login" replace />;
+  if (redirectQuery.isError) {
+    return <div className="grid min-h-screen place-content-center gap-3 text-center" role="alert">
+      <p>Could not load your organization.</p>
+      <button className="text-forge-accent" onClick={() => void redirectQuery.refetch()}>Try again</button>
+    </div>;
+  }
+  if (!redirectQuery.data) return <div className="grid min-h-screen place-content-center">Loading your organization...</div>;
+  return <Navigate to={redirectQuery.data} replace />;
+}
