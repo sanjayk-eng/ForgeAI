@@ -1,6 +1,6 @@
 sandbox:
   image: forgeai-sandbox:latest
-  git_image: alpine/git:latest
+  git_image: alpine/git:2.45.2
   workspace_path: /workspace
   network_mode: bridge
   read_only_rootfs: true

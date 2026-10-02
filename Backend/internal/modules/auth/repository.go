@@ -42,10 +42,9 @@ func NewRepository(db *sqlx.DB) AuthRepository {
 func (repo *repository) FindOAuthUserID(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, providerUserID string) (string, error) {
 	var userID string
 	err := tx.GetContext(ctx, &userID, `
-		SELECT oa.user_id
-		FROM tbl_oauth_account oa
-		JOIN tbl_enum e ON e.id = oa.provider_id
-		WHERE e.category = 'AUTH_PROVIDER' AND e.code = $1 AND oa.provider_user_id = $2`,
+		SELECT user_id
+		FROM tbl_oauth_account
+		WHERE provider_code = $1 AND provider_user_id = $2`,
 		strings.ToUpper(string(providerType)), providerUserID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", sql.ErrNoRows
@@ -59,10 +58,9 @@ func (repo *repository) FindOAuthUserID(ctx context.Context, tx *sqlx.Tx, provid
 func (repo *repository) FindGitHubAccessToken(ctx context.Context, userID string) (string, error) {
 	var accessToken string
 	err := repo.db.GetContext(ctx, &accessToken, `
-		SELECT oa.access_token
-		FROM tbl_oauth_account oa
-		JOIN tbl_enum e ON e.id = oa.provider_id
-		WHERE oa.user_id = $1 AND e.category = 'AUTH_PROVIDER' AND e.code = 'GITHUB'`, userID)
+		SELECT access_token
+		FROM tbl_oauth_account
+		WHERE user_id = $1 AND provider_code = 'GITHUB'`, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", ErrGitHubAccountNotConnected
 	}
@@ -182,23 +180,14 @@ func (repo *repository) CreateOAuthUser(ctx context.Context, tx *sqlx.Tx, email,
 
 func (repo *repository) CreateOAuthAccount(ctx context.Context, tx *sqlx.Tx, providerType ProviderType, userID, providerUserID, accessToken string) error {
 	providerCode := strings.ToUpper(string(providerType))
-	result, err := tx.ExecContext(ctx, `
-			INSERT INTO tbl_oauth_account (user_id, provider_id, provider_user_id, access_token)
-			SELECT $1, id, $3, $4
-			FROM tbl_enum
-			WHERE category = 'AUTH_PROVIDER' AND code = $2
-			ON CONFLICT (provider_id, provider_user_id)
+	_, err := tx.ExecContext(ctx, `
+			INSERT INTO tbl_oauth_account (user_id, provider_code, provider_user_id, access_token)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (provider_code, provider_user_id)
 			DO UPDATE SET user_id = EXCLUDED.user_id, access_token = EXCLUDED.access_token, updated_at = NOW()
 			`, userID, providerCode, providerUserID, accessToken)
 	if err != nil {
 		return fmt.Errorf("save oauth account: %w", err)
-	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("check oauth account: %w", err)
-	}
-	if rowsAffected == 0 {
-		return fmt.Errorf("auth provider %q is not configured", providerType)
 	}
 	return nil
 }

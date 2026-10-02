@@ -1,15 +1,17 @@
-FROM golang:1.26-alpine
+# ForgeAI Sandbox Image - Frontend Development Environment
+# Lightweight image for running user code in isolated Docker containers
 
-RUN apk add --no-cache bash git nodejs npm \
-    && npm install --global typescript \
-    && ln -s /usr/local/go/bin/go /usr/local/bin/go \
-    && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+FROM node:20-alpine
 
+# Install git and bash for version control and shell operations
+RUN apk add --no-cache bash git
+
+# Install only essential frontend tools
+RUN npm install --global typescript@latest
+
+# Set up environment variables for non-root user
 ENV HOME=/tmp/.home \
-    GOCACHE=/tmp/go-build \
-    GOMODCACHE=/tmp/go-mod \
-    GOTMPDIR=/tmp \
-    TMPDIR=/tmp \
-    npm_config_cache=/tmp/npm-cache
+    npm_config_cache=/tmp/npm-cache \
+    TMPDIR=/tmp
 
 WORKDIR /workspace
