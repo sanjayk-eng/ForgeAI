@@ -18,7 +18,7 @@ func (service *Service) ValidateSandboxAccess(ctx context.Context, userID, sandb
 	if err != nil {
 		return err
 	}
-	allowed, err := service.store.CanAccessWorkspace(ctx, sandbox.organizationID, strings.TrimSpace(userID))
+	allowed, err := service.store.CanAccessWorkspace(ctx, sandbox.OrganizationID, strings.TrimSpace(userID))
 	if err != nil {
 		return fmt.Errorf("check sandbox workspace access: %w", err)
 	}

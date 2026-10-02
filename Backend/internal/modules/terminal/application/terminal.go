@@ -52,7 +52,7 @@ func (service *Service) terminalSandbox(ctx context.Context, userID, projectID s
 	if err != nil {
 		return domain.Sandbox{}, err
 	}
-	if sandbox.ProjectID != strings.TrimSpace(projectID) || sandbox.organizationID != organizationID {
+	if sandbox.ProjectID != strings.TrimSpace(projectID) || sandbox.OrganizationID != organizationID {
 		return domain.Sandbox{}, domain.ErrSandboxAccessDenied
 	}
 	if sandbox.Status != domain.StatusRunning || sandbox.ContainerID == "" {

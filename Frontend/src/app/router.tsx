@@ -5,12 +5,12 @@ import { OAuthCallbackPage } from "../modules/auth/OAuthCallbackPage";
 import { RegisterPage } from "../modules/auth/RegisterPage";
 import { VerifyEmailPage } from "../modules/auth/VerifyEmailPage";
 import { ProtectedRoute } from "../modules/auth/ProtectedRoute";
-import { WorkspaceLayout } from "../modules/workspace/WorkspaceLayout";
-import { OverviewPage } from "../modules/workspace/features/overview/OverviewPage";
-import { MembersPage } from "../modules/workspace/features/members/MembersPage";
-import { SettingsPage } from "../modules/workspace/features/settings/SettingsPage";
-import { AcceptInvitePage } from "../modules/workspace/features/invites/AcceptInvitePage";
-import { ProjectsPage } from "../modules/workspace/features/projects/ProjectsPage";
+import { WorkspaceLayout } from "../modules/organization/WorkspaceLayout";
+import { OverviewPage } from "../modules/organization/features/overview/OverviewPage";
+import { MembersPage } from "../modules/organization/features/members/MembersPage";
+import { SettingsPage } from "../modules/organization/features/settings/SettingsPage";
+import { AcceptInvitePage } from "../modules/organization/features/invites/AcceptInvitePage";
+import { ProjectsPage } from "../modules/organization/features/projects/ProjectsPage";
 
 export const router = createBrowserRouter([
   {
@@ -39,7 +39,7 @@ export const router = createBrowserRouter([
             path: "projects/:projectId",
             lazy: async () => {
               const { ProjectDetailPage } = await import(
-                "../modules/workspace/features/projects/ProjectDetailPage"
+                "../modules/organization/features/projects/ProjectDetailPage"
               );
               return { Component: ProjectDetailPage };
             },

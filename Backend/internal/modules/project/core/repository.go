@@ -111,7 +111,7 @@ func (repo *repository) Update(ctx context.Context, projectID, name string, desc
 		RETURNING id, organization_id, name, slug, description, status,
 		          created_by, created_at, updated_at, deleted_at
 	`
-	slug := slugify(name)
+	slug := slugifyProjectName(name)
 	if err := repo.db.GetContext(ctx, &project, query, projectID, name, slug, description, status); err != nil {
 		return Project{}, fmt.Errorf("update project: %w", err)
 	}
@@ -133,7 +133,7 @@ func (repo *repository) Delete(ctx context.Context, projectID string) error {
 	return nil
 }
 
-func slugify(value string) string {
+func slugifyProjectName(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	value = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(value, "-")
 	return strings.Trim(strings.TrimSpace(value), "-")

@@ -181,7 +181,7 @@ func (h *Handler) publishGitStatus(ctx context.Context, sandboxID string) {
 		return
 	}
 	h.events.Publish(realtime.Event{
-		Version: 1, Event: "git.status.changed", organizationID: sandbox.organizationID,
+		Version: 1, Event: "git.status.changed", OrganizationID: sandbox.OrganizationID,
 		ProjectID: sandbox.ProjectID, SandboxID: sandbox.ID,
 	})
 }

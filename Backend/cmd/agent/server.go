@@ -183,24 +183,8 @@ func runServer() error {
 	}, terminalModule.Events)
 	agentmodule.RegisterRoutes(protectedRouter, agentmodule.NewHandler(agentService))
 
-	projectModule.ProjectService.SetOnCreate(terminalModule.OnProjectCreated)
-	projectModule.ProjectService.SetOnDelete(terminalModule.OnProjectDeleted)
-	projectModule.ProjectService.SetOnBranchUpdated(terminalModule.OnProjectBranchUpdated)
-	member.LoadModule(member.ModuleConfig{
-		Router:   protectedRouter,
-		Database: db,
-		Logger:   appLogger,
-	})
-
-	// Initialize workspace invite module
-	workspaceinvite.LoadModule(workspaceinvite.ModuleConfig{
-		ProtectedRouter: protectedRouter,
-		PublicRouter:    apiRouter,
-		Database:        db,
-		Logger:          appLogger,
-		EmailService:    emailModule.Service, // Pass interface
-		FrontendURL:     settings.FrontendURL,
-	})
+	// Project lifecycle hooks removed (no more sync/orchestrators)
+	// Sandbox provisioning happens via sandbox worker now
 
 	address := fmt.Sprintf("%s:%d", settings.Host, settings.Port)
 	appLogger.With("component", "agent", "environment", settings.AppEnv).Info(context.Background(), "HTTP server started", "address", address)

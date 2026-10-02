@@ -69,7 +69,7 @@ func (hub *EventHub) Publish(event realtime.Event) {
 			case <-events:
 			default:
 			}
-			resync := realtime.Event{Version: 1, Event: "sync.required", ProjectID: event.ProjectID, organizationID: event.organizationID, SandboxID: event.SandboxID}
+			resync := realtime.Event{Version: 1, Event: "sync.required", ProjectID: event.ProjectID, OrganizationID: event.OrganizationID, SandboxID: event.SandboxID}
 			select {
 			case events <- resync:
 			default:

@@ -55,10 +55,15 @@ func (service *Service) Create(ctx context.Context, userID, projectID string) (d
 		return domain.Sandbox{}, err
 	}
 	sandbox := domain.Sandbox{
-		organizationID: organizationID, ProjectID: projectID, ContainerName: containerName,
-		VolumeName: volumeName, Image: service.policy.Image, ImageActual: service.policy.Image,
-		WorkspacePath: service.policy.WorkspacePath, Status: domain.StatusCreating,
-		Limits: service.policy.ResourceLimits(),
+		OrganizationID: organizationID,
+		ProjectID:      projectID,
+		ContainerName:  containerName,
+		VolumeName:     volumeName,
+		Image:          service.policy.Image,
+		ImageActual:    service.policy.Image,
+		WorkspacePath:  service.policy.WorkspacePath,
+		Status:         domain.StatusCreating,
+		Limits:         service.policy.ResourceLimits(),
 	}
 	sandbox.ID, err = service.store.Create(ctx, sandbox)
 	if err != nil {

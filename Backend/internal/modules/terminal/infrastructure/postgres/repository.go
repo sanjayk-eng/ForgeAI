@@ -66,7 +66,7 @@ func (repository *Repository) Create(ctx context.Context, sandbox domain.Sandbox
 		INSERT INTO tbl_sandbox (organization_id, project_id, status_id, volume_config, resource_limit, last_error)
 		SELECT $1, $2, e.id, '{}'::jsonb, '{}'::jsonb, NULL FROM tbl_enum e
 		WHERE e.category = 'SANDBOX_STATUS' AND e.code = $3
-		RETURNING id`, sandbox.organizationID, sandbox.ProjectID, string(domain.StatusCreating)); err != nil {
+		RETURNING id`, sandbox.OrganizationID, sandbox.ProjectID, string(domain.StatusCreating)); err != nil {
 		return "", fmt.Errorf("create sandbox state: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -174,7 +174,7 @@ func (repository *Repository) find(ctx context.Context, suffix string, args ...a
 		return domain.Sandbox{}, fmt.Errorf("decode sandbox resource limit: %w", err)
 	}
 	return domain.Sandbox{
-		ID: row.ID, organizationID: row.organizationID, ProjectID: row.ProjectID,
+		ID: row.ID, OrganizationID: row.organizationID, ProjectID: row.ProjectID,
 		ContainerID: row.ContainerID, ContainerName: containerConfig.Name,
 		VolumeName: volumeConfig.Name, Image: containerConfig.Image, ImageActual: containerConfig.ImageActual,
 		WorkspacePath: volumeConfig.MountPath, Status: domain.SandboxStatus(row.Status),

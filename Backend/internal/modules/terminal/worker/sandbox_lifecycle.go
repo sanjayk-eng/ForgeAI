@@ -119,7 +119,7 @@ func (w *SandboxWorker) DeleteProject(ctx context.Context, projectID string) err
 	_, err = w.service.Destroy(ctx, sandbox.ID)
 	if err == nil && w.eventsPublisher != nil {
 		w.eventsPublisher.Publish(realtime.Event{
-			Version: 1, Event: "sandbox.status.changed", organizationID: sandbox.organizationID,
+			Version: 1, Event: "sandbox.status.changed", OrganizationID: sandbox.OrganizationID,
 			ProjectID: sandbox.ProjectID, SandboxID: sandbox.ID, Status: string(domain.StatusDestroyed),
 		})
 	}

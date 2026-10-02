@@ -39,20 +39,20 @@ type ResourceLimits struct {
 }
 
 type Sandbox struct {
-	ID            string         `json:"id"`
-	organizationID   string         `json:"organization_id"`
-	ProjectID     string         `json:"project_id"`
-	ContainerID   string         `json:"container_id"`
-	ContainerName string         `json:"container_name"`
-	VolumeName    string         `json:"volume_name"`
-	Image         string         `json:"image"`
-	ImageActual   string         `json:"image_actual"`
-	WorkspacePath string         `json:"workspace_path"`
-	Status        SandboxStatus  `json:"status"`
-	LastError     string         `json:"last_error,omitempty"`
-	Limits        ResourceLimits `json:"limits"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+	ID             string         `json:"id"`
+	OrganizationID string         `json:"organization_id"`
+	ProjectID      string         `json:"project_id"`
+	ContainerID    string         `json:"container_id"`
+	ContainerName  string         `json:"container_name"`
+	VolumeName     string         `json:"volume_name"`
+	Image          string         `json:"image"`
+	ImageActual    string         `json:"image_actual"`
+	WorkspacePath  string         `json:"workspace_path"`
+	Status         SandboxStatus  `json:"status"`
+	LastError      string         `json:"last_error,omitempty"`
+	Limits         ResourceLimits `json:"limits"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
 func (sandbox Sandbox) Transition(next SandboxStatus) (Sandbox, error) {
