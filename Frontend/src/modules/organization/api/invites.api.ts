@@ -1,5 +1,10 @@
 import { request } from "../../../shared/api/client";
-import type { OrganizationInvite } from "../types/organization.types";
+import type { InviteStatus, OrganizationInvite } from "../types/organization.types";
+
+export type InviteStatusUpdate = {
+  organization_id?: string;
+  status?: InviteStatus;
+};
 
 type AuthenticatedOptions = RequestInit & { accessToken: string };
 
@@ -33,9 +38,10 @@ export function createInvite(
   );
 }
 
-export function listInvites(accessToken: string, organizationId: string) {
+export function listInvites(accessToken: string, organizationId: string, status?: InviteStatus) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
   return authenticatedRequest<OrganizationInvite[]>(
-    `/organizations/${organizationId}/invites`,
+    `/organizations/${organizationId}/invites${query}`,
     { accessToken },
   );
 }
@@ -45,7 +51,7 @@ export function getInviteByToken(token: string) {
 }
 
 export function acceptInvite(accessToken: string, token: string, email: string) {
-  return authenticatedRequest<OrganizationInvite>(`/invites/${token}/accept`, {
+  return authenticatedRequest<InviteStatusUpdate>(`/invites/${token}/accept`, {
     accessToken,
     method: "POST",
     body: JSON.stringify({ email }),
@@ -59,22 +65,21 @@ export function rejectInvite(token: string, email: string) {
   });
 }
 
-export function revokeInvite(
+export function updateInviteStatus(
   accessToken: string,
-  organizationId: string,
   inviteID: string,
+  status: "ACCEPTED" | "REJECTED" | "REVOKED",
 ) {
-  return authenticatedRequest<null>(
-    `/organizations/${organizationId}/invites/${inviteID}`,
-    {
-      accessToken,
-      method: "DELETE",
-    },
-  );
+  return authenticatedRequest<InviteStatusUpdate>(`/invites/${encodeURIComponent(inviteID)}`, {
+    accessToken,
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }
 
-export function getMyPendingInvites(accessToken: string) {
-  return authenticatedRequest<OrganizationInvite[]>(`/invites/my-pending`, {
+export async function getMyPendingInvites(accessToken: string) {
+  const invites = await authenticatedRequest<OrganizationInvite[] | null>(`/invites/my-pending`, {
     accessToken,
   });
+  return Array.isArray(invites) ? invites : [];
 }
