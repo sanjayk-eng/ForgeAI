@@ -1,19 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, CheckCircle2, Edit3, FolderGit2, LoaderCircle, RefreshCw, Trash2 } from "lucide-react";
+import { Bot, Edit3, FolderGit2, LoaderCircle, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteProject, resolveRepository, syncProject, updateRepositoryBranch } from "../../../api/projects.api";
+import { deleteProject, resolveRepository, updateRepositoryBranch } from "../../../api/projects.api";
 import { useSandbox } from "../hooks/useSandbox";
 import type { Project } from "../types/project.types";
 import { EditProjectDialog } from "./EditProjectDialog";
 import { SandboxStatus } from "./SandboxStatus";
-
-const syncStyles = {
-  PENDING: "text-amber-200",
-  SYNCING: "text-sky-200",
-  SYNCED: "text-forge-accent",
-  FAILED: "text-forge-signal",
-} as const;
 
 export function ProjectCard({
   project,
@@ -33,19 +26,14 @@ export function ProjectCard({
   const [editOpen, setEditOpen] = useState(false);
   const queryClient = useQueryClient();
   const { sandbox, isLoading: sandboxLoading } = useSandbox(accessToken, project.id);
-  const syncMutation = useMutation({
-    mutationFn: () => syncProject(accessToken, project.id),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["projects", organizationId] }),
-    onError: (error) => onError(error instanceof Error ? error.message : "Could not start repository sync"),
-  });
-  const syncing = repository?.sync_status === "SYNCING" || syncMutation.isPending;
+  
   const deleteMutation = useMutation({
     mutationFn: () => deleteProject(accessToken, project.id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["projects", organizationId] });
       onDeleted();
     },
-    onError: (error) => onError(error instanceof Error ? error.message : "Could not remove project"),
+    onError: (error: unknown) => onError(error instanceof Error ? error.message : "Could not remove project"),
   });
 
   function remove() {
@@ -54,20 +42,20 @@ export function ProjectCard({
   }
 
   const handleOpenProject = () => {
-    navigate(`/organizations/\${organizationId}/projects/${project.id}?organization=${encodeURIComponent(organizationId)}`);
+    navigate(`/organizations/${organizationId}/projects/${project.id}`);
   };
   const handleOpenAgent = () => {
-    navigate(`/organizations/\${organizationId}/projects/${project.id}?organization=${encodeURIComponent(organizationId)}&panel=agent`);
+    navigate(`/organizations/${organizationId}/projects/${project.id}?panel=agent`);
   };
 
   return (
-    <article className={`relative overflow-hidden border bg-forge-panel/70 p-5 transition sm:p-6 ${syncing ? "border-sky-300/35" : "border-[var(--border)] hover:border-forge-accent/25"}`}>
+    <article className="relative overflow-hidden border border-[var(--border)] bg-forge-panel/70 p-5 transition hover:border-forge-accent/25 sm:p-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <button
           onClick={handleOpenProject}
           className="flex min-w-0 items-start gap-3 text-left hover:opacity-80 transition"
         >
-          <span className={`grid size-10 shrink-0 place-items-center border bg-forge-accent/[0.07] text-forge-accent ${syncing ? "animate-pulse border-sky-300/40 text-sky-200" : "border-forge-accent/20"}`}>
+          <span className="grid size-10 shrink-0 place-items-center border border-forge-accent/20 bg-forge-accent/[0.07] text-forge-accent">
             <FolderGit2 size={19} />
           </span>
           <div className="min-w-0">
@@ -80,24 +68,22 @@ export function ProjectCard({
           {sandbox && <SandboxStatus status={sandbox.status} showLabel={false} />}
           {!sandbox && !sandboxLoading && <span className="text-xs text-forge-muted">Setting up...</span>}
           <span className="border border-[var(--border)] px-2 py-1 text-forge-muted">{project.type}</span>
-          {repository && <span className={`inline-flex items-center gap-1 ${syncStyles[repository.sync_status]}`}>{syncing && <RefreshCw size={11} className="animate-spin" />}{repository.sync_status === "SYNCED" && <CheckCircle2 size={11} />}{repository.sync_status}</span>}
           <button type="button" className="grid size-7 place-items-center border border-[var(--border)] text-forge-muted transition hover:border-forge-accent/40 hover:text-forge-text" onClick={() => setEditOpen(true)} aria-label={`Edit ${project.name}`} title="Edit project"><Edit3 size={13} /></button>
           <button type="button" className="grid size-7 place-items-center border border-[var(--border)] text-forge-muted transition hover:border-forge-signal/50 hover:text-forge-signal disabled:cursor-not-allowed disabled:opacity-50" onClick={remove} disabled={deleteMutation.isPending} aria-label={`Remove ${project.name}`} title="Remove project"><Trash2 size={13} /></button>
         </div>
       </div>
       {project.description && <p className="mt-5 max-w-2xl text-sm leading-6 text-forge-muted">{project.description}</p>}
-      {repository ? <RepositoryFooter accessToken={accessToken} repository={repository} syncing={syncing} onSync={() => syncMutation.mutate()} onError={onError} /> : <div className="mt-5 border-t border-[var(--border)] pt-4 text-xs text-forge-muted">Empty project · repository can be connected later</div>}
-      {syncing && <div className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-sky-300/10"><div className="h-full w-1/3 animate-[sync-progress_1.4s_ease-in-out_infinite] bg-sky-300" /></div>}
-      {editOpen && <EditProjectDialog accessToken={accessToken} organizationId ={organizationId} project={project} onClose={() => setEditOpen(false)} />}
+      {repository ? <RepositoryFooter accessToken={accessToken} repository={repository} onError={onError} /> : <div className="mt-5 border-t border-[var(--border)] pt-4 text-xs text-forge-muted">Empty project · repository can be connected later</div>}
+      {editOpen && <EditProjectDialog accessToken={accessToken} organizationId={organizationId} project={project} onClose={() => setEditOpen(false)} />}
     </article>
   );
 }
 
-function RepositoryFooter({ accessToken, repository, syncing, onSync, onError }: { accessToken: string; repository: NonNullable<Project["repository"]>; syncing: boolean; onSync: () => void; onError: (message: string) => void }) {
-  return <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-4 text-xs text-forge-soft"><div className="flex flex-wrap items-center gap-x-5 gap-y-2"><span className="inline-flex items-center gap-2"><FolderGit2 size={14} className="text-forge-accent" />{repository.github_owner}/{repository.github_repository_name}</span><BranchEditor accessToken={accessToken} repository={repository} syncing={syncing} onError={onError} /></div><button className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-[10px] font-extrabold uppercase tracking-[.08em] text-forge-soft transition hover:border-forge-accent/40 hover:text-forge-text disabled:cursor-not-allowed disabled:opacity-50" onClick={onSync} disabled={syncing} title="Sync repository"><RefreshCw size={13} className={syncing ? "animate-spin" : ""} />{syncing ? "Syncing" : repository.sync_status === "FAILED" ? "Retry sync" : "Sync now"}</button></div>;
+function RepositoryFooter({ accessToken, repository, onError }: { accessToken: string; repository: NonNullable<Project["repository"]>; onError: (message: string) => void }) {
+  return <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-4 text-xs text-forge-soft"><div className="flex flex-wrap items-center gap-x-5 gap-y-2"><span className="inline-flex items-center gap-2"><FolderGit2 size={14} className="text-forge-accent" />{repository.github_owner}/{repository.github_repository_name}</span><BranchEditor accessToken={accessToken} repository={repository} onError={onError} /></div></div>;
 }
 
-function BranchEditor({ accessToken, repository, syncing, onError }: { accessToken: string; repository: NonNullable<Project["repository"]>; syncing: boolean; onError: (message: string) => void }) {
+function BranchEditor({ accessToken, repository, onError }: { accessToken: string; repository: NonNullable<Project["repository"]>; onError: (message: string) => void }) {
   const [selectedBranch, setSelectedBranch] = useState(repository.default_branch);
   const queryClient = useQueryClient();
   const branchesQuery = useQuery({
@@ -109,14 +95,11 @@ function BranchEditor({ accessToken, repository, syncing, onError }: { accessTok
     onSuccess: (_, branch) => {
       setSelectedBranch(branch);
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
-      void syncProject(accessToken, repository.project_id).catch((error) => {
-        onError(error instanceof Error ? error.message : "Branch updated, but repository sync could not start");
-      });
     },
-    onError: (error) => onError(error instanceof Error ? error.message : "Could not update repository branch"),
+    onError: (error: unknown) => onError(error instanceof Error ? error.message : "Could not update repository branch"),
   });
 
   if (branchesQuery.isLoading) return <span className="inline-flex items-center gap-2 font-mono text-forge-muted"><LoaderCircle size={13} className="animate-spin" />Loading branch</span>;
   if (branchesQuery.isError) return <span className="font-mono text-forge-muted">{repository.default_branch}</span>;
-  return <label className="inline-flex items-center gap-2"><span className="sr-only">GitHub branch</span><select className="input min-w-36 py-1 font-mono text-[11px]" value={selectedBranch} onChange={(event) => branchMutation.mutate(event.target.value)} disabled={syncing || branchMutation.isPending}><option value={selectedBranch}>{selectedBranch}</option>{(branchesQuery.data?.branches ?? []).filter((branch) => branch !== selectedBranch).map((branch) => <option key={branch} value={branch}>{branch}</option>)}</select></label>;
+  return <label className="inline-flex items-center gap-2"><span className="sr-only">GitHub branch</span><select className="input min-w-36 py-1 font-mono text-[11px]" value={selectedBranch} onChange={(event) => branchMutation.mutate(event.target.value)} disabled={branchMutation.isPending}><option value={selectedBranch}>{selectedBranch}</option>{(branchesQuery.data?.branches ?? []).filter((branch) => branch !== selectedBranch).map((branch) => <option key={branch} value={branch}>{branch}</option>)}</select></label>;
 }

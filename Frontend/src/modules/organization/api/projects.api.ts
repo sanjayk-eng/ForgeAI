@@ -2,8 +2,6 @@ import { request } from "../../../shared/api/client";
 import { pageQuery, type PageParams, type PagedResult } from "../../../shared/api/pagination";
 import type {
   CreateProjectInput,
-  GitHubRepositoryCatalog,
-  GitHubRepositoryOption,
   Project,
   ProjectRepositoryInput,
   ResolvedRepository,
@@ -12,13 +10,10 @@ import type {
 
 export type {
   CreateProjectInput,
-  GitHubRepositoryCatalog,
-  GitHubRepositoryOption,
   Project,
   ProjectRepository,
   ProjectStatus,
   ProjectType,
-  SyncStatus,
   ProjectRepositoryInput,
   ResolvedRepository,
   UpdateProjectInput,
@@ -57,42 +52,11 @@ export function createProject(
   );
 }
 
-export function syncProject(accessToken: string, projectId: string) {
-  return authenticatedRequest<Project>(
-    accessToken,
-    `/projects/${projectId}/repository/sync`,
-    { method: "POST" },
-  );
-}
-
 export function resolveRepository(accessToken: string, repositoryUrl: string) {
   return authenticatedRequest<ResolvedRepository>(accessToken, "/projects/repository/resolve", {
     method: "POST",
     body: JSON.stringify({ repository_url: repositoryUrl }),
   });
-}
-
-export function listGitHubRepositories(accessToken: string, organizationId: string, owner?: string) {
-  const ownerQuery = owner ? `?${new URLSearchParams({ owner }).toString()}` : "";
-  return authenticatedRequest<GitHubRepositoryCatalog>(
-    accessToken,
-    `/organizations/${organizationId}/github/repositories${ownerQuery}`,
-  );
-}
-
-export function importGitHubRepositories(
-  accessToken: string,
-  organizationId: string,
-  repositories: GitHubRepositoryOption[],
-) {
-  return authenticatedRequest<{ projects: Project[]; skipped: number }>(
-    accessToken,
-    `/organizations/${organizationId}/github/repositories/import`,
-    {
-      method: "POST",
-      body: JSON.stringify({ repositories }),
-    },
-  );
 }
 
 export function connectRepository(
@@ -119,14 +83,6 @@ export function updateRepositoryBranch(accessToken: string, projectId: string, d
     method: "PATCH",
     body: JSON.stringify({ default_branch: defaultBranch }),
   });
-}
-
-export function syncAllProjects(accessToken: string, organizationId: string) {
-  return authenticatedRequest<{ triggered: number; failed: number }>(
-    accessToken,
-    `/organizations/${organizationId}/projects/sync`,
-    { method: "POST" },
-  );
 }
 
 export function deleteProject(accessToken: string, projectId: string) {
