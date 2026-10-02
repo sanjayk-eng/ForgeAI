@@ -1,7 +1,7 @@
 import { ArrowLeft, Bot, Eye, FolderGit2, Maximize2, Minimize2, Terminal } from "lucide-react";
 
 interface ProjectDetailHeaderProps {
-  workspaceId: string;
+  organizationId: string;
   projectLabel: string;
   activePanel: "files" | "git" | "preview";
   agentOpen: boolean;
@@ -16,7 +16,7 @@ interface ProjectDetailHeaderProps {
 }
 
 export function ProjectDetailHeader({
-  workspaceId,
+  organizationId,
   projectLabel,
   activePanel,
   agentOpen,
@@ -89,7 +89,7 @@ export function ProjectDetailHeader({
           {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
         </button>
         <div className="rounded-md border border-[var(--border)] bg-forge-panel px-3 py-1.5 text-[11px] font-medium text-forge-muted">
-          {workspaceId}
+          {organizationId}
         </div>
         {sandboxStatus && (
           <div className="rounded-md border border-[var(--border)] bg-forge-panel px-2 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-forge-muted">

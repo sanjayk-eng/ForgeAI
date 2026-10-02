@@ -1,4 +1,4 @@
-import type { WorkspaceInvite } from "../types/workspace.types";
+import type { OrganizationInvite } from "../types/organization.types";
 
 const styles: Record<string, string> = {
   PENDING: "border-forge-signal/25 bg-forge-signal/[0.08] text-forge-signal",
@@ -8,7 +8,7 @@ const styles: Record<string, string> = {
   REVOKED: "border-white/10 bg-white/[0.04] text-forge-muted",
 };
 
-export function StatusBadge({ status }: { status: WorkspaceInvite["status"] | string }) {
+export function StatusBadge({ status }: { status: OrganizationInvite["status"] | string }) {
   const normalized = status.toUpperCase();
   return (
     <span className={`w-fit rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wide ${styles[normalized] ?? styles.PENDING}`}>

@@ -6,11 +6,11 @@ import { createInvite } from "../api/invites.api";
 
 export function InviteDialog({
   accessToken,
-  workspaceId,
+  organizationId,
   onClose,
 }: {
   accessToken: string;
-  workspaceId: string;
+  organizationId: string;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -19,7 +19,7 @@ export function InviteDialog({
   const validEmail = email.includes("@");
   const mutation = useMutation({
     mutationFn: () =>
-      createInvite(accessToken, workspaceId, email.trim(), role),
+      createInvite(accessToken, organizationId, email.trim(), role),
     onSuccess: onClose,
     onError: (error) =>
       toast.pushError(
@@ -61,7 +61,7 @@ export function InviteDialog({
           </button>
         </div>
         <p className="mt-3 text-sm text-forge-muted">
-          They will receive an invitation to join this workspace.
+          They will receive an invitation to join this organization.
         </p>
         <label
           className="mt-6 block font-mono text-[11px] text-forge-soft"
@@ -97,7 +97,7 @@ export function InviteDialog({
           onChange={(event) => setRole(event.target.value)}
         >
           <option value="MEMBER">Member · standard access</option>
-          <option value="ADMIN">Admin · manage the workspace</option>
+          <option value="ADMIN">Admin · manage the organization</option>
         </select>
         <div className="mt-7 flex justify-end gap-2">
           <button

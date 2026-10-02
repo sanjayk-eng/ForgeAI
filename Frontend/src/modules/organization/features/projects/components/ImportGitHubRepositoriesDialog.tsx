@@ -11,13 +11,13 @@ import { LoadingOverlay } from "../../../../../shared/ui/LoadingOverlay";
 
 type ImportGitHubRepositoriesDialogProps = {
   accessToken: string;
-  workspaceId: string;
+  organizationId: string;
   onClose: () => void;
 };
 
 export function ImportGitHubRepositoriesDialog({
   accessToken,
-  workspaceId,
+  organizationId,
   onClose,
 }: ImportGitHubRepositoriesDialogProps) {
   const [owner, setOwner] = useState("");
@@ -25,24 +25,24 @@ export function ImportGitHubRepositoriesDialog({
   const toast = useToast();
   const queryClient = useQueryClient();
   const sourcesQuery = useQuery({
-    queryKey: ["github-repository-sources", workspaceId],
-    queryFn: () => listGitHubRepositories(accessToken, workspaceId),
-    enabled: Boolean(accessToken && workspaceId),
+    queryKey: ["github-repository-sources", organizationId],
+    queryFn: () => listGitHubRepositories(accessToken, organizationId),
+    enabled: Boolean(accessToken && organizationId),
   });
   const repositoriesQuery = useQuery({
-    queryKey: ["github-repositories", workspaceId, owner],
-    queryFn: () => listGitHubRepositories(accessToken, workspaceId, owner),
-    enabled: Boolean(accessToken && workspaceId && owner),
+    queryKey: ["github-repositories", organizationId, owner],
+    queryFn: () => listGitHubRepositories(accessToken, organizationId, owner),
+    enabled: Boolean(accessToken && organizationId && owner),
   });
   const importMutation = useMutation({
     mutationFn: () =>
       importGitHubRepositories(
         accessToken,
-        workspaceId,
+        organizationId,
         (repositoriesQuery.data?.repositories ?? []).filter((repository) => selected.has(repository.github_repository_id)),
       ),
     onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ["projects", workspaceId] });
+      void queryClient.invalidateQueries({ queryKey: ["projects", organizationId] });
       toast.pushSuccess(`${result.projects.length} project${result.projects.length === 1 ? "" : "s"} imported${result.skipped ? `, ${result.skipped} already existed` : ""}`);
       onClose();
     },

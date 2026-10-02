@@ -18,7 +18,7 @@ export type ProjectRepository = {
 
 export type Project = {
   id: string;
-  workspace_id: string;
+  organization_id: string;
   name: string;
   slug: string;
   description?: string;

@@ -8,7 +8,7 @@ type Props = {
   accent?: boolean;
 };
 
-export function WorkspaceStatCard({
+export function OrganizationStatCard({
   icon: Icon,
   label,
   value,

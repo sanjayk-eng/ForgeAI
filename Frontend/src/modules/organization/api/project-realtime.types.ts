@@ -13,7 +13,7 @@ export type ProjectRealtimeEventName =
 export interface ProjectRealtimeEvent {
   version: number;
   event: ProjectRealtimeEventName;
-  workspace_id?: string;
+  organization_id?: string;
   project_id: string;
   sandbox_id?: string;
   path?: string;

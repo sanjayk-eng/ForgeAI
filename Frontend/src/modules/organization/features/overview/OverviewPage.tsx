@@ -12,14 +12,14 @@ import {
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../auth/useAuth";
 import { listMembers } from "../../api/members.api";
-import { listWorkspaces } from "../../api/workspace.api";
-import { WorkspaceStatCard } from "../../components/WorkspaceStatCard";
-import { useWorkspaceId } from "../../hooks/useWorkspaceId";
+import { listOrganizations } from "../../api/organization.api";
+import { OrganizationStatCard } from "../../components/OrganizationStatCard";
+import { useOrganizationId } from "../../hooks/useOrganizationId";
 
 const modules = [
   {
     icon: Bot,
-    name: "Agent workspace",
+    name: "Agent organization",
     detail: "Connect a model to start AI workflows",
     state: "Setup required",
   },
@@ -38,12 +38,12 @@ const modules = [
 ];
 
 export function OverviewPage() {
-  const id = useWorkspaceId();
+  const id = useOrganizationId();
   const { user, tokens } = useAuth();
   const accessToken = tokens?.access_token ?? "";
-  const workspacesQuery = useQuery({
-    queryKey: ["workspaces"],
-    queryFn: () => listWorkspaces(accessToken),
+  const organizationsQuery = useQuery({
+    queryKey: ["organizations"],
+    queryFn: () => listOrganizations(accessToken),
     enabled: Boolean(accessToken),
   });
   const membersQuery = useQuery({
@@ -51,7 +51,7 @@ export function OverviewPage() {
     queryFn: () => listMembers(accessToken, id),
     enabled: Boolean(accessToken && id),
   });
-  const workspace = workspacesQuery.data?.find((item) => item.id === id);
+  const organization = organizationsQuery.data?.find((item) => item.id === id);
   const memberCount = membersQuery.data?.total ?? 0;
   const firstName = user?.name?.split(" ")[0] ?? "there";
 
@@ -60,13 +60,13 @@ export function OverviewPage() {
       <header className="flex flex-col justify-between gap-5 border-b border-[var(--border)] pb-6 lg:flex-row lg:items-end">
         <div>
           <span className="mb-3 block font-mono text-[10px] uppercase tracking-[.14em] text-forge-accent">
-            Workspace overview
+            organization overview
           </span>
           <h1 className="m-0 text-3xl font-extrabold tracking-[-.05em] text-forge-text sm:text-[42px]">
             Good to see you, {firstName}.
           </h1>
           <p className="mt-3 max-w-xl text-sm leading-6 text-forge-muted">
-            Your team workspace is ready. Keep the important work close and the
+            Your team organization is ready. Keep the important work close and the
             next action obvious.
           </p>
         </div>
@@ -82,18 +82,18 @@ export function OverviewPage() {
           <div className="relative flex h-full flex-col justify-between">
             <div>
               <span className="font-mono text-[10px] uppercase tracking-[.13em] text-forge-muted">
-                Current workspace
+                Current organization
               </span>
               <h2 className="mt-3 max-w-lg truncate text-2xl font-extrabold tracking-[-.04em] text-forge-text sm:text-3xl">
-                {workspace?.name ?? "Workspace"}
+                {organization?.name ?? "organization"}
               </h2>
               <p className="mt-2 font-mono text-[11px] text-forge-muted">
-                /{workspace?.slug ?? "workspace"}
+                /{organization?.slug ?? "organization"}
               </p>
             </div>
             <div className="flex flex-wrap items-end justify-between gap-5">
               <div>
-                <p className="m-0 text-xs text-forge-soft">Workspace status</p>
+                <p className="m-0 text-xs text-forge-soft">organization status</p>
                 <p className="mt-1 flex items-center gap-2 text-sm font-bold text-forge-text">
                   <Check size={15} className="text-forge-accent" /> All systems
                   ready
@@ -101,8 +101,8 @@ export function OverviewPage() {
               </div>
               <p className="m-0 flex items-center gap-2 font-mono text-[10px] text-forge-muted">
                 <Clock3 size={13} /> Created{" "}
-                {workspace
-                  ? new Date(workspace.created_at).toLocaleDateString()
+                {organization
+                  ? new Date(organization.created_at).toLocaleDateString()
                   : "today"}
               </p>
             </div>
@@ -124,7 +124,7 @@ export function OverviewPage() {
           <div className="mt-4 grid gap-2">
             <Link
               className="group flex items-center justify-between border border-[var(--border)] px-3 py-3 text-xs font-bold text-forge-soft no-underline transition hover:border-forge-accent/30 hover:bg-[var(--surface-hover)] hover:text-forge-text"
-              to={`/workspace/members?workspace=${id}`}
+              to={`/organization/members?organization=${id}`}
             >
               Invite a team member{" "}
               <ArrowUpRight
@@ -134,9 +134,9 @@ export function OverviewPage() {
             </Link>
             <Link
               className="group flex items-center justify-between border border-[var(--border)] px-3 py-3 text-xs font-bold text-forge-soft no-underline transition hover:border-forge-accent/30 hover:bg-[var(--surface-hover)] hover:text-forge-text"
-              to={`/workspace/settings?workspace=${id}`}
+              to={`/organization/settings?organization=${id}`}
             >
-              Configure workspace{" "}
+              Configure organization{" "}
               <Settings2
                 size={14}
                 className="text-forge-muted transition-transform group-hover:rotate-45"
@@ -147,27 +147,27 @@ export function OverviewPage() {
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <WorkspaceStatCard
+        <OrganizationStatCard
           icon={Users}
           label="Team members"
           value={membersQuery.isLoading ? "--" : String(memberCount)}
-          detail="People with workspace access"
+          detail="People with organization access"
           accent
         />
-        <WorkspaceStatCard
+        <OrganizationStatCard
           icon={Clock3}
           label="Created"
           value={
-            workspace
-              ? new Date(workspace.created_at).toLocaleDateString()
+            organization
+              ? new Date(organization.created_at).toLocaleDateString()
               : "--"
           }
-          detail="Workspace foundation"
+          detail="organization foundation"
         />
-        <WorkspaceStatCard
+        <OrganizationStatCard
           icon={FolderGit2}
-          label="Workspace key"
-          value={workspace?.slug ?? "--"}
+          label="organization key"
+          value={organization?.slug ?? "--"}
           detail="Used across ForgeAI"
         />
       </section>
@@ -177,7 +177,7 @@ export function OverviewPage() {
           <div className="mb-5 flex items-end justify-between border-b border-white/[0.08] pb-4">
             <div>
               <span className="font-mono text-[10px] uppercase tracking-[.13em] text-forge-muted">
-                Workspace map
+                organization map
               </span>
               <h2 className="mt-1 text-lg font-bold text-forge-text">
                 Your ForgeAI modules
@@ -230,7 +230,7 @@ export function OverviewPage() {
           </p>
           <Link
             className="mt-6 inline-flex items-center gap-2 text-xs font-bold text-forge-accent no-underline"
-            to={`/workspace/members?workspace=${id}`}
+            to={`/organization/members?organization=${id}`}
           >
             Continue setup <ArrowUpRight size={14} />
           </Link>

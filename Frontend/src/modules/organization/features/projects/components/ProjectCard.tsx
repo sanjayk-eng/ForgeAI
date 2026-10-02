@@ -18,13 +18,13 @@ const syncStyles = {
 export function ProjectCard({
   project,
   accessToken,
-  workspaceId,
+  organizationId,
   onError,
   onDeleted,
 }: {
   project: Project;
   accessToken: string;
-  workspaceId: string;
+  organizationId: string;
   onError: (message: string) => void;
   onDeleted: () => void;
 }) {
@@ -35,14 +35,14 @@ export function ProjectCard({
   const { sandbox, isLoading: sandboxLoading } = useSandbox(accessToken, project.id);
   const syncMutation = useMutation({
     mutationFn: () => syncProject(accessToken, project.id),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["projects", workspaceId] }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["projects", organizationId] }),
     onError: (error) => onError(error instanceof Error ? error.message : "Could not start repository sync"),
   });
   const syncing = repository?.sync_status === "SYNCING" || syncMutation.isPending;
   const deleteMutation = useMutation({
     mutationFn: () => deleteProject(accessToken, project.id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["projects", workspaceId] });
+      void queryClient.invalidateQueries({ queryKey: ["projects", organizationId] });
       onDeleted();
     },
     onError: (error) => onError(error instanceof Error ? error.message : "Could not remove project"),
@@ -54,10 +54,10 @@ export function ProjectCard({
   }
 
   const handleOpenProject = () => {
-    navigate(`/workspace/projects/${project.id}?workspace=${encodeURIComponent(workspaceId)}`);
+    navigate(`/organizations/\${organizationId}/projects/${project.id}?organization=${encodeURIComponent(organizationId)}`);
   };
   const handleOpenAgent = () => {
-    navigate(`/workspace/projects/${project.id}?workspace=${encodeURIComponent(workspaceId)}&panel=agent`);
+    navigate(`/organizations/\${organizationId}/projects/${project.id}?organization=${encodeURIComponent(organizationId)}&panel=agent`);
   };
 
   return (
@@ -88,7 +88,7 @@ export function ProjectCard({
       {project.description && <p className="mt-5 max-w-2xl text-sm leading-6 text-forge-muted">{project.description}</p>}
       {repository ? <RepositoryFooter accessToken={accessToken} repository={repository} syncing={syncing} onSync={() => syncMutation.mutate()} onError={onError} /> : <div className="mt-5 border-t border-[var(--border)] pt-4 text-xs text-forge-muted">Empty project · repository can be connected later</div>}
       {syncing && <div className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-sky-300/10"><div className="h-full w-1/3 animate-[sync-progress_1.4s_ease-in-out_infinite] bg-sky-300" /></div>}
-      {editOpen && <EditProjectDialog accessToken={accessToken} workspaceId={workspaceId} project={project} onClose={() => setEditOpen(false)} />}
+      {editOpen && <EditProjectDialog accessToken={accessToken} organizationId ={organizationId} project={project} onClose={() => setEditOpen(false)} />}
     </article>
   );
 }

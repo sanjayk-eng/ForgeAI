@@ -8,12 +8,12 @@ import { LoadingOverlay } from "../../../../../shared/ui/LoadingOverlay";
 
 type EditProjectDialogProps = {
   accessToken: string;
-  workspaceId: string;
+  organizationId: string;
   project: Project;
   onClose: () => void;
 };
 
-export function EditProjectDialog({ accessToken, workspaceId, project, onClose }: EditProjectDialogProps) {
+export function EditProjectDialog({ accessToken, organizationId, project, onClose }: EditProjectDialogProps) {
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description ?? "");
   const toast = useToast();
@@ -25,7 +25,7 @@ export function EditProjectDialog({ accessToken, workspaceId, project, onClose }
         status: project.status,
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["projects", workspaceId] });
+      void queryClient.invalidateQueries({ queryKey: ["projects", organizationId] });
       toast.pushSuccess("Project updated");
       onClose();
     },

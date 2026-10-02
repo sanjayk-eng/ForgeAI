@@ -5,7 +5,7 @@ import { OAuthCallbackPage } from "../modules/auth/OAuthCallbackPage";
 import { RegisterPage } from "../modules/auth/RegisterPage";
 import { VerifyEmailPage } from "../modules/auth/VerifyEmailPage";
 import { ProtectedRoute } from "../modules/auth/ProtectedRoute";
-import { WorkspaceLayout } from "../modules/organization/WorkspaceLayout";
+import { OrganizationLayout } from "../modules/organization/OrganizationLayout";
 import { OverviewPage } from "../modules/organization/features/overview/OverviewPage";
 import { MembersPage } from "../modules/organization/features/members/MembersPage";
 import { SettingsPage } from "../modules/organization/features/settings/SettingsPage";
@@ -30,8 +30,8 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        path: "/workspace",
-        element: <WorkspaceLayout />,
+        path: "/organizations/:organizationId",
+        element: <OrganizationLayout />,
         children: [
           { index: true, element: <OverviewPage /> },
           { path: "projects", element: <ProjectsPage /> },

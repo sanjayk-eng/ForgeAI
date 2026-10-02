@@ -1,5 +1,5 @@
 import { request } from "../../../shared/api/client";
-import type { WorkspaceInvite } from "../types/workspace.types";
+import type { OrganizationInvite } from "../types/organization.types";
 
 type AuthenticatedOptions = RequestInit & { accessToken: string };
 
@@ -19,12 +19,12 @@ function authenticatedRequest<T>(
 
 export function createInvite(
   accessToken: string,
-  workspaceId: string,
+  organizationId: string,
   email: string,
   role: string,
 ) {
-  return authenticatedRequest<WorkspaceInvite>(
-    `/workspaces/${workspaceId}/invites`,
+  return authenticatedRequest<OrganizationInvite>(
+    `/organizations/${organizationId}/invites`,
     {
       accessToken,
       method: "POST",
@@ -33,19 +33,19 @@ export function createInvite(
   );
 }
 
-export function listInvites(accessToken: string, workspaceId: string) {
-  return authenticatedRequest<WorkspaceInvite[]>(
-    `/workspaces/${workspaceId}/invites`,
+export function listInvites(accessToken: string, organizationId: string) {
+  return authenticatedRequest<OrganizationInvite[]>(
+    `/organizations/${organizationId}/invites`,
     { accessToken },
   );
 }
 
 export function getInviteByToken(token: string) {
-  return request<WorkspaceInvite>(`/public/invites/${token}`);
+  return request<OrganizationInvite>(`/public/invites/${token}`);
 }
 
 export function acceptInvite(accessToken: string, token: string, email: string) {
-  return authenticatedRequest<WorkspaceInvite>(`/invites/${token}/accept`, {
+  return authenticatedRequest<OrganizationInvite>(`/invites/${token}/accept`, {
     accessToken,
     method: "POST",
     body: JSON.stringify({ email }),
@@ -53,7 +53,7 @@ export function acceptInvite(accessToken: string, token: string, email: string) 
 }
 
 export function rejectInvite(token: string, email: string) {
-  return request<WorkspaceInvite>(`/public/invites/${token}/reject`, {
+  return request<OrganizationInvite>(`/public/invites/${token}/reject`, {
     method: "POST",
     body: JSON.stringify({ email }),
   });
@@ -61,11 +61,11 @@ export function rejectInvite(token: string, email: string) {
 
 export function revokeInvite(
   accessToken: string,
-  workspaceID: string,
+  organizationId: string,
   inviteID: string,
 ) {
   return authenticatedRequest<null>(
-    `/workspaces/${workspaceID}/invites/${inviteID}`,
+    `/organizations/${organizationId}/invites/${inviteID}`,
     {
       accessToken,
       method: "DELETE",
@@ -74,7 +74,7 @@ export function revokeInvite(
 }
 
 export function getMyPendingInvites(accessToken: string) {
-  return authenticatedRequest<WorkspaceInvite[]>(`/invites/my-pending`, {
+  return authenticatedRequest<OrganizationInvite[]>(`/invites/my-pending`, {
     accessToken,
   });
 }

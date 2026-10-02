@@ -2,33 +2,33 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { useToast } from "../../../shared/ui/useToast";
-import { createWorkspace } from "../api/workspace.api";
-import type { Workspace } from "../types/workspace.types";
+import { createOrganization } from "../api/organization.api";
+import type { Organization } from "../types/organization.types";
 
-export function CreateWorkspaceDialog({
+export function CreateOrganizationDialog({
   accessToken,
   onClose,
   onCreated,
 }: {
   accessToken: string;
   onClose: () => void;
-  onCreated: (workspace: Workspace) => void;
+  onCreated: (organization: Organization) => void;
 }) {
   const [name, setName] = useState("");
   const toast = useToast();
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: () => createWorkspace(accessToken, name.trim()),
-    onSuccess: (workspace) => {
-      queryClient.setQueryData<Workspace[]>(["workspaces"], (current) => [
+    mutationFn: () => createOrganization(accessToken, name.trim()),
+    onSuccess: (organization) => {
+      queryClient.setQueryData<Organization[]>(["organizations"], (current) => [
         ...(current ?? []),
-        workspace,
+        organization,
       ]);
-      onCreated(workspace);
+      onCreated(organization);
     },
     onError: (error) =>
       toast.pushError(
-        error instanceof Error ? error.message : "Could not create workspace",
+        error instanceof Error ? error.message : "Could not create organization",
       ),
   });
   function submit(event: FormEvent) {
@@ -44,10 +44,10 @@ export function CreateWorkspaceDialog({
         <div className="flex items-start justify-between gap-5">
           <div>
             <span className="mb-2 block font-mono text-[10px] uppercase tracking-[.12em] text-forge-accent">
-              New workspace
+              New organization
             </span>
             <h2 className="m-0 text-[22px] font-bold tracking-[-.03em]">
-              Create a workspace
+              Create an organization
             </h2>
           </div>
           <button
@@ -64,12 +64,12 @@ export function CreateWorkspaceDialog({
         </p>
         <label
           className="mt-6 block font-mono text-[11px] text-forge-soft"
-          htmlFor="workspace-name"
+          htmlFor="organization-name"
         >
-          Workspace name
+          Organization name
         </label>
         <input
-          id="workspace-name"
+          id="organization-name"
           className="mt-2 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 py-3 text-forge-text outline-none transition focus:border-forge-accent focus:ring-2 focus:ring-forge-accent/15"
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -88,7 +88,7 @@ export function CreateWorkspaceDialog({
             className="rounded-md bg-forge-accent px-4 py-2.5 text-xs font-extrabold text-[var(--primary-foreground)] hover:bg-forge-accent-strong disabled:cursor-not-allowed disabled:opacity-45"
             disabled={mutation.isPending || name.trim().length < 2}
           >
-            {mutation.isPending ? "Creating..." : "Create workspace"}
+            {mutation.isPending ? "Creating..." : "Create organization"}
           </button>
         </div>
       </form>

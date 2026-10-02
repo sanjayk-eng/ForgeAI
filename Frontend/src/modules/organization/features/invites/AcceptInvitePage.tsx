@@ -40,7 +40,7 @@ export function AcceptInvitePage() {
     onSuccess: (data) => {
       toast.pushSuccess("Invitation accepted! Redirecting to workspace...");
       void queryClient.invalidateQueries({ queryKey: ["my-pending-invites"] });
-      navigate(`/workspace?workspace=${data.workspace_id}`, { replace: true });
+      navigate(`/workspace?organization=${data.organization_id}`, { replace: true });
     },
     onError: (error: Error) => {
       toast.pushError(error.message || "Failed to accept invitation");

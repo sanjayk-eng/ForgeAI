@@ -3,71 +3,71 @@ import { useEffect } from "react";
 import { Outlet, useLocation, useSearchParams } from "react-router-dom";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { useAuth } from "../auth/useAuth";
-import { listWorkspaces } from "./api/workspace.api";
-import type { Workspace } from "./types/workspace.types";
-import { CreateWorkspaceDialog } from "./components/CreateWorkspaceDialog";
-import { WorkspaceHeader } from "./components/WorkspaceHeader";
-import { WorkspaceSidebar } from "./components/WorkspaceSidebar";
-import { useWorkspaceStore } from "./workspaceStore";
+import { listOrganizations } from "./api/organization.api";
+import type { Organization } from "./types/organization.types";
+import { CreateOrganizationDialog } from "./components/CreateOrganizationDialog";
+import { OrganizationHeader } from "./components/OrganizationHeader";
+import { OrganizationSidebar } from "./components/OrganizationSidebar";
+import { useOrganizationStore } from "./organizationStore";
 
-export function WorkspaceLayout() {
+export function OrganizationLayout() {
   const { pathname } = useLocation();
-  const isProjectDetail = /^\/workspace\/projects\/[^/]+$/.test(pathname);
+  const isProjectDetail = /^\/organizations\/[^/]+\/projects\/[^/]+$/.test(pathname);
   const { user, tokens, signOut } = useAuth();
   const [params, setParams] = useSearchParams();
-  const mobileOpen = useWorkspaceStore((state) => state.mobileNavigationOpen);
-  const createOpen = useWorkspaceStore((state) => state.createWorkspaceOpen);
-  const openMobileNavigation = useWorkspaceStore(
+  const mobileOpen = useOrganizationStore((state) => state.mobileNavigationOpen);
+  const createOpen = useOrganizationStore((state) => state.createOrganizationOpen);
+  const openMobileNavigation = useOrganizationStore(
     (state) => state.openMobileNavigation,
   );
-  const closeMobileNavigation = useWorkspaceStore(
+  const closeMobileNavigation = useOrganizationStore(
     (state) => state.closeMobileNavigation,
   );
-  const openCreateWorkspace = useWorkspaceStore(
-    (state) => state.openCreateWorkspace,
+  const openCreateOrganization = useOrganizationStore(
+    (state) => state.openCreateOrganization,
   );
-  const closeCreateWorkspace = useWorkspaceStore(
-    (state) => state.closeCreateWorkspace,
+  const closeCreateOrganization = useOrganizationStore(
+    (state) => state.closeCreateOrganization,
   );
   const accessToken = tokens?.access_token ?? "";
   const query = useQuery({
-    queryKey: ["workspaces"],
-    queryFn: () => listWorkspaces(accessToken),
+    queryKey: ["organizations"],
+    queryFn: () => listOrganizations(accessToken),
     enabled: Boolean(accessToken),
   });
-  const workspaces = query.data ?? [];
+  const organizations = query.data ?? [];
   const selected =
-    workspaces.find((item) => item.id === params.get("workspace")) ??
-    workspaces[0];
+    organizations.find((item) => item.id === params.get("organization")) ??
+    organizations[0];
 
   useEffect(() => {
     if (query.isLoading || query.isError || !selected) return;
-    if (params.get("workspace") !== selected.id) {
-      setParams({ workspace: selected.id }, { replace: true });
+    if (params.get("organization") !== selected.id) {
+      setParams({ organization: selected.id }, { replace: true });
     }
   }, [params, query.isError, query.isLoading, selected, setParams]);
 
-  function selectWorkspace(workspace: Workspace) {
-    setParams({ workspace: workspace.id });
+  function selectOrganization(organization: Organization) {
+    setParams({ organization: organization.id });
   }
 
   return (
     <div className="min-h-screen bg-forge-bg text-forge-text">
-      <WorkspaceHeader
+      <OrganizationHeader
         userName={user?.name}
-        workspaces={workspaces}
+        organizations={organizations}
         selected={selected}
-        onSelect={selectWorkspace}
+        onSelect={selectOrganization}
         onMenu={openMobileNavigation}
-        onCreateWorkspace={openCreateWorkspace}
+        onCreateOrganization={openCreateOrganization}
         accessToken={accessToken}
       />
       <div className="flex h-[calc(100vh-72px)] min-h-0 overflow-hidden">
-        <WorkspaceSidebar
+        <OrganizationSidebar
           open={mobileOpen}
-          hasWorkspace={Boolean(selected)}
-          workspaceId={selected?.id}
-          onCreateWorkspace={openCreateWorkspace}
+          hasOrganization={Boolean(selected)}
+          organizationId={selected?.id}
+          onCreateOrganization={openCreateOrganization}
           onClose={closeMobileNavigation}
           onSignOut={signOut}
         />
@@ -78,18 +78,18 @@ export function WorkspaceLayout() {
             ) : selected ? (
               <Outlet />
             ) : (
-              <EmptyState onCreate={openCreateWorkspace} />
+              <EmptyState onCreate={openCreateOrganization} />
             )}
           </div>
         </main>
       </div>
       {createOpen && (
-        <CreateWorkspaceDialog
+        <CreateOrganizationDialog
           accessToken={accessToken}
-          onClose={closeCreateWorkspace}
-          onCreated={(workspace) => {
-            selectWorkspace(workspace);
-            closeCreateWorkspace();
+          onClose={closeCreateOrganization}
+          onCreated={(organization: Organization) => {
+            selectOrganization(organization);
+            closeCreateOrganization();
           }}
         />
       )}
@@ -101,7 +101,7 @@ function LoadingState() {
   return (
     <div className="grid min-h-[380px] place-content-center justify-items-center gap-3 text-sm text-forge-muted">
       <span className="size-2.5 animate-pulse rounded-full bg-forge-accent" />
-      Loading your workspace
+      Loading your organization
     </div>
   );
 }
@@ -113,23 +113,23 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-[460px]">
             <span className="mb-3 block font-mono text-[10px] uppercase tracking-[.14em] text-forge-accent">
-              Workspace setup
+              Organization setup
             </span>
             <div className="mb-5 flex size-11 items-center justify-center border border-forge-accent/25 bg-forge-accent/[0.08] text-forge-accent">
               <ShieldCheck size={22} />
             </div>
             <h1 className="m-0 text-3xl font-extrabold tracking-[-.045em] text-forge-text sm:text-4xl">
-              Create your first workspace
+              Create your first organization
             </h1>
             <p className="mt-4 max-w-[420px] text-sm leading-6 text-forge-muted">
-              Start a focused home for your team, agents, repositories, and
+              Start a focused home for your team, agents, projects, and
               conversations.
             </p>
             <button
               className="group mt-7 inline-flex items-center gap-2 rounded-md bg-forge-accent px-4 py-3 text-xs font-extrabold text-forge-bg transition hover:bg-forge-accent-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-accent"
               onClick={onCreate}
             >
-              Create workspace
+              Create organization
               <ArrowRight
                 size={16}
                 className="transition-transform group-hover:translate-x-1"

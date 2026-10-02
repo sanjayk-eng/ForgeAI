@@ -1,5 +1,5 @@
-// Core workspace types
-export type Workspace = {
+// Core organization types
+export type Organization = {
   id: string;
   name: string;
   slug: string;
@@ -8,28 +8,28 @@ export type Workspace = {
   updated_at: string;
 };
 
-export type WorkspaceRole = "OWNER" | "ADMIN" | "MEMBER";
+export type OrganizationRole = "OWNER" | "ADMIN" | "MEMBER";
 
-export type WorkspaceMember = {
+export type OrganizationMember = {
   id: string;
-  workspace_id: string;
+  organization_id: string;
   user_id: string;
   user: {
     id: string;
     email: string;
     name: string;
   };
-  role: WorkspaceRole;
+  role: OrganizationRole;
   created_at: string;
   updated_at: string;
 };
 
 export type InviteStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "REVOKED";
 
-export type WorkspaceInvite = {
+export type OrganizationInvite = {
   id: string;
-  workspace_id: string;
-  workspace_name?: string;
+  organization_id: string;
+  organization_name?: string;
   email: string;
   role: string;
   status: InviteStatus;

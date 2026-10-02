@@ -2,14 +2,14 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { listProjects } from "../../../api/projects.api";
 import type { PageParams } from "../../../../../shared/api/pagination";
 
-export const projectsQueryKey = (workspaceId: string) => ["projects", workspaceId];
+export const projectsQueryKey = (organizationId: string) => ["projects", organizationId];
 const syncPollingTimeoutMs = 60_000;
 
-export function useProjects(accessToken: string, workspaceId: string, params: PageParams = {}) {
+export function useProjects(accessToken: string, organizationId: string, params: PageParams = {}) {
   return useQuery({
-    queryKey: [...projectsQueryKey(workspaceId), params.page ?? 1, params.search ?? ""],
-    queryFn: () => listProjects(accessToken, workspaceId, params),
-    enabled: Boolean(accessToken && workspaceId),
+    queryKey: [...projectsQueryKey(organizationId), params.page ?? 1, params.search ?? ""],
+    queryFn: () => listProjects(accessToken, organizationId, params),
+    enabled: Boolean(accessToken && organizationId),
     placeholderData: keepPreviousData,
     refetchInterval: (query) => {
       const now = Date.now();
@@ -28,7 +28,7 @@ export function useProjects(accessToken: string, workspaceId: string, params: Pa
   });
 }
 
-export function useRefreshProjects(workspaceId: string) {
+export function useRefreshProjects(organizationId: string) {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: projectsQueryKey(workspaceId) });
+  return () => queryClient.invalidateQueries({ queryKey: projectsQueryKey(organizationId) });
 }

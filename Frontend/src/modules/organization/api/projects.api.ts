@@ -38,21 +38,21 @@ function authenticatedRequest<T>(
   });
 }
 
-export function listProjects(accessToken: string, workspaceId: string, params?: PageParams) {
+export function listProjects(accessToken: string, organizationId: string, params?: PageParams) {
   return authenticatedRequest<PagedResult<Project>>(
     accessToken,
-    `/workspaces/${workspaceId}/projects${pageQuery(params)}`,
+    `/organizations/${organizationId}/projects${pageQuery(params)}`,
   );
 }
 
 export function createProject(
   accessToken: string,
-  workspaceId: string,
+  organizationId: string,
   input: CreateProjectInput,
 ) {
   return authenticatedRequest<Project>(
     accessToken,
-    `/workspaces/${workspaceId}/projects`,
+    `/organizations/${organizationId}/projects`,
     { method: "POST", body: JSON.stringify(input) },
   );
 }
@@ -72,22 +72,22 @@ export function resolveRepository(accessToken: string, repositoryUrl: string) {
   });
 }
 
-export function listGitHubRepositories(accessToken: string, workspaceId: string, owner?: string) {
+export function listGitHubRepositories(accessToken: string, organizationId: string, owner?: string) {
   const ownerQuery = owner ? `?${new URLSearchParams({ owner }).toString()}` : "";
   return authenticatedRequest<GitHubRepositoryCatalog>(
     accessToken,
-    `/workspaces/${workspaceId}/github/repositories${ownerQuery}`,
+    `/organizations/${organizationId}/github/repositories${ownerQuery}`,
   );
 }
 
 export function importGitHubRepositories(
   accessToken: string,
-  workspaceId: string,
+  organizationId: string,
   repositories: GitHubRepositoryOption[],
 ) {
   return authenticatedRequest<{ projects: Project[]; skipped: number }>(
     accessToken,
-    `/workspaces/${workspaceId}/github/repositories/import`,
+    `/organizations/${organizationId}/github/repositories/import`,
     {
       method: "POST",
       body: JSON.stringify({ repositories }),
@@ -121,10 +121,10 @@ export function updateRepositoryBranch(accessToken: string, projectId: string, d
   });
 }
 
-export function syncAllProjects(accessToken: string, workspaceId: string) {
+export function syncAllProjects(accessToken: string, organizationId: string) {
   return authenticatedRequest<{ triggered: number; failed: number }>(
     accessToken,
-    `/workspaces/${workspaceId}/projects/sync`,
+    `/organizations/${organizationId}/projects/sync`,
     { method: "POST" },
   );
 }

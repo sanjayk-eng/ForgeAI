@@ -4,7 +4,7 @@ import { useToast } from "../../../../shared/ui/useToast";
 import { useState } from "react";
 import { useDebouncedValue } from "../../../../shared/hooks/useDebouncedValue";
 
-export function useMembersQuery(accessToken: string, workspaceId: string) {
+export function useMembersQuery(accessToken: string, organizationId: string) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
@@ -12,24 +12,24 @@ export function useMembersQuery(accessToken: string, workspaceId: string) {
   const debouncedSearch = useDebouncedValue(search);
 
   const membersQuery = useQuery({
-    queryKey: ["members", workspaceId, page, debouncedSearch],
-    queryFn: () => listMembers(accessToken, workspaceId, { page, perPage: 10, search: debouncedSearch }),
-    enabled: Boolean(accessToken && workspaceId),
+    queryKey: ["members", organizationId, page, debouncedSearch],
+    queryFn: () => listMembers(accessToken, organizationId, { page, perPage: 10, search: debouncedSearch }),
+    enabled: Boolean(accessToken && organizationId),
   });
 
   const roleMutation = useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: string }) =>
-      updateMemberRole(accessToken, workspaceId, userId, role),
+      updateMemberRole(accessToken, organizationId, userId, role),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["members", workspaceId] }),
+      queryClient.invalidateQueries({ queryKey: ["members", organizationId] }),
     onError: () => toast.pushError("Could not update member role"),
   });
 
   const removeMutation = useMutation({
     mutationFn: (userId: string) =>
-      removeMember(accessToken, workspaceId, userId),
+      removeMember(accessToken, organizationId, userId),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["members", workspaceId] }),
+      queryClient.invalidateQueries({ queryKey: ["members", organizationId] }),
     onError: () => toast.pushError("Could not remove member"),
   });
 

@@ -139,7 +139,7 @@ export function CodeEditor({
       </div>
       {editorState.externalChange && (
         <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-2 text-xs text-forge-signal">
-          <span>The file changed in the workspace; your unsaved draft is preserved.</span>
+          <span>The file changed in the organization; your unsaved draft is preserved.</span>
           <button type="button" className="shrink-0 underline underline-offset-2" onClick={editorState.useExternalVersion}>
             Load workspace version
           </button>

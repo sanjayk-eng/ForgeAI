@@ -2,21 +2,21 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listInvites, revokeInvite } from "../../api/invites.api";
 import { useToast } from "../../../../shared/ui/useToast";
 
-export function useInvitesQuery(accessToken: string, workspaceId: string) {
+export function useInvitesQuery(accessToken: string, organizationId: string) {
   const toast = useToast();
   const queryClient = useQueryClient();
 
   const invitesQuery = useQuery({
-    queryKey: ["invites", workspaceId],
-    queryFn: () => listInvites(accessToken, workspaceId),
-    enabled: Boolean(accessToken && workspaceId),
+    queryKey: ["invites", organizationId],
+    queryFn: () => listInvites(accessToken, organizationId),
+    enabled: Boolean(accessToken && organizationId),
   });
 
   const revokeMutation = useMutation({
     mutationFn: (inviteId: string) =>
-      revokeInvite(accessToken, workspaceId, inviteId),
+      revokeInvite(accessToken, organizationId, inviteId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invites", workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ["invites", organizationId] });
       toast.pushSuccess("Invitation revoked");
     },
     onError: () => toast.pushError("Could not revoke invitation"),

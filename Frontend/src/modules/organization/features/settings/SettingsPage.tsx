@@ -2,45 +2,45 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../../auth/useAuth";
 import { useToast } from "../../../../shared/ui/useToast";
-import { listWorkspaces, updateWorkspace } from "../../api/workspace.api";
-import { useWorkspaceId } from "../../hooks/useWorkspaceId";
+import { listOrganizations, updateOrganization } from "../../api/organization.api";
+import { useOrganizationId } from "../../hooks/useOrganizationId";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme, type Theme } from "../../../../shared/ui/themeContextStore";
 
 export function SettingsPage() {
-  const id = useWorkspaceId();
+  const id = useOrganizationId();
   const { tokens } = useAuth();
   const toast = useToast();
   const { theme, resolvedTheme, setTheme } = useTheme();
   const client = useQueryClient();
   const query = useQuery({
-    queryKey: ["workspaces"],
-    queryFn: () => listWorkspaces(tokens?.access_token ?? ""),
+    queryKey: ["organizations"],
+    queryFn: () => listOrganizations(tokens?.access_token ?? ""),
     enabled: Boolean(tokens?.access_token),
   });
-  const workspace = query.data?.find((item) => item.id === id);
+  const organization = query.data?.find((item) => item.id === id);
   const [name, setName] = useState("");
-  const value = name || workspace?.name || "";
+  const value = name || organization?.name || "";
   const mutation = useMutation({
     mutationFn: () =>
-      updateWorkspace(tokens?.access_token ?? "", id, value.trim()),
+      updateOrganization(tokens?.access_token ?? "", id, value.trim()),
     onSuccess: (updated) =>
-      client.setQueryData(["workspaces"], (current: typeof query.data) =>
+      client.setQueryData(["organizations"], (current: typeof query.data) =>
         current?.map((item) => (item.id === updated.id ? updated : item)),
       ),
-    onError: () => toast.pushError("Could not save workspace settings"),
+    onError: () => toast.pushError("Could not save Organization settings"),
   });
   return (
     <div className="animate-page-enter">
       <div className="mb-7 sm:mb-10">
         <span className="mb-2 block font-mono text-[10px] uppercase tracking-[.12em] text-forge-accent">
-          Workspace / Settings
+          Organization / Settings
         </span>
         <h1 className="m-0 text-3xl font-extrabold tracking-[-.045em] sm:text-[42px]">
-          Workspace settings
+          Organization settings
         </h1>
         <p className="mt-3 text-sm text-forge-muted">
-          Keep the workspace identity clear for everyone on the team.
+          Keep the organization identity clear for everyone on the team.
         </p>
       </div>
       <section className="max-w-[680px] border border-[var(--border)] bg-forge-panel/75 p-7">
@@ -52,7 +52,7 @@ export function SettingsPage() {
           className="block font-mono text-[11px] text-forge-soft"
           htmlFor="settings-name"
         >
-          Workspace name
+          Organization name
         </label>
         <input
           id="settings-name"
@@ -66,7 +66,7 @@ export function SettingsPage() {
           disabled={
             mutation.isPending ||
             value.trim().length < 2 ||
-            value === workspace?.name
+            value === organization?.name
           }
           onClick={() => mutation.mutate()}
         >

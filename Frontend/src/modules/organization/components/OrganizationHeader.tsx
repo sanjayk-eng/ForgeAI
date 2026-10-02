@@ -1,29 +1,29 @@
 import { ChevronDown, Menu, Moon, Sun, Monitor } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { Workspace } from "../types/workspace.types";
+import type { Organization } from "../types/organization.types";
 import { NotificationDropdown } from "./NotificationDropdown";
-import { WorkspaceSelector } from "./WorkspaceSelector";
+import { OrganizationSelector } from "./OrganizationSelector";
 import { Dropdown } from "../../../shared/ui/Dropdown";
 import { useTheme, type Theme } from "../../../shared/ui/themeContextStore";
 
 type Props = {
   userName?: string;
-  workspaces: Workspace[];
-  selected?: Workspace;
-  onSelect: (workspace: Workspace) => void;
+  organizations: Organization[];
+  selected?: Organization;
+  onSelect: (organization: Organization) => void;
   onMenu: () => void;
-  onCreateWorkspace: () => void;
+  onCreateOrganization: () => void;
   accessToken?: string;
 };
 
-export function WorkspaceHeader({
+export function OrganizationHeader({
   userName,
-  workspaces,
+  organizations,
   selected,
   onSelect,
   onMenu,
-  onCreateWorkspace,
+  onCreateOrganization,
   accessToken,
 }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -39,8 +39,8 @@ export function WorkspaceHeader({
     <header className="relative z-40 flex h-[72px] shrink-0 items-center gap-4 border-b border-[var(--border)] bg-forge-bg/90 px-4 backdrop-blur-sm sm:gap-7 sm:px-7">
       <Link
         className="flex min-w-0 items-center gap-2.5 font-extrabold tracking-[-0.03em] text-forge-text no-underline sm:min-w-[184px]"
-        to="/workspace"
-        aria-label="ForgeAI workspace home"
+        to="/organization"
+        aria-label="ForgeAI organization home"
       >
         <span className="grid size-7 shrink-0 place-items-center rounded-md bg-forge-accent font-mono text-sm font-extrabold text-[var(--primary-foreground)]">
           F
@@ -50,11 +50,11 @@ export function WorkspaceHeader({
         </span>
       </Link>
       
-      <WorkspaceSelector 
-        workspaces={workspaces}
+      <OrganizationSelector 
+        organizations={organizations}
         selected={selected}
         onSelect={onSelect}
-        onCreate={onCreateWorkspace}
+        onCreate={onCreateOrganization}
       />
       
       <div className="ml-auto flex items-center gap-2">

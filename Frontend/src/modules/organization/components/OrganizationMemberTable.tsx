@@ -1,8 +1,8 @@
 import { AlertCircle, RefreshCw, Users } from "lucide-react";
-import type { WorkspaceMember } from "../types/workspace.types";
+import type { OrganizationMember } from "../types/organization.types";
 
 type Props = {
-  members: WorkspaceMember[];
+  members: OrganizationMember[];
   loading: boolean;
   error: boolean;
   onRetry: () => void;
@@ -14,7 +14,7 @@ type Props = {
 
 const roleOptions = ["OWNER", "ADMIN", "MEMBER"];
 
-export function WorkspaceMemberTable({
+export function OrganizationMemberTable({
   members,
   loading,
   error,
@@ -75,7 +75,7 @@ function MemberRow({
   roleUpdating,
   removing,
 }: {
-  member: WorkspaceMember;
+  member: OrganizationMember;
   onRoleChange: Props["onRoleChange"];
   onRemove: Props["onRemove"];
   roleUpdating: boolean;

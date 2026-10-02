@@ -1,25 +1,25 @@
 import { create } from "zustand";
 
-type WorkspaceUiState = {
+type OrganizationUiState = {
   mobileNavigationOpen: boolean;
-  createWorkspaceOpen: boolean;
+  createOrganizationOpen: boolean;
   inviteMemberOpen: boolean;
   openMobileNavigation: () => void;
   closeMobileNavigation: () => void;
-  openCreateWorkspace: () => void;
-  closeCreateWorkspace: () => void;
+  openCreateOrganization: () => void;
+  closeCreateOrganization: () => void;
   openInviteMember: () => void;
   closeInviteMember: () => void;
 };
 
-export const useWorkspaceStore = create<WorkspaceUiState>((set) => ({
+export const useOrganizationStore = create<OrganizationUiState>((set) => ({
   mobileNavigationOpen: false,
-  createWorkspaceOpen: false,
+  createOrganizationOpen: false,
   inviteMemberOpen: false,
   openMobileNavigation: () => set({ mobileNavigationOpen: true }),
   closeMobileNavigation: () => set({ mobileNavigationOpen: false }),
-  openCreateWorkspace: () => set({ createWorkspaceOpen: true }),
-  closeCreateWorkspace: () => set({ createWorkspaceOpen: false }),
+  openCreateOrganization: () => set({ createOrganizationOpen: true }),
+  closeCreateOrganization: () => set({ createOrganizationOpen: false }),
   openInviteMember: () => set({ inviteMemberOpen: true }),
   closeInviteMember: () => set({ inviteMemberOpen: false }),
 }));

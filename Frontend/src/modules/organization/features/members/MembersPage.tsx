@@ -2,26 +2,26 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, UserPlus } from "lucide-react";
 import { useAuth } from "../../../auth/useAuth";
-import { useWorkspaceId } from "../../hooks/useWorkspaceId";
-import { useWorkspaceStore } from "../../workspaceStore";
+import { useOrganizationId } from "../../hooks/useOrganizationId";
+import { useOrganizationStore } from "../../organizationStore";
 import { useMembersQuery } from "./useMembersQuery";
 import { useInvitesQuery } from "../invites/useInvitesQuery";
-import { WorkspaceMemberTable } from "../../components/WorkspaceMemberTable";
-import { WorkspaceInviteList } from "../../components/WorkspaceInviteList";
+import { OrganizationMemberTable } from "../../components/OrganizationMemberTable";
+import { OrganizationInviteList } from "../../components/OrganizationInviteList";
 import { InviteDialog } from "../../components/InviteDialog";
 import { PaginationControls } from "../../../../shared/ui/PaginationControls";
 import { Search } from "lucide-react";
 
 export function MembersPage() {
   const [view, setView] = useState<"members" | "invitations">("members");
-  const workspaceId = useWorkspaceId();
+  const organizationId = useOrganizationId();
   const { tokens } = useAuth();
   const queryClient = useQueryClient();
   const accessToken = tokens?.access_token ?? "";
   
-  const inviteOpen = useWorkspaceStore((state) => state.inviteMemberOpen);
-  const openInvite = useWorkspaceStore((state) => state.openInviteMember);
-  const closeInvite = useWorkspaceStore((state) => state.closeInviteMember);
+  const inviteOpen = useOrganizationStore((state) => state.inviteMemberOpen);
+  const openInvite = useOrganizationStore((state) => state.openInviteMember);
+  const closeInvite = useOrganizationStore((state) => state.closeInviteMember);
 
   const {
     members,
@@ -38,7 +38,7 @@ export function MembersPage() {
     setPage: setMemberPage,
     setSearch: setMemberSearch,
     isSearching: membersSearching,
-  } = useMembersQuery(accessToken, workspaceId);
+  } = useMembersQuery(accessToken, organizationId);
 
   const {
     invites,
@@ -47,11 +47,11 @@ export function MembersPage() {
     refetch: refetchInvites,
     revokeInvite,
     isRevoking,
-  } = useInvitesQuery(accessToken, workspaceId);
+  } = useInvitesQuery(accessToken, organizationId);
 
   function closeInviteAndRefresh() {
     closeInvite();
-    void queryClient.invalidateQueries({ queryKey: ["invites", workspaceId] });
+    void queryClient.invalidateQueries({ queryKey: ["invites", organizationId] });
   }
 
   return (
@@ -59,7 +59,7 @@ export function MembersPage() {
       <header className="mb-7 flex flex-col items-start justify-between gap-5 border-b border-[var(--border)] pb-7 sm:mb-8 sm:flex-row sm:items-end">
         <div className="min-w-0">
           <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-forge-muted">
-            <span>Workspace</span><ChevronRight size={13} /><span className="text-forge-soft">Members</span>
+            <span>Organization</span><ChevronRight size={13} /><span className="text-forge-soft">Members</span>
           </div>
           <h1 className="m-0 text-3xl font-extrabold tracking-[-.035em] text-forge-text sm:text-[36px]">
             Access management
@@ -112,7 +112,7 @@ export function MembersPage() {
             <div>
               <h2 className="m-0 text-base text-forge-text">Members</h2>
               <p className="mt-2 text-sm text-forge-muted">
-                Everyone currently connected to this workspace.
+                Everyone currently connected to this organization.
               </p>
             </div>
             <span className="font-mono text-[10px] uppercase tracking-[.1em] text-forge-muted">
@@ -121,7 +121,7 @@ export function MembersPage() {
           </div>
           <label className="relative block max-w-[420px] px-5 pt-5 sm:px-6"><Search size={16} className={`pointer-events-none absolute left-8 top-1/2 -translate-y-1/2 text-forge-muted ${membersSearching ? "animate-pulse text-forge-accent" : ""}`} /><input className="input pl-10" value={memberSearch} onChange={(event) => setMemberSearch(event.target.value)} placeholder="Search members by name or email" aria-label="Search members" /></label>
           <div className={`transition-opacity duration-200 ${membersSearching ? "opacity-55" : "opacity-100"}`} aria-busy={membersSearching}>
-            <WorkspaceMemberTable
+            <OrganizationMemberTable
               members={members}
               loading={membersLoading}
             error={membersError}
@@ -142,7 +142,7 @@ export function MembersPage() {
               Track invitations sent to people who have not joined yet.
             </p>
           </div>
-          <WorkspaceInviteList
+          <OrganizationInviteList
             invites={invites}
             loading={invitesLoading}
             error={invitesError}
@@ -156,7 +156,7 @@ export function MembersPage() {
       {inviteOpen && (
         <InviteDialog
           accessToken={accessToken}
-          workspaceId={workspaceId}
+          organizationId={organizationId}
           onClose={closeInviteAndRefresh}
         />
       )}

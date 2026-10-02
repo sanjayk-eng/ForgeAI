@@ -5,7 +5,7 @@ import { useToast } from "../../../../../shared/ui/useToast";
 import { createProject, resolveRepository } from "../../../api/projects.api";
 import type { CreateProjectInput, ProjectType, ResolvedRepository } from "../types/project.types";
 
-export function CreateProjectDialog({ accessToken, workspaceId, onClose }: { accessToken: string; workspaceId: string; onClose: () => void }) {
+export function CreateProjectDialog({ accessToken, organizationId, onClose }: { accessToken: string; organizationId: string; onClose: () => void }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<ProjectType>("REPOSITORY");
@@ -35,10 +35,10 @@ export function CreateProjectDialog({ accessToken, workspaceId, onClose }: { acc
         type,
         repository: resolvedRepository ? { ...resolvedRepository.repository, default_branch: selectedBranch } : undefined,
       };
-      return createProject(accessToken, workspaceId, input);
+      return createProject(accessToken, organizationId, input);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["projects", workspaceId] });
+      void queryClient.invalidateQueries({ queryKey: ["projects", organizationId] });
       toast.pushSuccess("Project created");
       onClose();
     },

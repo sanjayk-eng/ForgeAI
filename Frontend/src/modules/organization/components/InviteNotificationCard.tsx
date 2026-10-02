@@ -1,8 +1,8 @@
 import { Bell, Clock, ArrowRight } from "lucide-react";
-import type { WorkspaceInvite } from "../types/workspace.types";
+import type { OrganizationInvite } from "../types/organization.types";
 
 type InviteNotificationCardProps = {
-  invite: WorkspaceInvite;
+  invite: OrganizationInvite;
   onClick: () => void;
 };
 
@@ -25,7 +25,7 @@ export function InviteNotificationCard({ invite, onClick }: InviteNotificationCa
       {/* Content */}
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-white">
-          {invite.workspace_name || "Workspace"}
+          {invite.organization_name || "organization"}
         </p>
         <p className="mt-1 text-xs text-gray-400">
           Invited by <span className="text-gray-300">{invite.invited_by_user?.name || "Someone"}</span> as <span className="font-medium text-white">{invite.role}</span>

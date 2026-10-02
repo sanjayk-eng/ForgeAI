@@ -5,7 +5,6 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../auth/useAuth";
 import { getGitStatus } from "../../api/git.api";
 import type { ProjectRealtimeEvent, SequencedProjectRealtimeEvent } from "../../api/project-realtime.types";
-import { useWorkspaceId } from "../../hooks/useWorkspaceId";
 import { useSandbox } from "./hooks/useSandbox";
 import { useProjectRealtime } from "./hooks/useProjectRealtime";
 import { FileExplorer } from "./components/files/FileExplorer";
@@ -17,9 +16,8 @@ import { ProjectDetailMainContent } from "./components/ProjectDetailMainContent"
 
 export function ProjectDetailPage() {
   const projectRoot = useRef<HTMLDivElement | null>(null);
-  const { projectId } = useParams();
+  const { projectId, organizationId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const workspaceId = useWorkspaceId();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { tokens } = useAuth();
@@ -40,7 +38,7 @@ export function ProjectDetailPage() {
   const terminalOpen = searchParams.get("terminal") === "1" || panelParam === "terminal";
   const [terminalVisited, setTerminalVisited] = useState(terminalOpen);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const workspaceLabel = workspaceId || "workspace";
+  const organizationLabel = organizationId || "organization";
   const projectLabel = projectId || "project";
 
   useEffect(() => {
@@ -164,7 +162,7 @@ export function ProjectDetailPage() {
 
   useProjectRealtime(accessToken, projectId ?? null, handleRealtimeEvent, resyncProject);
 
-  if (!workspaceId || !projectId) {
+  if (!organizationId || !projectId) {
     return <div>Invalid project</div>;
   }
 
@@ -209,14 +207,14 @@ export function ProjectDetailPage() {
   return (
     <div ref={projectRoot} className="flex h-full min-h-0 flex-col overflow-hidden bg-forge-bg text-forge-text">
       <ProjectDetailHeader
-        workspaceId={workspaceLabel}
+        organizationId ={organizationLabel}
         projectLabel={projectLabel}
         activePanel={activePanel}
         agentOpen={agentOpen}
         terminalOpen={terminalOpen}
         isFullscreen={isFullscreen}
         sandboxStatus={sandboxStatus}
-        onBack={() => navigate(`/workspace/projects?workspace=${encodeURIComponent(workspaceId)}`)}
+        onBack={() => navigate(`/organizations/${encodeURIComponent(organizationId)}/projects`)}
         onSelectPanel={selectPanel}
         onToggleAgent={() => toggleToolPanel("agent")}
         onToggleTerminal={() => toggleToolPanel("terminal")}
@@ -305,7 +303,7 @@ export function ProjectDetailPage() {
 
 function toWorkspacePath(path: string) {
   const normalized = path.replaceAll("\\", "/").replace(/^\/+/, "");
-  return normalized === "workspace" || normalized.startsWith("workspace/")
+  return normalized === "organization" || normalized.startsWith("workspace/")
     ? `/${normalized}`
     : `${WORKSPACE_ROOT}/${normalized}`;
 }

@@ -1,6 +1,6 @@
 import { request } from "../../../shared/api/client";
 import { pageQuery, type PageParams, type PagedResult } from "../../../shared/api/pagination";
-import type { WorkspaceMember } from "../types/workspace.types";
+import type { OrganizationMember } from "../types/organization.types";
 
 type AuthenticatedOptions = RequestInit & { accessToken: string };
 
@@ -18,21 +18,21 @@ function authenticatedRequest<T>(
   });
 }
 
-export function listMembers(accessToken: string, workspaceId: string, params?: PageParams) {
-  return authenticatedRequest<PagedResult<WorkspaceMember>>(
-    `/workspaces/${workspaceId}/members${pageQuery(params)}`,
+export function listMembers(accessToken: string, organizationId: string, params?: PageParams) {
+  return authenticatedRequest<PagedResult<OrganizationMember>>(
+    `/organizations/${organizationId}/members${pageQuery(params)}`,
     { accessToken },
   );
 }
 
 export function updateMemberRole(
   accessToken: string,
-  workspaceId: string,
+  organizationId: string,
   userId: string,
   role: string,
 ) {
   return authenticatedRequest<null>(
-    `/workspaces/${workspaceId}/members/${userId}/role`,
+    `/organizations/${organizationId}/members/${userId}/role`,
     {
       accessToken,
       method: "PATCH",
@@ -43,11 +43,11 @@ export function updateMemberRole(
 
 export function removeMember(
   accessToken: string,
-  workspaceId: string,
+  organizationId: string,
   userId: string,
 ) {
   return authenticatedRequest<null>(
-    `/workspaces/${workspaceId}/members/${userId}`,
+    `/organizations/${organizationId}/members/${userId}`,
     {
       accessToken,
       method: "DELETE",

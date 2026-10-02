@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Archive, Boxes, FolderGit2, Plus, RefreshCw, Search } from "lucide-react";
 import { useAuth } from "../../../auth/useAuth";
 import { useToast } from "../../../../shared/ui/useToast";
-import { useWorkspaceId } from "../../hooks/useWorkspaceId";
+import { useOrganizationId } from "../../hooks/useOrganizationId";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { ImportGitHubRepositoriesDialog } from "./components/ImportGitHubRepositoriesDialog";
 import { ProjectCard } from "./components/ProjectCard";
@@ -14,7 +14,7 @@ import { PaginationControls } from "../../../../shared/ui/PaginationControls";
 import { useDebouncedValue } from "../../../../shared/hooks/useDebouncedValue";
 
 export function ProjectsPage() {
-  const workspaceId = useWorkspaceId();
+  const organizationId = useOrganizationId();
   const [searchParams] = useSearchParams();
   const enteringAgent = searchParams.get("agent") === "1";
   const { tokens } = useAuth();
@@ -25,10 +25,10 @@ export function ProjectsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search);
-  const projectsQuery = useProjects(accessToken, workspaceId, { page, perPage: 10, search: debouncedSearch });
-  const refreshProjects = useRefreshProjects(workspaceId);
+  const projectsQuery = useProjects(accessToken, organizationId, { page, perPage: 10, search: debouncedSearch });
+  const refreshProjects = useRefreshProjects(organizationId);
   const syncAllMutation = useMutation({
-    mutationFn: () => syncAllProjects(accessToken, workspaceId),
+    mutationFn: () => syncAllProjects(accessToken, organizationId),
     onSuccess: (result) => {
       toast.pushSuccess(`${result.triggered} project${result.triggered === 1 ? "" : "s"} queued for sync${result.failed ? `, ${result.failed} failed` : ""}`);
       void refreshProjects();
@@ -80,11 +80,11 @@ export function ProjectsPage() {
       ) : projects.length === 0 ? (
         <EmptyProjects onCreate={() => setCreateOpen(true)} />
       ) : (
-        <section className="grid gap-3" aria-busy={projectsQuery.isFetching}>{projects.map((project) => <ProjectCard key={project.id} project={project} accessToken={accessToken} workspaceId={workspaceId} onError={(message) => toast.pushError(message)} onDeleted={() => toast.pushSuccess("Project removed")} />)}<PaginationControls page={projectsQuery.data?.page ?? page} totalPages={projectsQuery.data?.total_pages ?? 0} total={projectsQuery.data?.total ?? 0} onPageChange={setPage} /></section>
+        <section className="grid gap-3" aria-busy={projectsQuery.isFetching}>{projects.map((project) => <ProjectCard key={project.id} project={project} accessToken={accessToken} organizationId ={organizationId} onError={(message) => toast.pushError(message)} onDeleted={() => toast.pushSuccess("Project removed")} />)}<PaginationControls page={projectsQuery.data?.page ?? page} totalPages={projectsQuery.data?.total_pages ?? 0} total={projectsQuery.data?.total ?? 0} onPageChange={setPage} /></section>
       )}
 
-      {createOpen && <CreateProjectDialog accessToken={accessToken} workspaceId={workspaceId} onClose={() => setCreateOpen(false)} />}
-      {importOpen && <ImportGitHubRepositoriesDialog accessToken={accessToken} workspaceId={workspaceId} onClose={() => setImportOpen(false)} />}
+      {createOpen && <CreateProjectDialog accessToken={accessToken} organizationId ={organizationId} onClose={() => setCreateOpen(false)} />}
+      {importOpen && <ImportGitHubRepositoriesDialog accessToken={accessToken} organizationId ={organizationId} onClose={() => setImportOpen(false)} />}
     </div>
   );
 }

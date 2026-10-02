@@ -1,5 +1,5 @@
 import { request } from "../../../shared/api/client";
-import type { Workspace } from "../types/workspace.types";
+import type { Organization } from "../types/organization.types";
 
 type AuthenticatedOptions = RequestInit & { accessToken: string };
 
@@ -17,24 +17,24 @@ function authenticatedRequest<T>(
   });
 }
 
-export function listWorkspaces(accessToken: string) {
-  return authenticatedRequest<Workspace[]>("/workspaces", { accessToken });
+export function listOrganizations(accessToken: string) {
+  return authenticatedRequest<Organization[]>("/organizations", { accessToken });
 }
 
-export function createWorkspace(accessToken: string, name: string) {
-  return authenticatedRequest<Workspace>("/workspaces", {
+export function createOrganization(accessToken: string, name: string) {
+  return authenticatedRequest<Organization>("/organizations", {
     accessToken,
     method: "POST",
     body: JSON.stringify({ name }),
   });
 }
 
-export function updateWorkspace(
+export function updateOrganization(
   accessToken: string,
-  workspaceId: string,
+  organizationId: string,
   name: string,
 ) {
-  return authenticatedRequest<Workspace>(`/workspaces/${workspaceId}`, {
+  return authenticatedRequest<Organization>(`/organizations/${organizationId}`, {
     accessToken,
     method: "PATCH",
     body: JSON.stringify({ name }),

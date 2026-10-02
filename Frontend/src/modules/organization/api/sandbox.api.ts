@@ -15,7 +15,7 @@ export type SandboxStatus =
 export interface Sandbox {
   id: string;
   project_id: string;
-  workspace_id: string;
+  organization_id: string;
   status: SandboxStatus;
   container_id: string;
   container_name: string;

@@ -243,7 +243,7 @@ export function GitPanel({
           onChange={(event) => setMessage(event.target.value)}
           rows={3}
           className="w-full resize-none bg-transparent text-xs text-forge-text outline-none placeholder:text-forge-muted"
-          placeholder="Describe the workspace changes"
+          placeholder="Describe the organization changes"
         />
         <p className="text-[10px] leading-4 text-forge-muted">
           Only selected files are included in a commit. Push publishes existing commits without committing other changes.

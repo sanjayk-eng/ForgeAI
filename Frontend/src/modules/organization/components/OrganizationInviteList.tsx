@@ -1,10 +1,10 @@
 import { AlertTriangle, Clock3, Mail, Send, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { WorkspaceInvite } from "../types/workspace.types";
+import type { OrganizationInvite } from "../types/organization.types";
 import { StatusBadge } from "./StatusBadge";
 
 type Props = {
-  invites: WorkspaceInvite[];
+  invites: OrganizationInvite[];
   loading: boolean;
   error: boolean;
   onRetry: () => void;
@@ -12,7 +12,7 @@ type Props = {
   revoking?: boolean;
 };
 
-export function WorkspaceInviteList({
+export function OrganizationInviteList({
   invites,
   loading,
   error,
@@ -20,7 +20,7 @@ export function WorkspaceInviteList({
   onRevoke,
   revoking = false,
 }: Props) {
-  const [pendingRevoke, setPendingRevoke] = useState<WorkspaceInvite | null>(null);
+  const [pendingRevoke, setPendingRevoke] = useState<OrganizationInvite | null>(null);
   useEffect(() => {
     if (!pendingRevoke) return;
     const onKeyDown = (event: KeyboardEvent) => {
