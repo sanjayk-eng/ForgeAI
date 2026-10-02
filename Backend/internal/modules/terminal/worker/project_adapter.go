@@ -3,7 +3,7 @@ package worker
 import (
 	"context"
 
-	projectcore "ai-agent/internal/modules/project/core"
+	projectcore "ai-agent/internal/modules/project"
 )
 
 type ProjectAdapter struct {

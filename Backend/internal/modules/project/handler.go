@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"ai-agent/internal/middleware"
-	"ai-agent/internal/modules/project/core"
 	apierrors "ai-agent/internal/shared/errors"
 	"ai-agent/internal/shared/pagination"
 
@@ -14,17 +13,17 @@ import (
 )
 
 type Handler struct {
-	service            core.Service
+	service            Service
 	projectCreatedHook func(context.Context, string, string)
 	projectDeletedHook func(context.Context, string)
 }
 
-func NewHandler(service core.Service) *Handler {
+func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
 func (h *Handler) Create(c *gin.Context) {
-	var input core.CreateProjectRequest
+	var input CreateProjectRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
 		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "invalid input", nil)
 		return
@@ -74,7 +73,7 @@ func (h *Handler) GetBySlug(c *gin.Context) {
 }
 
 func (h *Handler) Update(c *gin.Context) {
-	var input core.UpdateProjectRequest
+	var input UpdateProjectRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
 		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "invalid input", nil)
 		return
@@ -107,11 +106,11 @@ func (h *Handler) writeError(c *gin.Context, err error) {
 	code, message := apierrors.CodeOf(err)
 
 	switch {
-	case errors.Is(err, core.ErrInvalidProjectInput):
+	case errors.Is(err, ErrInvalidProjectInput):
 		status, code, message = http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error()
-	case errors.Is(err, core.ErrProjectNotFound):
+	case errors.Is(err, ErrProjectNotFound):
 		status, code, message = http.StatusNotFound, apierrors.ErrCodeNotFound, err.Error()
-	case errors.Is(err, core.ErrOrganizationAccessRequired):
+	case errors.Is(err, ErrOrganizationAccessRequired):
 		status, code, message = http.StatusForbidden, apierrors.ErrCodeForbidden, "organization access required"
 	}
 

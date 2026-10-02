@@ -140,7 +140,7 @@ func runServer() error {
 	})
 
 	projectAdapter := terminalworker.NewProjectAdapter(
-		projectModule.CoreService,
+		projectModule.Service,
 	)
 	policyPath, err := sandboxPolicyPath()
 	if err != nil {

@@ -1,18 +1,12 @@
 package project
 
 import (
-	"context"
-
-	"ai-agent/internal/modules/project/core"
 	"ai-agent/internal/shared/logger"
+	"context"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
-
-type OrganizationService interface {
-	ValidateAccess(ctx context.Context, userID, organizationID string) error
-}
 
 type ModuleConfig struct {
 	Router       gin.IRouter
@@ -22,26 +16,26 @@ type ModuleConfig struct {
 }
 
 type Module struct {
-	CoreService core.Service
-	Handler     *Handler
+	Service Service
+	Handler *Handler
 }
 
 func LoadModule(config ModuleConfig) *Module {
 	// Initialize repositories
-	coreRepo := core.NewRepository(config.Database)
+	Repo := NewRepository(config.Database)
 
 	// Initialize services
-	coreService := core.NewService(config.Database, coreRepo, config.Organization)
+	Service := NewService(config.Database, Repo, config.Organization)
 
 	// Initialize handler
-	handler := NewHandler(coreService)
+	handler := NewHandler(Service)
 
 	// Register routes
 	RegisterRoutes(config.Router, handler)
 
 	return &Module{
-		CoreService: coreService,
-		Handler:     handler,
+		Service: Service,
+		Handler: handler,
 	}
 }
 
