@@ -64,6 +64,45 @@ func (s *Service) Status(ctx context.Context, sandboxID string) (GitStatus, erro
 	return status, nil
 }
 
+func (s *Service) History(ctx context.Context, sandboxID string) ([]CommitHistoryEntry, error) {
+	output, err := s.runGit(ctx, sandboxID, "log", "--all", "--topo-order", "--decorate=short", "--format=%H%x00%P%x00%an%x00%at%x00%D%x00%s")
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(output) == "" {
+		return []CommitHistoryEntry{}, nil
+	}
+
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	commits := make([]CommitHistoryEntry, 0, len(lines))
+	for _, line := range lines {
+		fields := strings.SplitN(strings.TrimSpace(line), "\x00", 6)
+		if len(fields) != 6 {
+			return nil, fmt.Errorf("parse Git commit history: invalid log entry")
+		}
+		seconds, err := strconv.ParseInt(fields[3], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse Git commit timestamp: %w", err)
+		}
+		parents := strings.Fields(fields[1])
+		if parents == nil {
+			parents = []string{}
+		}
+		refs := strings.Split(fields[4], ",")
+		for index := range refs {
+			refs[index] = strings.TrimSpace(refs[index])
+		}
+		if len(refs) == 1 && refs[0] == "" {
+			refs = []string{}
+		}
+		commits = append(commits, CommitHistoryEntry{
+			Hash: fields[0], Parents: parents, Author: fields[2],
+			Time: time.Unix(seconds, 0).UTC(), Refs: refs, Subject: fields[5],
+		})
+	}
+	return commits, nil
+}
+
 func (s *Service) Commit(ctx context.Context, sandboxID string, req CommitRequest, authorName, authorEmail string) (CommitResult, error) {
 	message := strings.TrimSpace(req.Message)
 	if message == "" {

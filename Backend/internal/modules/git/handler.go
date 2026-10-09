@@ -79,6 +79,23 @@ func (h *Handler) Diff(c *gin.Context) {
 	apierrors.Success(c, http.StatusOK, "git diff fetched", diff)
 }
 
+func (h *Handler) History(c *gin.Context) {
+	sandboxID := c.Param("sandbox_id")
+	if strings.TrimSpace(sandboxID) == "" {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "sandbox_id is required", nil)
+		return
+	}
+	if !h.authorize(c, sandboxID) {
+		return
+	}
+	commits, err := h.service.History(c.Request.Context(), sandboxID)
+	if err != nil {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
+		return
+	}
+	apierrors.Success(c, http.StatusOK, "git history fetched", gin.H{"commits": commits})
+}
+
 func (h *Handler) Commit(c *gin.Context) {
 	sandboxID := c.Param("sandbox_id")
 	if strings.TrimSpace(sandboxID) == "" {

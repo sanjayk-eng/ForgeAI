@@ -56,6 +56,36 @@ func TestParseStatusOutputReturnsEmptyArraysForCleanRepository(t *testing.T) {
 	}
 }
 
+func TestHistoryReturnsAllCommitDetails(t *testing.T) {
+	executor := &historyExecutor{output: "abc123\x00parent1 parent2\x00Forge User\x001791567200\x00HEAD -> main, origin/main\x00Merge feature\n" +
+		"parent1\x00\x00Forge User\x001791567100\x00\x00Add feature\n"}
+	service := NewService("/workspace", executor)
+
+	commits, err := service.History(context.Background(), "sandbox-1")
+	if err != nil {
+		t.Fatalf("History() error = %v", err)
+	}
+	if len(commits) != 2 || commits[0].Hash != "abc123" || len(commits[0].Parents) != 2 ||
+		commits[0].Author != "Forge User" || commits[0].Subject != "Merge feature" ||
+		len(commits[0].Refs) != 2 || commits[0].Refs[0] != "HEAD -> main" || commits[0].Refs[1] != "origin/main" {
+		t.Fatalf("History() = %#v, want commit details and branch references", commits)
+	}
+	if commits[0].Time.Unix() != 1791567200 {
+		t.Fatalf("History() timestamp = %v, want unix timestamp 1791567200", commits[0].Time)
+	}
+}
+
+func TestHistoryReturnsEmptyListForUnbornRepository(t *testing.T) {
+	service := NewService("/workspace", &historyExecutor{})
+	commits, err := service.History(context.Background(), "sandbox-1")
+	if err != nil {
+		t.Fatalf("History() error = %v", err)
+	}
+	if commits == nil || len(commits) != 0 {
+		t.Fatalf("History() = %#v, want an empty list", commits)
+	}
+}
+
 func TestStatusAndDiffAcceptWorkspaceWithoutInitialCommit(t *testing.T) {
 	executor := emptyRepositoryExecutor{}
 	service := NewService("/workspace", &executor)
@@ -345,6 +375,17 @@ type pushExecutor struct {
 
 type emptyRepositoryExecutor struct {
 	commands []string
+}
+
+type historyExecutor struct {
+	output string
+}
+
+func (executor *historyExecutor) Execute(_ context.Context, _ string, command string) (terminalapp.ExecutionResult, error) {
+	if !strings.Contains(command, "'log'") {
+		return terminalapp.ExecutionResult{}, errors.New("unexpected Git command")
+	}
+	return terminalapp.ExecutionResult{Output: executor.output}, nil
 }
 
 func (executor *emptyRepositoryExecutor) Execute(_ context.Context, _ string, command string) (terminalapp.ExecutionResult, error) {

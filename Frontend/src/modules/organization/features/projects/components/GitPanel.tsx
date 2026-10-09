@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, ExternalLink, GitBranch, Loader2, RotateCcw, Send } from "lucide-react";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { getGitDiff, getGitStatus, pushGitChanges, commitGitChanges, revertGitChanges } from "../../../api/git.api";
+import { getGitDiff, getGitHistory, getGitStatus, pushGitChanges, commitGitChanges, revertGitChanges } from "../../../api/git.api";
 import { createProjectGitHubExport, getProjectGitHubExport, listOrganizationIntegrations } from "../../../api/integrations.api";
+import { CommitHistoryGraph } from "./CommitHistoryGraph";
 import { GitDiffPreview } from "./GitDiffPreview";
 import {
   buildCommitFileList,
@@ -80,6 +81,16 @@ export function GitPanel({
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
+  const historyQuery = useQuery({
+    queryKey: ["git-history", sandboxId],
+    queryFn: () => {
+      if (!accessToken || !sandboxId) throw new Error("Missing sandbox context");
+      return getGitHistory(accessToken, sandboxId);
+    },
+    enabled: Boolean(accessToken && sandboxId && sandboxReady),
+    staleTime: 15_000,
+  });
+
   const status = sandboxReady ? statusQuery.data?.status : undefined;
   const files = diffQuery.data?.files ?? [];
   const changedPaths = useMemo(() => [...new Set([
@@ -118,6 +129,7 @@ export function GitPanel({
       setError(null);
       void statusQuery.refetch();
       void diffQuery.refetch();
+      void historyQuery.refetch();
       if (sandboxId) void queryClient.invalidateQueries({ queryKey: ["git-file-diff", sandboxId] });
     },
     onError: (submitError) => {
@@ -303,6 +315,14 @@ export function GitPanel({
           )}
         </div>
       )}
+
+      <CommitHistoryGraph
+        commits={historyQuery.data?.commits ?? []}
+        isLoading={historyQuery.isLoading}
+        isFetching={historyQuery.isFetching}
+        error={historyQuery.error instanceof Error ? historyQuery.error : null}
+        onRefresh={() => void historyQuery.refetch()}
+      />
 
       {sandboxReady && diffQuery.isError && !statusQuery.isError && (
         <StatusNotice>

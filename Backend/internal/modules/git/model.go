@@ -27,6 +27,15 @@ type GitDiffResult struct {
 	Files []GitDiffEntry `json:"files"`
 }
 
+type CommitHistoryEntry struct {
+	Hash    string    `json:"hash"`
+	Parents []string  `json:"parents"`
+	Author  string    `json:"author"`
+	Time    time.Time `json:"time"`
+	Refs    []string  `json:"refs"`
+	Subject string    `json:"subject"`
+}
+
 // CommitRequest carries the commit message for a staged workspace snapshot.
 type CommitRequest struct {
 	Message string   `json:"message"`

@@ -18,6 +18,15 @@ export interface GitDiffEntry {
   original_content?: string;
 }
 
+export interface GitCommit {
+  hash: string;
+  parents?: string[];
+  author: string;
+  time: string;
+  refs?: string[];
+  subject: string;
+}
+
 interface GitStatusResponse {
   status: GitStatusPayload;
 }
@@ -26,8 +35,16 @@ interface GitDiffResponse {
   files: GitDiffEntry[];
 }
 
+interface GitHistoryResponse {
+  commits: GitCommit[];
+}
+
 export function getGitStatus(accessToken: string, sandboxId: string) {
   return authenticatedRequest<GitStatusResponse>(accessToken, `/sandboxes/${sandboxId}/git/status`);
+}
+
+export function getGitHistory(accessToken: string, sandboxId: string) {
+  return authenticatedRequest<GitHistoryResponse>(accessToken, `/sandboxes/${sandboxId}/git/history`);
 }
 
 export function getGitDiff(accessToken: string, sandboxId: string, path?: string) {
