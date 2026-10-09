@@ -278,6 +278,7 @@ export function ProjectDetailPage() {
             terminalVisited={terminalVisited}
             terminalOpen={terminalOpen}
             projectId={projectId}
+            organizationId={organizationId}
           />
         </main>
         {agentOpen && (
@@ -316,4 +317,3 @@ function invalidateGitDiffs(queryClient: QueryClient, sandboxId: string) {
 function isPathWithin(candidate: string, parent: string) {
   return candidate === parent || candidate.startsWith(`${parent}/`);
 }
-

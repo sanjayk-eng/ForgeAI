@@ -39,6 +39,7 @@ interface ProjectDetailMainContentProps {
   terminalVisited: boolean;
   terminalOpen: boolean;
   projectId: string;
+  organizationId: string;
 }
 
 export function ProjectDetailMainContent({
@@ -55,6 +56,7 @@ export function ProjectDetailMainContent({
   terminalVisited,
   terminalOpen,
   projectId,
+  organizationId,
 }: ProjectDetailMainContentProps) {
   return (
     <>
@@ -71,6 +73,8 @@ export function ProjectDetailMainContent({
                 sandboxId={sandbox?.id ?? null}
                 sandboxStatus={sandboxStatus}
                 projectName={projectLabel}
+                projectId={projectId}
+                organizationId={organizationId}
               />
             </Suspense>
           ) : sandboxStatus === "RUNNING" ? (

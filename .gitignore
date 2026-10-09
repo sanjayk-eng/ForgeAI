@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+Backend/internal/*.private-key.pem
 
 # Go build and test artifacts
 bin/

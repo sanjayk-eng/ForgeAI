@@ -94,35 +94,25 @@ This is the top-level tenant boundary of the product. A project belongs inside a
 Location:
 - `Backend/internal/modules/project/`
 
-This is the main domain aggregate for user projects and repository-linked work.
+This module owns ForgeAI-created project records and project lifecycle hooks.
 
 #### Structure
-- `core/` — project entity + core DB operations
-- `repository/` — repository metadata operations
-- `sync/` — GitHub sync polling and state refresh
-- `github/` — GitHub repo discovery and metadata logic
-- `orchestrator/` — orchestration logic between core project and repo state
+- `model.go` — project entity and request types
+- `repository.go` — project record persistence
 - `service.go` — facade service with lifecycle hooks
 - `handler.go` — HTTP layer
 - `route.go` — route registration
 
 #### Real responsibilities
 - create/delete/update project rows
-- connect a GitHub repository to the project
-- persist repository URL, default branch, and GitHub metadata
-- sync GitHub state into project records
 - trigger sandbox provisioning and cleanup via lifecycle events
 
 #### Important lifecycle hooks
-The project service exposes methods like:
-- `SetOnCreate(...)`
-- `SetOnDelete(...)`
-- `SetOnBranchUpdated(...)`
+The project handler exposes lifecycle hooks for creation and deletion.
 
 Those are connected in the server startup to terminal lifecycle behavior:
 - project creation triggers sandbox creation
 - project deletion triggers sandbox cleanup
-- branch changes trigger downstream updates
 
 This means the project module is definitely not just CRUD; it is integrated with execution runtime lifecycle management.
 
@@ -673,15 +663,14 @@ Per-project sandbox operations use an in-process project lock to reduce concurre
 The project moves through these practical states:
 
 1. Project metadata is requested and validated.
-2. Project and repository records are persisted.
+2. The ForgeAI project record is persisted.
 3. A project event is published.
-4. The sandbox is provisioned or refreshed.
-5. The repository is available under the sandbox workspace.
-6. The AI reads and changes workspace files.
-7. The user can inspect the changed sandbox files.
-8. The user can commit the changes in the sandbox and push them to its configured GitHub remote from the Git panel.
+4. A sandbox is provisioned with a ForgeAI-owned workspace.
+5. The AI reads and changes workspace files.
+6. The user can inspect the changed sandbox files.
+7. The user can commit the changes in the sandbox and push them to a GitHub remote from the Git panel.
 
-The current architecture is therefore a sandbox-first editing system. GitHub supplies repository metadata and clone source, while Docker workspace state is the active working copy and the Git panel provides the explicit commit/push path back to the remote.
+The current architecture is therefore a sandbox-first editing system. Project data flows from ForgeAI to its sandbox and, when explicitly pushed, to GitHub. GitHub is not a project source, and changes are not synchronized back into ForgeAI.
 
 ---
 
@@ -702,7 +691,7 @@ The design is suitable for a single backend process and development or early-sta
 - The GitHub OAuth authorization/callback flow does not generate or validate a `state` value, leaving the standard OAuth CSRF defense absent.
 - GitHub OAuth requests the broad classic `repo` scope; review a narrower GitHub App permission model before production use.
 - Git helper behavior has no Docker/GitHub end-to-end test; current tests focus on service-level command selection and output parsing.
-- Connecting a repository to an existing project does not trigger sandbox clone/provisioning; create/import flows do.
+- GitHub export destinations are separate from project creation; no GitHub repository is cloned or synchronized into a ForgeAI sandbox.
 - Agent tasks have no durable job record and no rollback if applying a multi-file response fails partway through.
 - `conversation`, `llm`, `permission`, and `tool` packages are not wired into `runServer()`; the agent currently makes its model HTTP call directly.
 - Realtime events are process-local and not replayed after a server restart; clients rely on reconnect resync through the existing APIs.

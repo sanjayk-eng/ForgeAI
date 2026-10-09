@@ -1,4 +1,4 @@
-import { Bot, FolderGit2, LayoutDashboard, LogOut, MessagesSquare, Plus, Settings, Users, X } from "lucide-react";
+import { Bot, FolderGit2, LayoutDashboard, LogOut, MessagesSquare, Plus, Settings, Users, X, Workflow } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
 const items = [
@@ -30,6 +30,10 @@ export function OrganizationSidebar({
 }) {
   const location = useLocation();
   const agentMode = location.search.includes("agent=1") || location.search.includes("panel=agent");
+  const inSettings = location.pathname.includes("/settings");
+  const visibleItems = inSettings
+    ? items.filter(({ label }) => label !== "Members" && label !== "Settings")
+    : items;
   const organizationPath = organizationId
     ? `/organizations/${encodeURIComponent(organizationId)}`
     : "";
@@ -55,7 +59,7 @@ export function OrganizationSidebar({
               organization
             </span>
             <nav className="grid gap-1" aria-label="organization navigation">
-              {items.map(({ label, path, icon: Icon, end }) => (
+              {visibleItems.map(({ label, path, icon: Icon, end }) => (
                 <NavLink
                   key={path}
                   to={`${organizationPath}${path}`}
@@ -70,6 +74,32 @@ export function OrganizationSidebar({
                 </NavLink>
               ))}
             </nav>
+            {inSettings && (
+              <>
+                <span className="mb-2 mt-6 px-3 font-mono text-[10px] uppercase tracking-[.12em] text-forge-muted">
+                  Organization settings
+                </span>
+                <nav className="grid gap-1 border-l border-[var(--border)] pl-3" aria-label="Organization settings">
+                  {[
+                    { label: "General", path: "/settings", icon: Settings, end: true },
+                    { label: "Members", path: "/members", icon: Users },
+                    { label: "Integrations", path: "/settings/integrations", icon: Workflow },
+                  ].map(({ label, path, icon: Icon, end }) => (
+                    <NavLink
+                      key={label}
+                      to={`${organizationPath}${path}`}
+                      end={end}
+                      onClick={onClose}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 rounded-md px-3 py-2 text-xs font-semibold no-underline transition ${isActive ? "bg-forge-accent/[0.09] text-forge-text" : "text-forge-muted hover:bg-[var(--surface-hover)] hover:text-forge-text"}`
+                      }
+                    >
+                      <Icon size={15} /> {label}
+                    </NavLink>
+                  ))}
+                </nav>
+              </>
+            )}
             <span className="mb-3 mt-9 px-3 font-mono text-[10px] uppercase tracking-[.12em] text-forge-muted">
               Modules
             </span>

@@ -2,9 +2,36 @@ package docker
 
 import (
 	"errors"
+	"os"
+	"os/exec"
+	"strconv"
 	"strings"
 	"testing"
 )
+
+func TestDockerCommandExitCodePreservesGitExitCode(t *testing.T) {
+	command := exec.Command(os.Args[0], "-test.run=TestExecuteExitCodeHelper")
+	command.Env = append(os.Environ(), "FORGEAI_TEST_EXIT_CODE=128")
+	err := command.Run()
+	if err == nil {
+		t.Fatal("helper process unexpectedly succeeded")
+	}
+
+	if got := dockerCommandExitCode(err); got != 128 {
+		t.Fatalf("dockerCommandExitCode() = %d, want 128", got)
+	}
+	if got := dockerCommandExitCode(errors.New("docker command failed")); got != 1 {
+		t.Fatalf("dockerCommandExitCode() for a non-exit error = %d, want 1", got)
+	}
+}
+
+func TestExecuteExitCodeHelper(t *testing.T) {
+	code, err := strconv.Atoi(os.Getenv("FORGEAI_TEST_EXIT_CODE"))
+	if err != nil {
+		return
+	}
+	os.Exit(code)
+}
 
 func TestParseContainerID(t *testing.T) {
 	validID := strings.Repeat("a", 64)

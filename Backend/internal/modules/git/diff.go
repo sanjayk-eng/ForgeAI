@@ -8,13 +8,34 @@ import (
 )
 
 func (s *Service) Diff(ctx context.Context, sandboxID string, filePaths ...string) (GitDiffResult, error) {
-	args := []string{"diff", "--no-ext-diff", "--binary", "--find-renames", "HEAD"}
 	filePath := ""
 	if len(filePaths) > 0 && strings.TrimSpace(filePaths[0]) != "" {
 		filePath = path.Clean(strings.TrimSpace(filePaths[0]))
 		if path.IsAbs(filePath) || filePath == "." || filePath == ".." || strings.HasPrefix(filePath, "../") || strings.Contains(filePath, "\\") {
 			return GitDiffResult{}, fmt.Errorf("invalid workspace file path")
 		}
+	}
+
+	head, headErr := s.runGitAllowExitCode(ctx, sandboxID, 1, "rev-parse", "--verify", "--quiet", "HEAD")
+	if headErr != nil {
+		return GitDiffResult{}, headErr
+	}
+	if strings.TrimSpace(head) == "" {
+		if filePath == "" {
+			return GitDiffResult{Files: []GitDiffEntry{}}, nil
+		}
+		output, err := s.runGitAllowExitCode(ctx, sandboxID, 1, "diff", "--no-ext-diff", "--binary", "--no-index", "--", "/dev/null", filePath)
+		if err != nil {
+			return GitDiffResult{}, err
+		}
+		files := parseDiffOutput(output)
+		for index := range files {
+			files[index].OriginalContent = ptrString("")
+		}
+		return GitDiffResult{Files: files}, nil
+	}
+	args := []string{"diff", "--no-ext-diff", "--binary", "--find-renames", "HEAD"}
+	if filePath != "" {
 		args = append(args, "--", filePath)
 	}
 	output, err := s.runGit(ctx, sandboxID, args...)

@@ -13,7 +13,6 @@ export type {
   Project,
   ProjectRepository,
   ProjectStatus,
-  ProjectType,
   ProjectRepositoryInput,
   ResolvedRepository,
   UpdateProjectInput,

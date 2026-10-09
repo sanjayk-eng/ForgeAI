@@ -3,7 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
-	"time"
+	"fmt"
 
 	"ai-agent/internal/modules/terminal/domain"
 	"ai-agent/internal/shared/realtime"
@@ -25,8 +25,11 @@ func (w *SandboxWorker) handleProjectCreated(ctx context.Context, projectID, use
 	if err == nil && sandbox.ID != "" {
 		if sandbox.Status != domain.StatusFailed {
 			if sandbox.Status == domain.StatusRunning {
-				if err := w.provisionFiles(ctx, sandbox, projectID); err != nil && w.log != nil {
-					w.log.Warn(ctx, "file provisioning failed", "sandbox_id", sandbox.ID, "error", err)
+				if err := w.initializeWorkspaceGit(ctx, sandbox.ID); err != nil {
+					if w.log != nil {
+						w.log.Error(ctx, "Git workspace initialization failed", "sandbox_id", sandbox.ID, "error", err)
+					}
+					return
 				}
 				w.startWorkspaceWatcher(ctx, sandbox, projectID)
 			}
@@ -68,10 +71,11 @@ func (w *SandboxWorker) handleProjectCreated(ctx context.Context, projectID, use
 		return
 	}
 
-	if err := w.provisionFiles(ctx, sandbox, projectID); err != nil {
+	if err := w.initializeWorkspaceGit(ctx, sandbox.ID); err != nil {
 		if w.log != nil {
-			w.log.Warn(ctx, "file provisioning failed", "sandbox_id", sandbox.ID, "error", err)
+			w.log.Error(ctx, "Git workspace initialization failed", "sandbox_id", sandbox.ID, "error", err)
 		}
+		return
 	}
 	w.startWorkspaceWatcher(ctx, sandbox, projectID)
 
@@ -80,33 +84,21 @@ func (w *SandboxWorker) handleProjectCreated(ctx context.Context, projectID, use
 	}
 }
 
+func (w *SandboxWorker) initializeWorkspaceGit(ctx context.Context, sandboxID string) error {
+	result, err := w.service.Execute(ctx, sandboxID, "git init --initial-branch=main")
+	if err != nil {
+		return err
+	}
+	if result.ExitCode != 0 {
+		return fmt.Errorf("git init exited with code %d: %s", result.ExitCode, result.Output)
+	}
+	return nil
+}
+
 func (w *SandboxWorker) handleProjectDeleted(ctx context.Context, projectID string) {
 	if err := w.DeleteProject(ctx, projectID); err != nil && w.log != nil {
 		w.log.Error(ctx, "sandbox destruction failed", "project_id", projectID, "error", err)
 	}
-}
-
-func (w *SandboxWorker) RefreshProjectBranch(ctx context.Context, projectID string) error {
-	unlock := w.lockProject(projectID)
-	defer unlock()
-
-	sandbox, err := w.service.GetByProject(ctx, projectID)
-	if err != nil {
-		if errors.Is(err, domain.ErrSandboxNotFound) {
-			return nil
-		}
-		return err
-	}
-	if sandbox.Status != domain.StatusRunning {
-		return nil
-	}
-	if err := w.provisionFiles(ctx, sandbox, projectID); err != nil {
-		return err
-	}
-	if w.log != nil {
-		w.log.Info(ctx, "sandbox repository branch refreshed", "project_id", projectID, "sandbox_id", sandbox.ID)
-	}
-	return nil
 }
 
 func (w *SandboxWorker) DeleteProject(ctx context.Context, projectID string) error {
@@ -132,20 +124,4 @@ func (w *SandboxWorker) DeleteProject(ctx context.Context, projectID string) err
 		})
 	}
 	return err
-}
-
-func (w *SandboxWorker) provisionFiles(ctx context.Context, sandbox domain.Sandbox, projectID string) error {
-	if w.projectRepo == nil {
-		return nil
-	}
-	project, err := w.projectRepo.FindByID(ctx, projectID)
-	if err != nil {
-		return err
-	}
-	if project.Type != "REPOSITORY" || project.Repository == nil {
-		return nil
-	}
-	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
-	return w.service.CloneRepository(timeoutCtx, sandbox.ID, project.Repository.URL, project.Repository.Branch, project.Repository.AccessToken)
 }

@@ -90,10 +90,6 @@ type FileStore interface {
 	RenamePath(ctx context.Context, containerID, oldPath, newPath string) error
 }
 
-type RepositoryCloner interface {
-	CloneRepository(ctx context.Context, volumeName, workspacePath, helperImage, repositoryURL, branch, accessToken string, timeout time.Duration) error
-}
-
 type RepositoryPusher interface {
 	PushRepository(ctx context.Context, volumeName, workspacePath, helperImage, remote, branch, accessToken string, timeout time.Duration) error
 }

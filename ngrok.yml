@@ -1,0 +1,6 @@
+version: "3"
+
+tunnels:
+  forgeai-api:
+    proto: http
+    addr: 8081

@@ -2,8 +2,10 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -125,9 +127,17 @@ func (runtime *DockerRuntime) Execute(ctx context.Context, containerID, command 
 	output, err := runtime.docker.Run(commandContext, "exec", containerID, "sh", "-lc", command)
 	result := application.ExecutionResult{Output: output, ExitCode: 0, Command: command}
 	if err != nil {
-		result.ExitCode = 1
+		result.ExitCode = dockerCommandExitCode(err)
 	}
 	return result, err
+}
+
+func dockerCommandExitCode(err error) int {
+	var exitError *exec.ExitError
+	if errors.As(err, &exitError) && exitError.ExitCode() >= 0 {
+		return exitError.ExitCode()
+	}
+	return 1
 }
 
 func parseContainerID(output string) (string, error) {

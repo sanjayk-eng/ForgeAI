@@ -67,7 +67,6 @@ export function ProjectCard({
           <button type="button" className="inline-flex h-7 items-center gap-1.5 border border-forge-accent/25 px-2 text-forge-accent transition hover:bg-forge-accent/[0.08]" onClick={handleOpenAgent} aria-label={`Open agent for ${project.name}`} title="Open project agent"><Bot size={13} /> Agent</button>
           {sandbox && <SandboxStatus status={sandbox.status} showLabel={false} />}
           {!sandbox && !sandboxLoading && <span className="text-xs text-forge-muted">Setting up...</span>}
-          <span className="border border-[var(--border)] px-2 py-1 text-forge-muted">{project.type}</span>
           <button type="button" className="grid size-7 place-items-center border border-[var(--border)] text-forge-muted transition hover:border-forge-accent/40 hover:text-forge-text" onClick={() => setEditOpen(true)} aria-label={`Edit ${project.name}`} title="Edit project"><Edit3 size={13} /></button>
           <button type="button" className="grid size-7 place-items-center border border-[var(--border)] text-forge-muted transition hover:border-forge-signal/50 hover:text-forge-signal disabled:cursor-not-allowed disabled:opacity-50" onClick={remove} disabled={deleteMutation.isPending} aria-label={`Remove ${project.name}`} title="Remove project"><Trash2 size={13} /></button>
         </div>

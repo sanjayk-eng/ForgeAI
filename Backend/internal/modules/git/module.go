@@ -12,6 +12,7 @@ type ModuleConfig struct {
 	SandboxExecutor SandboxExecutor
 	SandboxAccess   SandboxAccessValidator
 	GitHubAccounts  GitHubAccountStore
+	GitHubExport    GitHubExportStore
 	Events          realtime.Publisher
 }
 
@@ -22,7 +23,7 @@ type Module struct {
 
 func LoadModule(config ModuleConfig) *Module {
 	service := NewService(config.WorkspaceRoot, config.SandboxExecutor)
-	handler := NewHandler(service, config.SandboxAccess, config.GitHubAccounts, config.Events)
+	handler := NewHandler(service, config.SandboxAccess, config.GitHubAccounts, config.GitHubExport, config.Events)
 	RegisterRoutes(config.Router, handler)
 	return &Module{Service: service, Handler: handler}
 }

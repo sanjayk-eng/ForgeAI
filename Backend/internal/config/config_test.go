@@ -1,6 +1,9 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap/zapcore"
@@ -22,6 +25,54 @@ func TestLoadFromEnvUsesDefaults(t *testing.T) {
 	}
 	if config.AIBaseURL != defaultAIBaseURL || config.AIModel != defaultAIModel || config.AIAPIKey != "" {
 		t.Fatalf("unexpected AI defaults: %+v", config)
+	}
+}
+
+func TestLoadFromEnvReadsGitHubAppPrivateKeyPath(t *testing.T) {
+	keyPath := filepath.Join(t.TempDir(), "github-app.pem")
+	keyContents := "test private key contents"
+	if err := os.WriteFile(keyPath, []byte(keyContents), 0600); err != nil {
+		t.Fatalf("write temporary private key: %v", err)
+	}
+	values := map[string]string{
+		"GITHUB_APP_ID":               "12345",
+		"GITHUB_APP_SLUG":             "forgeai",
+		"GITHUB_APP_PRIVATE_KEY_PATH": keyPath,
+		"GITHUB_APP_WEBHOOK_SECRET":   "test-webhook-secret",
+	}
+	config, err := loadFromEnv(func(key string) string { return values[key] })
+	if err != nil {
+		t.Fatalf("loadFromEnv returned error: %v", err)
+	}
+	if config.GitHubApp.PrivateKey != keyContents {
+		t.Fatal("GitHub App private key was not loaded from the configured path")
+	}
+}
+
+func TestLoadFromEnvRejectsEmptyGitHubAppPrivateKeyFile(t *testing.T) {
+	keyPath := filepath.Join(t.TempDir(), "github-app.pem")
+	if err := os.WriteFile(keyPath, nil, 0600); err != nil {
+		t.Fatalf("write empty temporary private key: %v", err)
+	}
+	values := map[string]string{
+		"GITHUB_APP_ID":               "12345",
+		"GITHUB_APP_SLUG":             "forgeai",
+		"GITHUB_APP_PRIVATE_KEY_PATH": keyPath,
+		"GITHUB_APP_WEBHOOK_SECRET":   "test-webhook-secret",
+	}
+	_, err := loadFromEnv(func(key string) string { return values[key] })
+	if err == nil || !strings.Contains(err.Error(), "private key file is empty") {
+		t.Fatalf("expected an explicit empty private key error, got %v", err)
+	}
+}
+
+func TestLoadFromEnvAllowsGitHubAppToRemainUnconfigured(t *testing.T) {
+	values := map[string]string{
+		"GITHUB_APP_SLUG":           "forgeai",
+		"GITHUB_APP_WEBHOOK_SECRET": "placeholder",
+	}
+	if _, err := loadFromEnv(func(key string) string { return values[key] }); err != nil {
+		t.Fatalf("partial optional GitHub App config should not stop server startup: %v", err)
 	}
 }
 

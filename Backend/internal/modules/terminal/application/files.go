@@ -109,14 +109,6 @@ func (service *Service) RenamePath(ctx context.Context, sandboxID, oldPath, newP
 	return service.files.RenamePath(ctx, sandbox.ContainerID, oldFull, newFull)
 }
 
-func (service *Service) CloneRepository(ctx context.Context, sandboxID, repositoryURL, branch, accessToken string) error {
-	sandbox, err := service.runningSandbox(ctx, sandboxID, "clone a repository")
-	if err != nil {
-		return err
-	}
-	return service.repositoryCloner.CloneRepository(ctx, sandbox.VolumeName, sandbox.WorkspacePath, service.policy.GitImage, repositoryURL, branch, accessToken, 5*time.Minute)
-}
-
 func (service *Service) PushRepository(ctx context.Context, sandboxID, remote, branch, accessToken string) error {
 	sandbox, err := service.runningSandbox(ctx, sandboxID, "push repository changes")
 	if err != nil {

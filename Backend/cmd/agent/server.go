@@ -6,6 +6,7 @@ import (
 	agentmodule "ai-agent/internal/modules/agent"
 	"ai-agent/internal/modules/auth"
 	"ai-agent/internal/modules/auth/provider"
+	integrationmodule "ai-agent/internal/modules/integration"
 	gitmodule "ai-agent/internal/modules/git"
 	organizationmodule "ai-agent/internal/modules/organization"
 	previewmodule "ai-agent/internal/modules/preview"
@@ -130,6 +131,21 @@ func runServer() error {
 		Email:        emailModule.Service,
 		FrontendURL:  settings.FrontendURL,
 	})
+	integrationModule, err := integrationmodule.LoadModule(integrationmodule.ModuleConfig{
+		Router:        protectedRouter,
+		PublicRouter:  apiRouter,
+		Database:      db,
+		Organizations: organizationModule.CoreService,
+		Members:       organizationModule.MemberService,
+		GitHubApp: integrationmodule.GitHubAppConfig{
+			AppID: settings.GitHubApp.AppID, Slug: settings.GitHubApp.Slug,
+			PrivateKey: settings.GitHubApp.PrivateKey, WebhookSecret: settings.GitHubApp.WebhookSecret,
+		},
+		FrontendURL: settings.FrontendURL,
+	})
+	if err != nil {
+		return fmt.Errorf("initialize organization integration module: %w", err)
+	}
 
 	// Simplified project module (no GitHub client, no sync)
 	projectModule := projectmodule.LoadModule(projectmodule.ModuleConfig{
@@ -176,6 +192,7 @@ func runServer() error {
 		SandboxExecutor: terminalModule.Service,
 		SandboxAccess:   terminalModule.Service,
 		GitHubAccounts:  authModule.Repository,
+		GitHubExport:    integrationModule.Service,
 		Events:          terminalModule.Events,
 	})
 

@@ -1,4 +1,3 @@
-export type ProjectType = "REPOSITORY" | "EMPTY";
 export type ProjectStatus = "ACTIVE" | "ARCHIVED";
 export type SyncStatus = "PENDING" | "SYNCING" | "SYNCED" | "FAILED";
 
@@ -22,7 +21,6 @@ export type Project = {
   name: string;
   slug: string;
   description?: string;
-  type: ProjectType;
   status: ProjectStatus;
   created_at: string;
   updated_at: string;
@@ -32,8 +30,6 @@ export type Project = {
 export type CreateProjectInput = {
   name: string;
   description?: string;
-  type: ProjectType;
-  repository?: ProjectRepositoryInput;
 };
 
 export type ProjectRepositoryInput = {
@@ -48,17 +44,6 @@ export type ProjectRepositoryInput = {
 export type ResolvedRepository = {
   repository: ProjectRepositoryInput;
   branches: string[];
-};
-
-export type GitHubRepositoryOption = ProjectRepositoryInput & {
-  organization: string;
-};
-
-export type GitHubRepositoryCatalog = {
-  account: string;
-  organizations: string[];
-  repositories: GitHubRepositoryOption[];
-  warning?: string;
 };
 
 export type UpdateProjectInput = {

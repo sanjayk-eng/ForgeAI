@@ -63,7 +63,7 @@ func (h *Handler) Get(c *gin.Context) {
 }
 
 func (h *Handler) GetBySlug(c *gin.Context) {
-	project, err := h.service.FindByOrganizationSlug(c.Request.Context(), c.Param("organization_id"), c.Param("slug"))
+	project, err := h.service.FindByOrganizationSlug(c.Request.Context(), c.Param("organization_id"), c.Param("project_id"))
 	if err != nil {
 		h.writeError(c, err)
 		return

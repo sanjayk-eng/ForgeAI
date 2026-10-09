@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, GitBranch, Loader2, RotateCcw, Send } from "lucide-react";
+import { AlertCircle, CheckCircle2, ExternalLink, GitBranch, Loader2, RotateCcw, Send } from "lucide-react";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { getGitDiff, getGitStatus, pushGitChanges, commitGitChanges, revertGitChanges } from "../../../api/git.api";
+import { createProjectGitHubExport, getProjectGitHubExport, listOrganizationIntegrations } from "../../../api/integrations.api";
 import { GitDiffPreview } from "./GitDiffPreview";
 import {
   buildCommitFileList,
@@ -16,13 +17,18 @@ export function GitPanel({
   sandboxId,
   sandboxStatus,
   projectName,
+  projectId,
+  organizationId,
 }: {
   accessToken: string | null;
   sandboxId: string | null;
   sandboxStatus: string | null;
   projectName: string;
+  projectId: string;
+  organizationId: string;
 }) {
   const [message, setMessage] = useState("Initial commit");
+  const [repositoryPrivate, setRepositoryPrivate] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fileSelection, setFileSelection] = useState<GitSelectionState>(() => ({
     pathsKey: "",
@@ -30,6 +36,25 @@ export function GitPanel({
   }));
   const queryClient = useQueryClient();
   const sandboxReady = sandboxStatus === "RUNNING";
+
+  const exportQuery = useQuery({
+    queryKey: ["project-github-export", organizationId, projectId],
+    queryFn: () => {
+      if (!accessToken) throw new Error("Missing authentication");
+      return getProjectGitHubExport(accessToken, organizationId, projectId);
+    },
+    enabled: Boolean(accessToken && organizationId && projectId),
+    retry: false,
+  });
+  const integrationsQuery = useQuery({
+    queryKey: ["organization-integrations", organizationId],
+    queryFn: () => {
+      if (!accessToken) throw new Error("Missing authentication");
+      return listOrganizationIntegrations(accessToken, organizationId);
+    },
+    enabled: Boolean(accessToken && organizationId),
+  });
+  const activeInstallation = integrationsQuery.data?.some((integration) => integration.status === "ACTIVE") ?? false;
 
   const statusQuery = useQuery({
     queryKey: ["git-status", sandboxId],
@@ -68,6 +93,21 @@ export function GitPanel({
     [changedPaths, fileSelection],
   );
   const selectedPaths = selectionSummary.selectedPaths;
+
+  const createExportMutation = useMutation({
+    mutationFn: () => {
+      if (!accessToken) throw new Error("Missing authentication");
+      return createProjectGitHubExport(accessToken, organizationId, projectId, repositoryPrivate);
+    },
+    onSuccess: async () => {
+      setError(null);
+      await queryClient.invalidateQueries({ queryKey: ["project-github-export", organizationId, projectId] });
+      await statusQuery.refetch();
+    },
+    onError: (submitError) => {
+      setError(submitError instanceof Error ? submitError.message : "Could not create GitHub export repository");
+    },
+  });
 
   const commitMutation = useMutation({
     mutationFn: (paths: string[]) => {
@@ -145,6 +185,50 @@ export function GitPanel({
           Track changes in {projectName}. Git is separate from the file browser and operates in the sandbox /workspace.
         </p>
       </div>
+
+      {exportQuery.data ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border border-[var(--border)] bg-forge-bg p-3 text-xs">
+          <div>
+            <p className="m-0 font-semibold text-forge-text">GitHub export destination</p>
+            <p className="m-0 mt-1 text-forge-muted">
+              {exportQuery.data.full_name} · {exportQuery.data.private ? "Private" : "Public"}
+            </p>
+          </div>
+          <a className="inline-flex items-center gap-1.5 text-forge-accent hover:underline" href={exportQuery.data.repository_url} target="_blank" rel="noreferrer">
+            Open repository <ExternalLink size={13} />
+          </a>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-end justify-between gap-3 border border-dashed border-[var(--border)] bg-forge-bg p-3">
+          <label className="min-w-36 text-[10px] uppercase tracking-[0.12em] text-forge-muted">
+            New repository visibility
+            <select
+              className="input mt-1 block w-full text-xs normal-case tracking-normal"
+              value={repositoryPrivate ? "private" : "public"}
+              onChange={(event) => setRepositoryPrivate(event.target.value === "private")}
+              disabled={createExportMutation.isPending}
+            >
+              <option value="private">Private</option>
+              <option value="public">Public</option>
+            </select>
+          </label>
+          {activeInstallation ? (
+            <button
+              type="button"
+              onClick={() => createExportMutation.mutate()}
+              disabled={!sandboxReady || createExportMutation.isPending || exportQuery.isFetching}
+              className="inline-flex min-h-9 items-center gap-2 bg-forge-accent px-3 text-xs font-bold text-[var(--primary-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {createExportMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <GitBranch size={13} />}
+              {createExportMutation.isPending ? "Creating repository..." : "Create GitHub repository"}
+            </button>
+          ) : (
+            <a className="text-xs font-bold text-forge-accent underline" href={`/organizations/${encodeURIComponent(organizationId)}/settings/integrations`}>
+              Connect GitHub App first
+            </a>
+          )}
+        </div>
+      )}
 
       {statusQuery.isLoading && (
         <div className="flex items-center gap-2 text-xs text-forge-muted"><Loader2 size={13} className="animate-spin" /> Checking git status</div>
@@ -257,7 +341,7 @@ export function GitPanel({
             {revertMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
             {revertMutation.isPending ? "Reverting" : "Revert selected"}
           </button>
-          <button type="button" onClick={() => void pushMutation.mutate()} disabled={pushMutation.isPending || commitMutation.isPending || revertMutation.isPending || !status || (status.ahead ?? 0) === 0} className="inline-flex flex-1 items-center justify-center gap-2 border border-[var(--border)] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-muted disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="button" onClick={() => void pushMutation.mutate()} disabled={pushMutation.isPending || commitMutation.isPending || revertMutation.isPending || !exportQuery.data || !status || (status.ahead ?? 0) === 0} className="inline-flex flex-1 items-center justify-center gap-2 border border-[var(--border)] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-forge-muted disabled:cursor-not-allowed disabled:opacity-50">
             {pushMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <GitBranch size={12} />}
             {pushMutation.isPending ? "Publishing" : "Push to GitHub"}
           </button>

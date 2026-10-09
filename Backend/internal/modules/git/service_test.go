@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -55,6 +56,47 @@ func TestParseStatusOutputReturnsEmptyArraysForCleanRepository(t *testing.T) {
 	}
 }
 
+func TestStatusAndDiffAcceptWorkspaceWithoutInitialCommit(t *testing.T) {
+	executor := emptyRepositoryExecutor{}
+	service := NewService("/workspace", &executor)
+
+	status, err := service.Status(context.Background(), "sandbox-1")
+	if err != nil {
+		t.Fatalf("Status() error = %v", err)
+	}
+	if status.Branch != "main" || len(status.Untracked) != 2 ||
+		status.Untracked[0] != "sanjaykh/README.md" || status.Untracked[1] != "sanjaykh/index.html" {
+		t.Fatalf("Status() = %+v, want main branch with each nested project file untracked", status)
+	}
+
+	diff, err := service.Diff(context.Background(), "sandbox-1")
+	if err != nil {
+		t.Fatalf("Diff() error = %v", err)
+	}
+	if len(diff.Files) != 0 {
+		t.Fatalf("Diff() files = %#v, want no diff before the initial commit", diff.Files)
+	}
+	if len(executor.commands) < 2 || !strings.Contains(executor.commands[0], "'--untracked-files=all'") {
+		t.Fatalf("Status() commands = %#v, want untracked files listed individually", executor.commands)
+	}
+}
+
+func TestDiffForUntrackedFileBeforeInitialCommit(t *testing.T) {
+	executor := &emptyRepositoryExecutor{}
+	service := NewService("/workspace", executor)
+
+	result, err := service.Diff(context.Background(), "sandbox-1", "sanjaykh/README.md")
+	if err != nil {
+		t.Fatalf("Diff() error = %v", err)
+	}
+	if len(result.Files) != 1 || result.Files[0].Path != "sanjaykh/README.md" || result.Files[0].Status != "added" {
+		t.Fatalf("Diff() files = %#v, want an added diff for the untracked file", result.Files)
+	}
+	if result.Files[0].OriginalContent == nil || *result.Files[0].OriginalContent != "" {
+		t.Fatalf("Diff() original content = %#v, want empty baseline", result.Files[0].OriginalContent)
+	}
+}
+
 func TestParseStatusOutputTracksDivergenceAndRenames(t *testing.T) {
 	status, err := parseStatusOutput("## feature...origin/feature [ahead 2, behind 1]\nR  old.txt -> new.txt\n")
 	if err != nil {
@@ -82,7 +124,9 @@ func TestDiffForFileReturnsGitBaseContentAndScopesPath(t *testing.T) {
 	if result.Files[0].OriginalContent == nil || *result.Files[0].OriginalContent != "<h1>Hello</h1>\n" {
 		t.Fatalf("Diff() original content = %#v, want Git base content", result.Files[0].OriginalContent)
 	}
-	if len(executor.commands) != 2 || !strings.Contains(executor.commands[0], "'--' 'src/App.tsx'") || !strings.Contains(executor.commands[1], "'show' 'HEAD:src/App.tsx'") {
+	if len(executor.commands) != 3 ||
+		!strings.Contains(executor.commands[1], "'--' 'src/App.tsx'") ||
+		!strings.Contains(executor.commands[2], "'show' 'HEAD:src/App.tsx'") {
 		t.Fatalf("Diff() commands = %#v, want a scoped diff and Git base read", executor.commands)
 	}
 }
@@ -136,7 +180,7 @@ func TestDiffForRenamedFileReadsOriginalFromOldPath(t *testing.T) {
 	if result.Files[0].OriginalContent == nil || *result.Files[0].OriginalContent != "export const App = () => null;\n" {
 		t.Fatalf("Diff() original content = %#v, want content from old Git path", result.Files[0].OriginalContent)
 	}
-	if len(executor.commands) != 2 || !strings.Contains(executor.commands[1], "'show' 'HEAD:src/App.ts'") {
+	if len(executor.commands) != 3 || !strings.Contains(executor.commands[2], "'show' 'HEAD:src/App.ts'") {
 		t.Fatalf("Diff() commands = %#v, want the renamed file's old Git path", executor.commands)
 	}
 }
@@ -156,7 +200,7 @@ func TestPushPassesGitHubTokenThroughStdin(t *testing.T) {
 	executor := &pushExecutor{remoteURL: "https://github.com/acme/project.git"}
 	service := NewService("/workspace", executor)
 
-	if _, err := service.Push(context.Background(), "sandbox-1", PushRequest{}, "github-token"); err != nil {
+	if _, err := service.Push(context.Background(), "sandbox-1", PushRequest{}, "github-token", "https://github.com/acme/project.git"); err != nil {
 		t.Fatalf("Push() error = %v", err)
 	}
 	if executor.pushRemote != "origin" || executor.pushToken != "github-token" {
@@ -284,7 +328,7 @@ func TestPushRejectsNonGitHubRemote(t *testing.T) {
 	executor := &pushExecutor{remoteURL: "https://example.com/acme/project.git"}
 	service := NewService("/workspace", executor)
 
-	if _, err := service.Push(context.Background(), "sandbox-1", PushRequest{}, "github-token"); err == nil {
+	if _, err := service.Push(context.Background(), "sandbox-1", PushRequest{}, "github-token", "https://example.com/acme/project.git"); err == nil {
 		t.Fatal("Push() should reject a non-GitHub remote")
 	}
 	if executor.pushToken != "" {
@@ -297,6 +341,31 @@ type pushExecutor struct {
 	pushRemote string
 	pushToken  string
 	commands   []string
+}
+
+type emptyRepositoryExecutor struct {
+	commands []string
+}
+
+func (executor *emptyRepositoryExecutor) Execute(_ context.Context, _ string, command string) (terminalapp.ExecutionResult, error) {
+	executor.commands = append(executor.commands, command)
+	if strings.Contains(command, "'status'") {
+		return terminalapp.ExecutionResult{Output: "## No commits yet on main\n?? sanjaykh/README.md\n?? sanjaykh/index.html\n"}, nil
+	}
+	if strings.Contains(command, "'rev-parse' '--verify' '--quiet' 'HEAD'") {
+		return terminalapp.ExecutionResult{
+			ExitCode: 1,
+		}, errors.New("docker exec: exit status 1")
+	}
+	if strings.Contains(command, "'diff' '--no-ext-diff' '--binary' '--no-index'") {
+		if strings.Contains(command, "'sanjaykh/README.md'") {
+			return terminalapp.ExecutionResult{
+				Output:   "diff --git a/dev/null b/sanjaykh/README.md\nnew file mode 100644\n--- /dev/null\n+++ b/sanjaykh/README.md\n@@ -0,0 +1 @@\n+# project\n",
+				ExitCode: 1,
+			}, errors.New("docker exec: exit status 1")
+		}
+	}
+	return terminalapp.ExecutionResult{}, nil
 }
 
 type untrackedFileExecutor struct{}
@@ -323,6 +392,9 @@ type newFileDiffExecutor struct {
 
 func (executor *newFileDiffExecutor) Execute(_ context.Context, _ string, command string) (terminalapp.ExecutionResult, error) {
 	executor.commands = append(executor.commands, command)
+	if strings.Contains(command, "'rev-parse' '--verify' '--quiet' 'HEAD'") {
+		return terminalapp.ExecutionResult{Output: "commit-hash\n"}, nil
+	}
 	if strings.Contains(command, "'diff'") {
 		return terminalapp.ExecutionResult{Output: "diff --git a/notes.txt b/notes.txt\nnew file mode 100644\nindex 0000000..1111111\n--- /dev/null\n+++ b/notes.txt\n@@ -0,0 +1 @@\n+hello\n"}, nil
 	}
@@ -337,6 +409,9 @@ func (executor *newFileDiffExecutor) Execute(_ context.Context, _ string, comman
 
 func (executor *renamedFileDiffExecutor) Execute(_ context.Context, _ string, command string) (terminalapp.ExecutionResult, error) {
 	executor.commands = append(executor.commands, command)
+	if strings.Contains(command, "'rev-parse' '--verify' '--quiet' 'HEAD'") {
+		return terminalapp.ExecutionResult{Output: "commit-hash\n"}, nil
+	}
 	if strings.Contains(command, "'diff'") {
 		return terminalapp.ExecutionResult{Output: "diff --git a/src/App.ts b/src/App.tsx\nsimilarity index 95%\nrename from src/App.ts\nrename to src/App.tsx\n"}, nil
 	}
@@ -348,6 +423,9 @@ func (executor *renamedFileDiffExecutor) Execute(_ context.Context, _ string, co
 
 func (executor *fileDiffExecutor) Execute(_ context.Context, _ string, command string) (terminalapp.ExecutionResult, error) {
 	executor.commands = append(executor.commands, command)
+	if strings.Contains(command, "'rev-parse' '--verify' '--quiet' 'HEAD'") {
+		return terminalapp.ExecutionResult{Output: "commit-hash\n"}, nil
+	}
 	if strings.Contains(command, "'diff'") {
 		if executor.unchanged {
 			return terminalapp.ExecutionResult{}, nil

@@ -15,18 +15,16 @@ type Service struct {
 	store            Store
 	runtime          Runtime
 	files            FileStore
-	repositoryCloner RepositoryCloner
 	repositoryPusher RepositoryPusher
 	policy           policy.Sandbox
 }
 
-func NewService(store Store, runtime Runtime, files FileStore, repositoryCloner RepositoryCloner, sandboxPolicy policy.Sandbox, repositoryPushers ...RepositoryPusher) *Service {
+func NewService(store Store, runtime Runtime, files FileStore, sandboxPolicy policy.Sandbox, repositoryPushers ...RepositoryPusher) *Service {
 	service := &Service{
-		store:            store,
-		runtime:          runtime,
-		files:            files,
-		repositoryCloner: repositoryCloner,
-		policy:           sandboxPolicy,
+		store:   store,
+		runtime: runtime,
+		files:   files,
+		policy:  sandboxPolicy,
 	}
 	if len(repositoryPushers) > 0 {
 		service.repositoryPusher = repositoryPushers[0]

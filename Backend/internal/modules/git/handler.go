@@ -8,6 +8,7 @@ import (
 
 	"ai-agent/internal/middleware"
 	"ai-agent/internal/modules/auth"
+	"ai-agent/internal/modules/integration"
 	"ai-agent/internal/modules/terminal/domain"
 	apierrors "ai-agent/internal/shared/errors"
 	"ai-agent/internal/shared/realtime"
@@ -19,6 +20,7 @@ type Handler struct {
 	service       *Service
 	access        SandboxAccessValidator
 	githubAccount GitHubAccountStore
+	githubExport  GitHubExportStore
 	events        realtime.Publisher
 }
 
@@ -28,12 +30,15 @@ type SandboxAccessValidator interface {
 }
 
 type GitHubAccountStore interface {
-	FindGitHubAccessToken(ctx context.Context, userID string) (string, error)
 	FindUserByID(ctx context.Context, userID string) (auth.UserProfile, error)
 }
 
-func NewHandler(service *Service, access SandboxAccessValidator, githubAccounts GitHubAccountStore, publishers ...realtime.Publisher) *Handler {
-	handler := &Handler{service: service, access: access, githubAccount: githubAccounts}
+type GitHubExportStore interface {
+	ExportCredentials(ctx context.Context, organizationID, projectID string) (string, string, error)
+}
+
+func NewHandler(service *Service, access SandboxAccessValidator, githubAccounts GitHubAccountStore, githubExport GitHubExportStore, publishers ...realtime.Publisher) *Handler {
+	handler := &Handler{service: service, access: access, githubAccount: githubAccounts, githubExport: githubExport}
 	if len(publishers) > 0 {
 		handler.events = publishers[0]
 	}
@@ -146,24 +151,26 @@ func (h *Handler) Push(c *gin.Context) {
 		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "invalid push payload", nil)
 		return
 	}
-	if h.githubAccount == nil {
-		apierrors.Error(c, http.StatusInternalServerError, apierrors.ErrCodeInternalServer, "GitHub token store is not configured", nil)
+	if h.githubExport == nil {
+		apierrors.Error(c, http.StatusServiceUnavailable, apierrors.ErrCodeInternalServer, "GitHub App export is not configured", nil)
 		return
 	}
-	accessToken, err := h.githubAccount.FindGitHubAccessToken(c.Request.Context(), requestUserID(c))
+	sandbox, err := h.access.Get(c.Request.Context(), sandboxID)
 	if err != nil {
-		if errors.Is(err, auth.ErrGitHubAccountNotConnected) {
-			apierrors.Error(c, http.StatusForbidden, apierrors.ErrCodeForbidden, "connect a GitHub account before pushing", nil)
+		apierrors.Error(c, http.StatusInternalServerError, apierrors.ErrCodeInternalServer, "could not load sandbox export context", nil)
+		return
+	}
+	installationToken, repositoryURL, err := h.githubExport.ExportCredentials(
+		c.Request.Context(), sandbox.OrganizationID, sandbox.ProjectID)
+	if err != nil {
+		if errors.Is(err, integration.ErrExportRepositoryNotFound) || errors.Is(err, integration.ErrIntegrationNotFound) {
+			apierrors.Error(c, http.StatusConflict, apierrors.ErrCodeForbidden, "create a GitHub export repository for this project before pushing", nil)
 			return
 		}
-		apierrors.Error(c, http.StatusInternalServerError, apierrors.ErrCodeInternalServer, "could not load GitHub credentials", nil)
+		apierrors.Error(c, http.StatusBadGateway, apierrors.ErrCodeInternalServer, "could not obtain GitHub App export credentials", nil)
 		return
 	}
-	if strings.TrimSpace(accessToken) == "" {
-		apierrors.Error(c, http.StatusForbidden, apierrors.ErrCodeForbidden, "connect a GitHub account before pushing", nil)
-		return
-	}
-	result, err := h.service.Push(c.Request.Context(), sandboxID, payload, accessToken)
+	result, err := h.service.Push(c.Request.Context(), sandboxID, payload, installationToken, repositoryURL)
 	if err != nil {
 		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
 		return

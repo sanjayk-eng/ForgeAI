@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,13 +37,29 @@ func NewService(workspaceRoot string, executor SandboxExecutor) *Service {
 }
 
 func (s *Service) Status(ctx context.Context, sandboxID string) (GitStatus, error) {
-	output, err := s.runGit(ctx, sandboxID, "status", "--short", "--branch")
+	output, err := s.runGit(ctx, sandboxID, "status", "--short", "--branch", "--untracked-files=all")
 	if err != nil {
 		return GitStatus{}, err
 	}
 	status, err := parseStatusOutput(output)
 	if err != nil {
 		return GitStatus{}, err
+	}
+	if !strings.Contains(strings.TrimSpace(output), "...") {
+		head, headErr := s.runGitAllowExitCode(ctx, sandboxID, 1, "rev-parse", "--verify", "--quiet", "HEAD")
+		if headErr != nil {
+			return GitStatus{}, headErr
+		}
+		if strings.TrimSpace(head) != "" {
+			commits, countErr := s.runGit(ctx, sandboxID, "rev-list", "--count", "HEAD")
+			if countErr != nil {
+				return GitStatus{}, countErr
+			}
+			status.Ahead, err = strconv.Atoi(strings.TrimSpace(commits))
+			if err != nil {
+				return GitStatus{}, fmt.Errorf("parse unpushed Git commit count: %w", err)
+			}
+		}
 	}
 	return status, nil
 }
@@ -159,24 +176,35 @@ func (s *Service) isTrackedFile(ctx context.Context, sandboxID, file string) (bo
 	return strings.TrimSpace(output) == file, nil
 }
 
-func (s *Service) Push(ctx context.Context, sandboxID string, req PushRequest, accessToken string) (PushResult, error) {
+func (s *Service) Push(ctx context.Context, sandboxID string, req PushRequest, accessToken, repositoryURL string) (PushResult, error) {
 	accessToken = strings.TrimSpace(accessToken)
 	if accessToken == "" {
-		return PushResult{}, fmt.Errorf("GitHub account is not connected")
+		return PushResult{}, fmt.Errorf("GitHub App installation token is unavailable")
 	}
 
+	repositoryURL = strings.TrimSpace(repositoryURL)
+	parsedURL, err := url.Parse(repositoryURL)
+	if err != nil || !strings.EqualFold(parsedURL.Scheme, "https") ||
+		!strings.EqualFold(parsedURL.Hostname(), "github.com") || parsedURL.User != nil ||
+		parsedURL.RawQuery != "" || parsedURL.Fragment != "" {
+		return PushResult{}, fmt.Errorf("push requires a valid HTTPS GitHub export repository")
+	}
 	remote := strings.TrimSpace(req.Remote)
 	if remote == "" {
 		remote = "origin"
 	}
-	remoteURL, err := s.runGit(ctx, sandboxID, "remote", "get-url", remote)
+	remoteURL, err := s.runGitAllowExitCode(ctx, sandboxID, 2, "remote", "get-url", remote)
 	if err != nil {
 		return PushResult{}, err
 	}
-	parsedRemote, err := url.Parse(strings.TrimSpace(remoteURL))
-	if err != nil || !strings.EqualFold(parsedRemote.Scheme, "https") ||
-		!strings.EqualFold(parsedRemote.Hostname(), "github.com") || parsedRemote.User != nil {
-		return PushResult{}, fmt.Errorf("push requires an HTTPS GitHub remote")
+	if strings.TrimSpace(remoteURL) == "" {
+		if _, err := s.runGit(ctx, sandboxID, "remote", "add", remote, repositoryURL); err != nil {
+			return PushResult{}, err
+		}
+	} else if strings.TrimSpace(remoteURL) != repositoryURL {
+		if _, err := s.runGit(ctx, sandboxID, "remote", "set-url", remote, repositoryURL); err != nil {
+			return PushResult{}, err
+		}
 	}
 
 	pusher, ok := s.executor.(SandboxRepositoryPusher)
@@ -258,6 +286,7 @@ func parseStatusOutput(output string) (GitStatus, error) {
 		}
 		if strings.HasPrefix(line, "## ") {
 			status.Branch = strings.TrimPrefix(line, "## ")
+			status.Branch = strings.TrimPrefix(status.Branch, "No commits yet on ")
 			if idx := strings.Index(status.Branch, "..."); idx >= 0 {
 				tracking := status.Branch[idx+3:]
 				status.Branch = strings.TrimSpace(status.Branch[:idx])

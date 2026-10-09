@@ -42,10 +42,9 @@ func LoadModule(config ModuleConfig) (*Module, error) {
 	dockerCLI := docker.NewDockerCLI(config.DockerBinary)
 	runtime := docker.NewDockerRuntimeWithCLI(dockerCLI)
 	files := docker.NewDockerFileStore(dockerCLI)
-	repositoryCloner := terminalgithub.NewGitHubRepositoryCloner(dockerCLI)
 	repositoryPusher := terminalgithub.NewGitHubRepositoryPusher(dockerCLI)
 	repo := terminalpostgres.NewRepository(config.Database)
-	service := application.NewService(repo, runtime, files, repositoryCloner, sandboxPolicy, repositoryPusher)
+	service := application.NewService(repo, runtime, files, sandboxPolicy, repositoryPusher)
 	events := NewEventHub()
 	sandboxWorker := worker.NewSandboxWorker(service, config.ProjectRepo, config.Logger, events)
 
@@ -94,11 +93,4 @@ func (m *Module) OnProjectDeleted(ctx context.Context, projectID string) {
 			ProjectID: projectID,
 		})
 	}
-}
-
-func (m *Module) OnProjectBranchUpdated(ctx context.Context, projectID string) error {
-	if m.Worker == nil {
-		return nil
-	}
-	return m.Worker.RefreshProjectBranch(ctx, projectID)
 }

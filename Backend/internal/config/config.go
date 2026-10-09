@@ -29,6 +29,7 @@ type Config struct {
 	JWTRefreshTTL     time.Duration
 	CORSOrigins       string
 	OAuth             OAuthConfig
+	GitHubApp         GitHubAppConfig
 	LogLevel          zapcore.Level
 	LogFormat         string
 	LogSource         bool
@@ -41,6 +42,14 @@ type OAuthConfig struct {
 	GitHubClientID     string
 	GitHubClientSecret string
 	GitHubRedirectURL  string
+}
+
+type GitHubAppConfig struct {
+	AppID          int64
+	Slug           string
+	PrivateKey     string
+	PrivateKeyPath string
+	WebhookSecret  string
 }
 
 const (

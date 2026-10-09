@@ -10,13 +10,13 @@ The important flow is:
 
 1. A project creates a sandbox container.
 2. The project workspace is mounted into the container.
-3. The repo is cloned into `/workspace` inside that container.
-4. The AI agent or user edits files inside the sandbox.
-5. Git status and git diff are computed inside that workspace.
-6. The backend exposes those values through protected API routes.
-7. The frontend refreshes the diff and file tree in real time.
+3. ForgeAI creates and edits project files inside `/workspace`.
+4. Git status and git diff are computed inside that workspace.
+5. The backend exposes those values through protected API routes.
+6. The frontend refreshes the diff and file tree in real time.
+7. When explicitly requested, the Git panel pushes changes from the sandbox to GitHub.
 
-This is the actual architecture used by the backend in the project.
+GitHub is an export destination only: existing repositories are not cloned into ForgeAI sandboxes, and GitHub changes are not synchronized back into ForgeAI.
 
 ---
 
@@ -55,6 +55,8 @@ In practice:
 
 - the main sandbox runs with `network_mode: none`
 - the workspace is mounted on the host path and exposed inside the container at `/workspace`
+- each project gets an isolated host workspace derived from its internal project ID; `/workspace` is only the fixed path inside the container
+- the workspace identity is deliberately independent of the project display name and GitHub repository slug
 - Git operations happen inside the sandbox filesystem
 - a separate short-lived helper container may be used for networked GitHub operations such as push
 
@@ -237,6 +239,8 @@ The project’s real workflow is:
 - filesystem watchers detect changes
 - realtime project events notify the frontend
 - the UI refreshes files and diff panels without reloading the whole app
+- the Git panel reports individual untracked files and supports reviewing them before the first commit exists
+- creating a GitHub export repository does not upload workspace files; users commit and explicitly push changes
 
 So the answer is:
 

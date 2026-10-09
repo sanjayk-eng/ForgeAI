@@ -10,6 +10,7 @@ import { OrganizationLayout } from "../modules/organization/OrganizationLayout";
 import { OverviewPage } from "../modules/organization/features/overview/OverviewPage";
 import { MembersPage } from "../modules/organization/features/members/MembersPage";
 import { SettingsPage } from "../modules/organization/features/settings/SettingsPage";
+import { IntegrationsPage } from "../modules/organization/features/settings/IntegrationsPage";
 import { AcceptInvitePage } from "../modules/organization/features/invites/AcceptInvitePage";
 import { ProjectsPage } from "../modules/organization/features/projects/ProjectsPage";
 import { useAuth } from "../modules/auth/useAuth";
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
           },
           { path: "members", element: <MembersPage /> },
           { path: "settings", element: <SettingsPage /> },
+          { path: "settings/integrations", element: <IntegrationsPage /> },
         ],
       },
     ],

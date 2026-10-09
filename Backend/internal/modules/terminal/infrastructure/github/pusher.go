@@ -33,9 +33,9 @@ export GIT_CONFIG_KEY_0='http.https://github.com/.extraheader'
 export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth"
 cd "$1"
 if [ -n "$3" ]; then
-	exec git push -- "$2" "$3"
+	exec git push --set-upstream -- "$2" "$3"
 fi
-exec git push -- "$2"`
+exec git push --set-upstream -- "$2"`
 
 	commandContext, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
