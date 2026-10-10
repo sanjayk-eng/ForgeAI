@@ -71,7 +71,8 @@ Important implementation details:
 - JWTs are created and validated through `pkg/jwt`
 - OAuth data is stored through `tbl_oauth_account`
 - the provider factory supports GitHub and Google flows
-- the auth repository is also used by the Git module to fetch the user’s GitHub token for push operations
+- GitHub OAuth exchange is implemented in the GitHub module and adapted to the auth provider interface
+- the auth repository stores the user's GitHub OAuth token for account linking; Git pushes use GitHub App installation credentials instead
 
 ### 3.2 Workspace module
 
@@ -176,21 +177,23 @@ In plain terms, the AI does not edit the user’s GitHub repo directly. It edits
 
 Location:
 - `Backend/internal/modules/git/`
+- `Backend/internal/modules/github/`
 
 Responsibilities:
 - inspect git status
 - get file diffs
 - commit changes
-- push to GitHub using OAuth access token
+- push to a project export repository using GitHub App installation credentials
+- manage organization GitHub App installations, webhooks, and project export repositories
 
-The Git module is registered on the protected router and uses the terminal/sandbox execution service as its backend. It does not own the sandbox. It delegates actual repository operations to the terminal runtime infrastructure.
+The GitHub-specific implementation lives in one flat GitHub module. Auth and terminal keep only the adapters needed to connect their existing interfaces to that module. The Git module is registered on the protected router and uses the terminal/sandbox execution service as its backend. It does not own the sandbox.
 
 Key detail:
 - commit author name and email come from the authenticated user
-- push operations load the user’s GitHub OAuth token from the auth repository
-- the token is fed into a short-lived Git helper container and not stored in repo config
+- push operations request a short-lived GitHub App installation token and export-repository URL from the GitHub module
+- the token is fed to a short-lived Git helper container over stdin and is not stored in repo config
 
-This is a strong security pattern because the system leaves the repository environment clean, while using auth tokens on-demand for push actions.
+This keeps GitHub credentials out of the sandbox and leaves the repository configuration free of persisted credentials.
 
 ### 3.7 Email module
 
@@ -569,13 +572,13 @@ Git operations are request-time operations on the existing sandbox; they do not 
 3. The Git handler validates sandbox access through the terminal application service.
 4. The Git service runs status, diff, and commit commands in `/workspace` through the network-disabled sandbox executor.
 5. For a commit, the service optionally stages all changes and runs `git commit` with the supplied message and the authenticated user's profile name/email as command-scoped Git config.
-6. For a push, the handler loads the user's GitHub OAuth token from the auth repository.
+6. For a push, the handler requests GitHub App export credentials from the GitHub module using the sandbox's organization and project IDs.
 7. The Git service checks that the selected remote resolves to an HTTPS `github.com` URL.
-8. The terminal application passes the repository volume, workspace path, remote, branch, and token to the terminal infrastructure pusher.
+8. The terminal application passes the repository volume, workspace path, remote, branch, and token to the GitHub module's Docker pusher.
 9. The pusher starts a disposable Git helper with bridge networking and mounts the same workspace volume. It reads the token from stdin and creates a temporary HTTP authorization header for Git; credentials are not persisted in `.git/config` or passed in Docker arguments.
 10. The panel refreshes status and diff after the operation.
 
-The push succeeds only when the user has a connected GitHub account with repository write access and the sandbox repository has a valid HTTPS GitHub remote. The sandbox container itself has no network access; only the one-shot clone/push helpers use bridge networking.
+The push requires an active GitHub App installation, a project export repository, and a valid HTTPS GitHub remote. The sandbox container itself has no network access; only the one-shot Git helper uses bridge networking.
 
 ### 11.11 Realtime workspace synchronization
 

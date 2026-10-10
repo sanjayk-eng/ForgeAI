@@ -8,7 +8,7 @@ import (
 
 	"ai-agent/internal/middleware"
 	"ai-agent/internal/modules/auth"
-	"ai-agent/internal/modules/integration"
+	githubmodule "ai-agent/internal/modules/github"
 	"ai-agent/internal/modules/terminal/domain"
 	apierrors "ai-agent/internal/shared/errors"
 	"ai-agent/internal/shared/realtime"
@@ -180,7 +180,7 @@ func (h *Handler) Push(c *gin.Context) {
 	installationToken, repositoryURL, err := h.githubExport.ExportCredentials(
 		c.Request.Context(), sandbox.OrganizationID, sandbox.ProjectID)
 	if err != nil {
-		if errors.Is(err, integration.ErrExportRepositoryNotFound) || errors.Is(err, integration.ErrIntegrationNotFound) {
+		if errors.Is(err, githubmodule.ErrExportRepositoryNotFound) || errors.Is(err, githubmodule.ErrIntegrationNotFound) {
 			apierrors.Error(c, http.StatusConflict, apierrors.ErrCodeForbidden, "create a GitHub export repository for this project before pushing", nil)
 			return
 		}

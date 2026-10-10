@@ -3,9 +3,9 @@ package terminal
 import (
 	"context"
 
+	githubmodule "ai-agent/internal/modules/github"
 	"ai-agent/internal/modules/terminal/application"
 	"ai-agent/internal/modules/terminal/infrastructure/docker"
-	terminalgithub "ai-agent/internal/modules/terminal/infrastructure/github"
 	terminalpostgres "ai-agent/internal/modules/terminal/infrastructure/postgres"
 	"ai-agent/internal/modules/terminal/policy"
 	"ai-agent/internal/modules/terminal/worker"
@@ -42,7 +42,7 @@ func LoadModule(config ModuleConfig) (*Module, error) {
 	dockerCLI := docker.NewDockerCLI(config.DockerBinary)
 	runtime := docker.NewDockerRuntimeWithCLI(dockerCLI)
 	files := docker.NewDockerFileStore(dockerCLI)
-	repositoryPusher := terminalgithub.NewGitHubRepositoryPusher(dockerCLI)
+	repositoryPusher := githubmodule.NewGitHubRepositoryPusher(dockerCLI)
 	repo := terminalpostgres.NewRepository(config.Database)
 	service := application.NewService(repo, runtime, files, sandboxPolicy, repositoryPusher)
 	events := NewEventHub()
