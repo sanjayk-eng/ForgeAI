@@ -246,11 +246,23 @@ func (s *Service) Push(ctx context.Context, sandboxID string, req PushRequest, a
 		}
 	}
 
+	branch := strings.TrimSpace(req.Branch)
+	if branch == "" {
+		branch, err = s.runGit(ctx, sandboxID, "branch", "--show-current")
+		if err != nil {
+			return PushResult{}, err
+		}
+		branch = strings.TrimSpace(branch)
+		if branch == "" {
+			return PushResult{}, fmt.Errorf("cannot push without a branch when HEAD is detached")
+		}
+	}
+
 	pusher, ok := s.executor.(SandboxRepositoryPusher)
 	if !ok {
 		return PushResult{}, fmt.Errorf("sandbox executor does not support repository pushes")
 	}
-	if err := pusher.PushRepository(ctx, sandboxID, remote, req.Branch, accessToken); err != nil {
+	if err := pusher.PushRepository(ctx, sandboxID, remote, branch, accessToken); err != nil {
 		return PushResult{}, fmt.Errorf("git push: %w", err)
 	}
 	return PushResult{Message: "push complete", Status: "ok"}, nil

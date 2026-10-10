@@ -227,14 +227,46 @@ func TestDiffRejectsPathsOutsideWorkspace(t *testing.T) {
 }
 
 func TestPushPassesGitHubTokenThroughStdin(t *testing.T) {
-	executor := &pushExecutor{remoteURL: "https://github.com/acme/project.git"}
+	executor := &pushExecutor{remoteURL: "https://github.com/acme/project.git", currentBranch: "main"}
 	service := NewService("/workspace", executor)
 
 	if _, err := service.Push(context.Background(), "sandbox-1", PushRequest{}, "github-token", "https://github.com/acme/project.git"); err != nil {
 		t.Fatalf("Push() error = %v", err)
 	}
-	if executor.pushRemote != "origin" || executor.pushToken != "github-token" {
-		t.Fatalf("push target/token = %q/%q, want origin/github-token", executor.pushRemote, executor.pushToken)
+	if executor.pushRemote != "origin" || executor.pushBranch != "main" || executor.pushToken != "github-token" {
+		t.Fatalf("push target/branch/token = %q/%q/%q, want origin/main/github-token",
+			executor.pushRemote, executor.pushBranch, executor.pushToken)
+	}
+	if len(executor.commands) != 2 || !strings.Contains(executor.commands[1], "'branch' '--show-current'") {
+		t.Fatalf("Push() commands = %#v, want current branch resolved before pushing", executor.commands)
+	}
+}
+
+func TestPushUsesRequestedBranchWithoutResolvingCurrentBranch(t *testing.T) {
+	executor := &pushExecutor{remoteURL: "https://github.com/acme/project.git"}
+	service := NewService("/workspace", executor)
+
+	if _, err := service.Push(context.Background(), "sandbox-1", PushRequest{Branch: "release"}, "github-token", "https://github.com/acme/project.git"); err != nil {
+		t.Fatalf("Push() error = %v", err)
+	}
+	if executor.pushBranch != "release" {
+		t.Fatalf("pushed branch = %q, want release", executor.pushBranch)
+	}
+	if len(executor.commands) != 1 {
+		t.Fatalf("Push() commands = %#v, want no current-branch lookup", executor.commands)
+	}
+}
+
+func TestPushRejectsDetachedHeadWithoutRequestedBranch(t *testing.T) {
+	executor := &pushExecutor{remoteURL: "https://github.com/acme/project.git"}
+	service := NewService("/workspace", executor)
+
+	if _, err := service.Push(context.Background(), "sandbox-1", PushRequest{}, "github-token", "https://github.com/acme/project.git"); err == nil ||
+		!strings.Contains(err.Error(), "HEAD is detached") {
+		t.Fatalf("Push() error = %v, want detached HEAD error", err)
+	}
+	if executor.pushToken != "" {
+		t.Fatal("push credentials were sent without a branch")
 	}
 }
 
@@ -367,10 +399,12 @@ func TestPushRejectsNonGitHubRemote(t *testing.T) {
 }
 
 type pushExecutor struct {
-	remoteURL  string
-	pushRemote string
-	pushToken  string
-	commands   []string
+	remoteURL     string
+	currentBranch string
+	pushRemote    string
+	pushBranch    string
+	pushToken     string
+	commands      []string
 }
 
 type emptyRepositoryExecutor struct {
@@ -484,6 +518,9 @@ func (executor *pushExecutor) Execute(_ context.Context, _ string, command strin
 	if strings.Contains(command, "'remote' 'get-url'") {
 		return terminalapp.ExecutionResult{Output: executor.remoteURL}, nil
 	}
+	if strings.Contains(command, "'branch' '--show-current'") {
+		return terminalapp.ExecutionResult{Output: executor.currentBranch}, nil
+	}
 	if strings.Contains(command, "'rev-parse' 'HEAD'") {
 		return terminalapp.ExecutionResult{Output: "commit-hash"}, nil
 	}
@@ -504,8 +541,9 @@ func (executor *pushExecutor) Execute(_ context.Context, _ string, command strin
 	return terminalapp.ExecutionResult{}, nil
 }
 
-func (executor *pushExecutor) PushRepository(_ context.Context, _ string, remote, _ string, accessToken string) error {
+func (executor *pushExecutor) PushRepository(_ context.Context, _ string, remote, branch, accessToken string) error {
 	executor.pushRemote = remote
+	executor.pushBranch = branch
 	executor.pushToken = accessToken
 	return nil
 }
