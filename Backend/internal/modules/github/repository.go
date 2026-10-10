@@ -12,13 +12,6 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-var (
-	ErrStateInvalid             = errors.New("installation state is invalid or expired")
-	ErrIntegrationNotFound      = errors.New("GitHub integration not found")
-	ErrProjectNotFound          = errors.New("project not found")
-	ErrExportRepositoryNotFound = errors.New("GitHub export repository not found")
-)
-
 type Repository interface {
 	CreateState(ctx context.Context, stateHash, organizationID, userID string, expiresAt time.Time) error
 	FindState(ctx context.Context, stateHash string) (State, error)

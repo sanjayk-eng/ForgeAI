@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	appdatabase "ai-agent/pkg/database"
+
 	"github.com/gosimple/slug"
 	"github.com/jmoiron/sqlx"
 )
@@ -55,39 +57,37 @@ func (s *service) Create(ctx context.Context, userID string, input CreateOrganiz
 		CreatedBy:   userID,
 	}
 
-	// Create organization and add owner as member in transaction
-	tx, err := s.db.BeginTxx(ctx, nil)
-	if err != nil {
-		return Organization{}, fmt.Errorf("begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
 	var orgID string
-	for suffix := 0; ; suffix++ {
-		org.Slug = baseSlug
-		if suffix > 0 {
-			org.Slug = fmt.Sprintf("%s-%d", baseSlug, suffix)
+	// Create organization and add owner as member in transaction
+	err := appdatabase.WithTx(ctx, s.db, func(ctx context.Context, tx *sqlx.Tx) error {
+		var txErr error
+		for suffix := 0; ; suffix++ {
+			org.Slug = baseSlug
+			if suffix > 0 {
+				org.Slug = fmt.Sprintf("%s-%d", baseSlug, suffix)
+			}
+			orgID, txErr = s.repo.Create(ctx, tx, org)
+			if !errors.Is(txErr, ErrOrganizationSlugTaken) {
+				break
+			}
 		}
-		orgID, err = s.repo.Create(ctx, tx, org)
-		if !errors.Is(err, ErrOrganizationSlugTaken) {
-			break
+		if txErr != nil {
+			return txErr
 		}
-	}
+
+		// Add creator as owner
+		_, txErr = tx.ExecContext(ctx, `
+			INSERT INTO tbl_organization_member (organization_id, user_id, role)
+			VALUES ($1, $2, $3)
+		`, orgID, userID, "OWNER")
+		if txErr != nil {
+			return fmt.Errorf("add owner member: %w", txErr)
+		}
+
+		return nil
+	})
 	if err != nil {
 		return Organization{}, err
-	}
-
-	// Add creator as owner
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO tbl_organization_member (organization_id, user_id, role)
-		VALUES ($1, $2, $3)
-	`, orgID, userID, "OWNER")
-	if err != nil {
-		return Organization{}, fmt.Errorf("add owner member: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return Organization{}, fmt.Errorf("commit transaction: %w", err)
 	}
 
 	org.ID = orgID

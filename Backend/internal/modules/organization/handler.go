@@ -1,19 +1,21 @@
 package organization
 
 import (
-	"errors"
 	"net/http"
 
 	"ai-agent/internal/middleware"
 	"ai-agent/internal/modules/organization/core"
 	"ai-agent/internal/modules/organization/member"
+	basehandler "ai-agent/internal/shared/handler"
 	apierrors "ai-agent/internal/shared/errors"
 	"ai-agent/internal/shared/pagination"
+	"ai-agent/pkg/validate"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
+	basehandler.BaseHandler
 	coreService   core.Service
 	memberService member.Service
 }
@@ -28,13 +30,18 @@ func NewHandler(coreService core.Service, memberService member.Service) *Handler
 // Organizations
 
 func (h *Handler) Create(c *gin.Context) {
+	userID, ok := middleware.ExtractUserID(c)
+	if !ok {
+		return
+	}
+	
 	var input core.CreateOrganizationRequest
-	if err := c.ShouldBindJSON(&input); err != nil {
-		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "invalid input", nil)
+	if err := validate.BindAndValidate(c, &input); err != nil {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
 		return
 	}
 
-	org, err := h.coreService.Create(c.Request.Context(), userID(c), input)
+	org, err := h.coreService.Create(c.Request.Context(), userID, input)
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -44,7 +51,12 @@ func (h *Handler) Create(c *gin.Context) {
 }
 
 func (h *Handler) List(c *gin.Context) {
-	orgs, err := h.coreService.ListByUser(c.Request.Context(), userID(c))
+	userID, ok := middleware.ExtractUserID(c)
+	if !ok {
+		return
+	}
+	
+	orgs, err := h.coreService.ListByUser(c.Request.Context(), userID)
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -54,6 +66,11 @@ func (h *Handler) List(c *gin.Context) {
 }
 
 func (h *Handler) Get(c *gin.Context) {
+	userID, ok := middleware.ExtractUserID(c)
+	if !ok {
+		return
+	}
+	
 	org, err := h.coreService.FindByID(c.Request.Context(), c.Param("organization_id"))
 	if err != nil {
 		h.writeError(c, err)
@@ -61,8 +78,8 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 
 	// Validate access
-	if err := h.coreService.ValidateAccess(c.Request.Context(), userID(c), org.ID); err != nil {
-		h.writeError(c, err)
+	if err := h.coreService.ValidateAccess(c.Request.Context(), userID, org.ID); err != nil {
+		apierrors.Error(c, http.StatusForbidden, apierrors.ErrCodeForbidden, "access denied", nil)
 		return
 	}
 
@@ -70,13 +87,18 @@ func (h *Handler) Get(c *gin.Context) {
 }
 
 func (h *Handler) Update(c *gin.Context) {
+	userID, ok := middleware.ExtractUserID(c)
+	if !ok {
+		return
+	}
+	
 	var input core.UpdateOrganizationRequest
-	if err := c.ShouldBindJSON(&input); err != nil {
-		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "invalid input", nil)
+	if err := validate.BindAndValidate(c, &input); err != nil {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
 		return
 	}
 
-	org, err := h.coreService.Update(c.Request.Context(), c.Param("organization_id"), userID(c), input)
+	org, err := h.coreService.Update(c.Request.Context(), c.Param("organization_id"), userID, input)
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -86,7 +108,12 @@ func (h *Handler) Update(c *gin.Context) {
 }
 
 func (h *Handler) Delete(c *gin.Context) {
-	if err := h.coreService.Delete(c.Request.Context(), c.Param("organization_id"), userID(c)); err != nil {
+	userID, ok := middleware.ExtractUserID(c)
+	if !ok {
+		return
+	}
+	
+	if err := h.coreService.Delete(c.Request.Context(), c.Param("organization_id"), userID); err != nil {
 		h.writeError(c, err)
 		return
 	}
@@ -97,10 +124,15 @@ func (h *Handler) Delete(c *gin.Context) {
 // Members
 
 func (h *Handler) ListMembers(c *gin.Context) {
+	userID, ok := middleware.ExtractUserID(c)
+	if !ok {
+		return
+	}
+	
 	// Validate access
 	orgID := c.Param("organization_id")
-	if err := h.coreService.ValidateAccess(c.Request.Context(), userID(c), orgID); err != nil {
-		h.writeError(c, err)
+	if err := h.coreService.ValidateAccess(c.Request.Context(), userID, orgID); err != nil {
+		apierrors.Error(c, http.StatusForbidden, apierrors.ErrCodeForbidden, "access denied", nil)
 		return
 	}
 
@@ -115,16 +147,21 @@ func (h *Handler) ListMembers(c *gin.Context) {
 }
 
 func (h *Handler) UpdateMemberRole(c *gin.Context) {
+	userID, ok := middleware.ExtractUserID(c)
+	if !ok {
+		return
+	}
+	
 	var input member.UpdateMemberRequest
-	if err := c.ShouldBindJSON(&input); err != nil {
-		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "invalid input", nil)
+	if err := validate.BindAndValidate(c, &input); err != nil {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
 		return
 	}
 
 	// Validate access
 	orgID := c.Param("organization_id")
-	if err := h.memberService.CanManage(c.Request.Context(), userID(c), orgID); err != nil {
-		h.writeError(c, err)
+	if err := h.memberService.CanManage(c.Request.Context(), userID, orgID); err != nil {
+		apierrors.Error(c, http.StatusForbidden, apierrors.ErrCodeForbidden, "organization owner or admin permission is required", nil)
 		return
 	}
 
@@ -138,10 +175,15 @@ func (h *Handler) UpdateMemberRole(c *gin.Context) {
 }
 
 func (h *Handler) RemoveMember(c *gin.Context) {
+	userID, ok := middleware.ExtractUserID(c)
+	if !ok {
+		return
+	}
+	
 	// Validate access
 	orgID := c.Param("organization_id")
-	if err := h.memberService.CanManage(c.Request.Context(), userID(c), orgID); err != nil {
-		h.writeError(c, err)
+	if err := h.memberService.CanManage(c.Request.Context(), userID, orgID); err != nil {
+		apierrors.Error(c, http.StatusForbidden, apierrors.ErrCodeForbidden, "organization owner or admin permission is required", nil)
 		return
 	}
 
@@ -154,30 +196,20 @@ func (h *Handler) RemoveMember(c *gin.Context) {
 }
 
 func (h *Handler) writeError(c *gin.Context, err error) {
-	status := http.StatusInternalServerError
-	code, message := apierrors.CodeOf(err)
-
-	switch {
-	case errors.Is(err, core.ErrOrganizationNotFound):
-		status, code, message = http.StatusNotFound, apierrors.ErrCodeNotFound, "organization not found"
-	case errors.Is(err, core.ErrInvalidInput):
-		status, code, message = http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error()
-	case errors.Is(err, member.ErrMemberNotFound):
-		status, code, message = http.StatusNotFound, apierrors.ErrCodeNotFound, "member not found"
-	case errors.Is(err, member.ErrManageDenied):
-		status, code, message = http.StatusForbidden, apierrors.ErrCodeForbidden, "organization owner or admin permission is required"
-	case errors.Is(err, member.ErrOwnerProtected):
-		status, code, message = http.StatusConflict, apierrors.ErrCodeConflict, err.Error()
-	case errors.Is(err, member.ErrInvalidRole):
-		status, code, message = http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error()
-	case err.Error() == "access denied to organization":
-		status, code, message = http.StatusForbidden, apierrors.ErrCodeForbidden, "access denied"
+	errorMappings := map[error]basehandler.ErrorMapping{
+		core.ErrOrganizationNotFound: {http.StatusNotFound, apierrors.ErrCodeNotFound, "organization not found"},
+		core.ErrInvalidInput:         {http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error()},
+		member.ErrMemberNotFound:     {http.StatusNotFound, apierrors.ErrCodeNotFound, "member not found"},
+		member.ErrManageDenied:       {http.StatusForbidden, apierrors.ErrCodeForbidden, "organization owner or admin permission is required"},
+		member.ErrOwnerProtected:     {http.StatusConflict, apierrors.ErrCodeConflict, err.Error()},
+		member.ErrInvalidRole:        {http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error()},
 	}
-
-	apierrors.Error(c, status, code, message, nil)
-}
-
-func userID(c *gin.Context) string {
-	value, _ := middleware.UserID(c)
-	return value
+	
+	// Check if it's access denied error
+	if err.Error() == "access denied to organization" {
+		apierrors.Error(c, http.StatusForbidden, apierrors.ErrCodeForbidden, "access denied", nil)
+		return
+	}
+	
+	h.WriteServiceError(c, err, errorMappings)
 }

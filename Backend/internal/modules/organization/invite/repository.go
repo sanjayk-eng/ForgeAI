@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	appdatabase "ai-agent/pkg/database"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )
@@ -193,52 +195,48 @@ func (r *repository) accept(ctx context.Context, keyColumn, key, userID, email s
 	if keyColumn != "token_hash" && keyColumn != "id" {
 		return "", ErrNotFound
 	}
-	tx, err := r.db.BeginTxx(ctx, nil)
-	if err != nil {
-		return "", fmt.Errorf("begin accept invitation transaction: %w", err)
-	}
-	defer tx.Rollback()
 
-	var inviteID, organizationID, inviteEmail, role, status string
-	var expiresAt time.Time
-	err = tx.QueryRowxContext(ctx, `
-		SELECT id, organization_id, email, role, status, expires_at
-		FROM tbl_organization_invite WHERE `+keyColumn+` = $1 FOR UPDATE`, key,
-	).Scan(&inviteID, &organizationID, &inviteEmail, &role, &status, &expiresAt)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", ErrNotFound
-	}
+	var organizationID string
+	err := appdatabase.WithTx(ctx, r.db, func(ctx context.Context, tx *sqlx.Tx) error {
+		var inviteID, inviteEmail, role, status string
+		var expiresAt time.Time
+		err := tx.QueryRowxContext(ctx, `
+			SELECT id, organization_id, email, role, status, expires_at
+			FROM tbl_organization_invite WHERE `+keyColumn+` = $1 FOR UPDATE`, key,
+		).Scan(&inviteID, &organizationID, &inviteEmail, &role, &status, &expiresAt)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("load organization invitation: %w", err)
+		}
+		if status != StatusPending {
+			return ErrAlreadyUsed
+		}
+		if !expiresAt.After(time.Now()) {
+			if _, err := tx.ExecContext(ctx, `UPDATE tbl_organization_invite SET status = $1, updated_at = NOW() WHERE id = $2`, StatusExpired, inviteID); err != nil {
+				return fmt.Errorf("expire organization invitation: %w", err)
+			}
+			return ErrExpired
+		}
+		if !strings.EqualFold(strings.TrimSpace(inviteEmail), strings.TrimSpace(email)) {
+			return ErrEmailMismatch
+		}
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO tbl_organization_member (organization_id, user_id, role)
+			VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, organizationID, userID, role); err != nil {
+			return fmt.Errorf("add invited organization member: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE tbl_organization_invite
+			SET status = $1, accepted_by = $2, accepted_at = NOW(), updated_at = NOW()
+			WHERE id = $3`, StatusAccepted, userID, inviteID); err != nil {
+			return fmt.Errorf("mark organization invitation accepted: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
-		return "", fmt.Errorf("load organization invitation: %w", err)
-	}
-	if status != StatusPending {
-		return "", ErrAlreadyUsed
-	}
-	if !expiresAt.After(time.Now()) {
-		if _, err := tx.ExecContext(ctx, `UPDATE tbl_organization_invite SET status = $1, updated_at = NOW() WHERE id = $2`, StatusExpired, inviteID); err != nil {
-			return "", fmt.Errorf("expire organization invitation: %w", err)
-		}
-		if err := tx.Commit(); err != nil {
-			return "", fmt.Errorf("commit expired invitation: %w", err)
-		}
-		return "", ErrExpired
-	}
-	if !strings.EqualFold(strings.TrimSpace(inviteEmail), strings.TrimSpace(email)) {
-		return "", ErrEmailMismatch
-	}
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO tbl_organization_member (organization_id, user_id, role)
-		VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, organizationID, userID, role); err != nil {
-		return "", fmt.Errorf("add invited organization member: %w", err)
-	}
-	if _, err := tx.ExecContext(ctx, `
-		UPDATE tbl_organization_invite
-		SET status = $1, accepted_by = $2, accepted_at = NOW(), updated_at = NOW()
-		WHERE id = $3`, StatusAccepted, userID, inviteID); err != nil {
-		return "", fmt.Errorf("mark organization invitation accepted: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return "", fmt.Errorf("commit accepted invitation: %w", err)
+		return "", err
 	}
 	return organizationID, nil
 }

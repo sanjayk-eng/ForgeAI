@@ -6,7 +6,7 @@ type StatusResponse struct {
 }
 
 type TaskRequest struct {
-	Prompt string `json:"prompt"`
+	Prompt string `json:"prompt" binding:"required" validate:"required,min=1,max=10000"`
 }
 
 type TaskResponse struct {

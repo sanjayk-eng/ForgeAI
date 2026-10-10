@@ -15,7 +15,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type githubAppClient struct {
+type GitHubAppClient struct {
 	appID      int64
 	privateKey *rsa.PrivateKey
 	httpClient *http.Client
@@ -30,16 +30,16 @@ func (err *githubAPIError) Error() string {
 	return fmt.Sprintf("GitHub %s returned HTTP %d", err.operation, err.status)
 }
 
-func newGitHubAppClient(config GitHubAppConfig) (*githubAppClient, error) {
+func NewGitHubAppClient(config GitHubAppConfig) (*GitHubAppClient, error) {
 	keyPEM := strings.ReplaceAll(config.PrivateKey, `\n`, "\n")
 	key, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(keyPEM))
 	if err != nil {
 		return nil, fmt.Errorf("parse GitHub App private key: %w", err)
 	}
-	return &githubAppClient{appID: config.AppID, privateKey: key, httpClient: &http.Client{Timeout: 15 * time.Second}}, nil
+	return &GitHubAppClient{appID: config.AppID, privateKey: key, httpClient: &http.Client{Timeout: 15 * time.Second}}, nil
 }
 
-func (client *githubAppClient) InstallationToken(ctx context.Context, rawInstallationID string) (string, error) {
+func (client *GitHubAppClient) InstallationToken(ctx context.Context, rawInstallationID string) (string, error) {
 	installationID, err := strconv.ParseInt(rawInstallationID, 10, 64)
 	if err != nil || installationID < 1 {
 		return "", fmt.Errorf("invalid GitHub installation ID")
@@ -74,7 +74,7 @@ func (client *githubAppClient) InstallationToken(ctx context.Context, rawInstall
 	return payload.Token, nil
 }
 
-func (client *githubAppClient) CreateRepository(ctx context.Context, token, accountName, accountType, name string, private bool) (ExportRepository, error) {
+func (client *GitHubAppClient) CreateRepository(ctx context.Context, token, accountName, accountType, name string, private bool) (ExportRepository, error) {
 	accountName = strings.TrimSpace(accountName)
 	name = strings.TrimSpace(name)
 	if token == "" || accountName == "" || name == "" {
@@ -133,7 +133,7 @@ func setGitHubHeaders(request *http.Request, token string) {
 	request.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 }
 
-func (client *githubAppClient) VerifyInstallation(ctx context.Context, rawInstallationID string) (Installation, error) {
+func (client *GitHubAppClient) VerifyInstallation(ctx context.Context, rawInstallationID string) (Installation, error) {
 	installationID, err := strconv.ParseInt(rawInstallationID, 10, 64)
 	if err != nil || installationID < 1 {
 		return Installation{}, fmt.Errorf("invalid GitHub installation ID")
@@ -185,7 +185,7 @@ func (client *githubAppClient) VerifyInstallation(ctx context.Context, rawInstal
 	}, nil
 }
 
-func (client *githubAppClient) appJWT() (string, error) {
+func (client *GitHubAppClient) appJWT() (string, error) {
 	now := time.Now()
 	claims := jwt.RegisteredClaims{
 		Issuer:    strconv.FormatInt(client.appID, 10),

@@ -1,17 +1,19 @@
 package agent
 
 import (
-	"errors"
 	"net/http"
 
 	"ai-agent/internal/middleware"
 	"ai-agent/internal/modules/terminal/domain"
+	basehandler "ai-agent/internal/shared/handler"
 	apierrors "ai-agent/internal/shared/errors"
+	"ai-agent/pkg/validate"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
+	basehandler.BaseHandler
 	service *Service
 }
 
@@ -20,7 +22,12 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (handler *Handler) Status(c *gin.Context) {
-	status, err := handler.service.Status(c.Request.Context(), requestUserID(c), c.Param("sandbox_id"))
+	userID, ok := middleware.ExtractUserID(c)
+	if !ok {
+		return
+	}
+	
+	status, err := handler.service.Status(c.Request.Context(), userID, c.Param("sandbox_id"))
 	if err != nil {
 		handler.writeError(c, err)
 		return
@@ -29,13 +36,19 @@ func (handler *Handler) Status(c *gin.Context) {
 }
 
 func (handler *Handler) RunTask(c *gin.Context) {
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 256*1024)
-	var request TaskRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
-		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, "prompt is required", nil)
+	userID, ok := middleware.ExtractUserID(c)
+	if !ok {
 		return
 	}
-	result, err := handler.service.RunTask(c.Request.Context(), requestUserID(c), c.Param("sandbox_id"), request.Prompt)
+	
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 256*1024)
+	var request TaskRequest
+	if err := validate.BindAndValidate(c, &request); err != nil {
+		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
+		return
+	}
+	
+	result, err := handler.service.RunTask(c.Request.Context(), userID, c.Param("sandbox_id"), request.Prompt)
 	if err != nil {
 		handler.writeError(c, err)
 		return
@@ -44,23 +57,14 @@ func (handler *Handler) RunTask(c *gin.Context) {
 }
 
 func (handler *Handler) writeError(c *gin.Context, err error) {
-	switch {
-	case errors.Is(err, ErrNotConfigured):
-		apierrors.Error(c, http.StatusServiceUnavailable, "AI_NOT_CONFIGURED", "AI model is not configured on the server", nil)
-	case errors.Is(err, ErrInvalidPrompt):
-		apierrors.Error(c, http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error(), nil)
-	case errors.Is(err, domain.ErrSandboxNotFound):
-		apierrors.Error(c, http.StatusNotFound, apierrors.ErrCodeNotFound, "sandbox not found", nil)
-	case errors.Is(err, domain.ErrSandboxAccessDenied):
-		apierrors.Error(c, http.StatusForbidden, apierrors.ErrCodeForbidden, "workspace access denied", nil)
-	case errors.Is(err, ErrModelRequest), errors.Is(err, ErrModelResponse):
-		apierrors.Error(c, http.StatusBadGateway, "AI_PROVIDER_ERROR", "AI provider could not complete this task", nil)
-	default:
-		apierrors.Error(c, http.StatusInternalServerError, apierrors.ErrCodeInternalServer, "agent task failed", nil)
+	errorMappings := map[error]basehandler.ErrorMapping{
+		ErrNotConfigured:               {http.StatusServiceUnavailable, "AI_NOT_CONFIGURED", "AI model is not configured on the server"},
+		ErrInvalidPrompt:               {http.StatusBadRequest, apierrors.ErrCodeValidation, err.Error()},
+		domain.ErrSandboxNotFound:      {http.StatusNotFound, apierrors.ErrCodeNotFound, "sandbox not found"},
+		domain.ErrSandboxAccessDenied:  {http.StatusForbidden, apierrors.ErrCodeForbidden, "workspace access denied"},
+		ErrModelRequest:                {http.StatusBadGateway, "AI_PROVIDER_ERROR", "AI provider could not complete this task"},
+		ErrModelResponse:               {http.StatusBadGateway, "AI_PROVIDER_ERROR", "AI provider could not complete this task"},
 	}
-}
-
-func requestUserID(c *gin.Context) string {
-	value, _ := middleware.UserID(c)
-	return value
+	
+	handler.WriteServiceError(c, err, errorMappings)
 }
